@@ -82,6 +82,12 @@ body {
 
 /* ---- 空のときのプレースホルダ ---- */
 
+/* display: flex 指定が UA の [hidden] { display: none } に勝ってしまうのを防ぐ */
+#empty-state[hidden],
+#file-list[hidden] {
+  display: none;
+}
+
 #empty-state {
   flex: 1;
   display: flex;
@@ -152,6 +158,26 @@ body {
   width: 26px;
   height: 26px;
   flex-shrink: 0;
+}
+
+/* 画像ファイルの実物サムネイル */
+.file-icon.thumbnail {
+  width: 34px;
+  height: 34px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid var(--item-border);
+  background: rgba(0, 0, 0, 0.04);
+}
+
+/* Web 画像のダウンロード待ちプレースホルダ */
+.file-item.downloading {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.file-item.downloading .file-name {
+  font-style: italic;
 }
 
 .file-name {
