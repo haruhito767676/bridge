@@ -1,0 +1,14 @@
+{
+  "name": "bridge",
+  "version": "0.1.0",
+  "description": "Mac/Windows 間でファイルやクリップボードを共有するユーティリティ (プロトタイプ: Yoink 風ファイルシェルフ)",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "author": "haruhito767676",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^36.4.0"
+  }
+}

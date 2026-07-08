@@ -1,0 +1,258 @@
+/* =========================================================
+   Bridge — Yoink 風シェルフ UI
+   背景の質感は BrowserWindow の vibrancy('sidebar') が担うため、
+   ここでは全体を透過させ、上に薄いレイヤーを重ねるだけにする。
+   ========================================================= */
+
+:root {
+  --accent: #0a84ff;                       /* macOS システムブルー */
+  --text-primary: rgba(60, 60, 67, 0.85);
+  --text-secondary: rgba(60, 60, 67, 0.5);
+  --hairline: rgba(60, 60, 67, 0.18);
+  --item-bg: rgba(255, 255, 255, 0.45);
+  --item-bg-hover: rgba(255, 255, 255, 0.7);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --text-primary: rgba(235, 235, 245, 0.85);
+    --text-secondary: rgba(235, 235, 245, 0.45);
+    --hairline: rgba(235, 235, 245, 0.22);
+    --item-bg: rgba(255, 255, 255, 0.08);
+    --item-bg-hover: rgba(255, 255, 255, 0.16);
+  }
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  background: transparent;
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Hiragino Sans", sans-serif;
+  color: var(--text-primary);
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: default;
+}
+
+/* ---- 収納時のつまみ ---- */
+#peek-handle {
+  position: fixed;
+  left: 3px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 56px;
+  border-radius: 2px;
+  background: var(--text-secondary);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  pointer-events: none;
+}
+
+body.collapsed #peek-handle {
+  opacity: 0.9;
+}
+
+/* ---- シェルフ本体 ---- */
+#shelf {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 8px 10px 10px;
+  opacity: 1;
+  transition: opacity 0.25s ease;
+}
+
+body.collapsed #shelf {
+  opacity: 0;                /* 収納中は中身をフェードアウトしてつまみだけ見せる */
+  pointer-events: none;
+}
+
+#shelf-header {
+  display: flex;
+  justify-content: center;
+  padding: 2px 0 8px;
+  -webkit-app-region: drag;  /* 将来ウィンドウを movable にしたとき用 */
+}
+
+.grabber {
+  width: 32px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--hairline);
+}
+
+/* ---- Drop Zone ---- */
+#drop-zone {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  border: 1.5px dashed var(--hairline);
+  border-radius: 14px;
+  overflow: hidden auto;
+  transition:
+    border-color 0.2s ease,
+    background-color 0.2s ease,
+    transform 0.2s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+
+/* dragover 時のスマートなハイライト */
+#drop-zone.dragover {
+  border-color: var(--accent);
+  border-style: solid;
+  background-color: rgba(10, 132, 255, 0.1);
+  transform: scale(1.02);
+}
+
+/* ---- 空状態 (AirDrop 風) ---- */
+#empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--text-secondary);
+}
+
+body.has-items #empty-state {
+  display: none;
+}
+
+#drop-icon {
+  width: 40px;
+  height: 40px;
+  opacity: 0.75;
+  transition: transform 0.2s ease, color 0.2s ease, opacity 0.2s ease;
+}
+
+#drop-zone.dragover #drop-icon {
+  color: var(--accent);
+  opacity: 1;
+  transform: translateY(3px);
+}
+
+.empty-label {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+#drop-zone.dragover .empty-label {
+  color: var(--accent);
+}
+
+/* ---- ファイルリスト ---- */
+#file-list {
+  list-style: none;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.file-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 10px;
+  background: var(--item-bg);
+  cursor: grab;
+  animation: item-in 0.25s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+  transition: background-color 0.15s ease;
+}
+
+.file-item:hover {
+  background: var(--item-bg-hover);
+}
+
+.file-item:active {
+  cursor: grabbing;
+}
+
+@keyframes item-in {
+  from {
+    opacity: 0;
+    transform: translateX(12px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+.file-icon {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
+.file-name {
+  flex: 1;
+  font-size: 11px;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.remove-button {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease, background-color 0.15s ease;
+}
+
+.file-item:hover .remove-button {
+  opacity: 1;
+}
+
+.remove-button:hover {
+  background: var(--hairline);
+  color: var(--text-primary);
+}
+
+/* ---- フッター ---- */
+#shelf-footer {
+  display: flex;
+  justify-content: center;
+  padding-top: 8px;
+}
+
+#clear-button {
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 10px;
+  font-weight: 500;
+  padding: 3px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s ease, background-color 0.15s ease;
+}
+
+body.has-items #clear-button {
+  opacity: 1;
+}
+
+#clear-button:hover {
+  background: var(--hairline);
+  color: var(--text-primary);
+}

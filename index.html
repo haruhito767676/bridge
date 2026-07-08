@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self'" />
+  <title>Bridge</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- 収納時に画面端へ残る「つまみ」 -->
+  <div id="peek-handle"></div>
+
+  <div id="shelf">
+    <header id="shelf-header">
+      <span class="grabber"></span>
+    </header>
+
+    <div id="drop-zone">
+      <!-- 空のときのプレースホルダ (AirDrop 風) -->
+      <div id="empty-state">
+        <svg id="drop-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor"
+             stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <!-- 下向き矢印 + トレイ -->
+          <path d="M24 8v20" />
+          <path d="M15 20l9 9 9-9" />
+          <path d="M8 32v4a4 4 0 0 0 4 4h24a4 4 0 0 0 4-4v-4" />
+        </svg>
+        <p class="empty-label">ここにドロップ</p>
+      </div>
+
+      <!-- ドロップされたファイルのリスト -->
+      <ul id="file-list"></ul>
+    </div>
+
+    <footer id="shelf-footer">
+      <button id="clear-button" title="すべてクリア">クリア</button>
+    </footer>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>
