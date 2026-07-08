@@ -10,17 +10,15 @@ const pendingFiles = [];
 
 // ---- 右端への常駐 & スライド隠れ ----
 
-const SHELTER_WIDTH = 130; // シェルターウインドウの幅（開いたとき）
-const TAB_WIDTH = 10; // 隠れているときに画面端へ残す「つまみ」の幅
-const SHELTER_HEIGHT = 400;
+const SHELTER_WIDTH = 320; // シェルターウインドウの幅（開いたとき）
+const TAB_WIDTH = 15; // 隠れているときに画面端へ残す「つまみ」の幅
+const SHELTER_HEIGHT = 600;
 
 let expanded = false;
 let collapseTimer = null;
 
-// 現在マウスがあるディスプレイの右端中央を基準にドック位置を計算する
-function dockedBounds(shown) {
-  const cursor = screen.getCursorScreenPoint();
-  const display = screen.getDisplayNearestPoint(cursor);
+// 指定ディスプレイの右端中央を基準にドック位置を計算する
+function dockedBoundsForDisplay(display, shown) {
   const { x: dx, y: dy, width: dw, height: dh } = display.workArea;
 
   const height = Math.min(SHELTER_HEIGHT, dh);
@@ -28,13 +26,19 @@ function dockedBounds(shown) {
   const rightEdge = dx + dw;
   const x = Math.round(shown ? rightEdge - SHELTER_WIDTH : rightEdge - TAB_WIDTH);
 
-  return { x, y, width: SHELTER_WIDTH, height };
+  return { x, y, width: shown ? SHELTER_WIDTH : TAB_WIDTH, height };
 }
 
-function applyDock(shown) {
+// 現在マウスがあるディスプレイを特定する
+function currentDisplay() {
+  const cursor = screen.getCursorScreenPoint();
+  return screen.getDisplayNearestPoint(cursor);
+}
+
+function applyDock(shown, display) {
   if (!win) return;
   // 第2引数 true で macOS ネイティブのスライドアニメーションがかかる
-  win.setBounds(dockedBounds(shown), true);
+  win.setBounds(dockedBoundsForDisplay(display, shown), true);
 }
 
 function expandShelter() {
@@ -45,7 +49,16 @@ function expandShelter() {
   }
   if (expanded) return;
   expanded = true;
-  applyDock(true);
+
+  // マウスカーソルの座標から「今いるディスプレイ」を再取得する。
+  // 起動時に表示されていたディスプレイと異なる場合は、まずアニメーションなしで
+  // そのディスプレイの右端（隠れ位置）へ即座にワープしてから展開する。
+  const display = currentDisplay();
+  const winDisplay = screen.getDisplayMatching(win.getBounds());
+  if (display.id !== winDisplay.id) {
+    win.setBounds(dockedBoundsForDisplay(display, false), false);
+  }
+  applyDock(true, display);
 }
 
 function collapseShelter() {
@@ -55,7 +68,7 @@ function collapseShelter() {
     collapseTimer = null;
     if (!expanded) return;
     expanded = false;
-    applyDock(false);
+    applyDock(false, currentDisplay());
   }, 220);
 }
 
@@ -75,7 +88,8 @@ if (process.defaultApp && process.argv.length >= 2) {
 }
 
 function createWindow() {
-  const bounds = dockedBounds(false); // 起動時は「つまみ」だけ見えている隠れ状態から始める
+  // 起動時は「つまみ」だけ見えている隠れ状態から始める
+  const bounds = dockedBoundsForDisplay(currentDisplay(), false);
 
   win = new BrowserWindow({
     ...bounds,
@@ -87,7 +101,8 @@ function createWindow() {
     vibrancy: 'under-window',
     visualEffectState: 'active',
     backgroundColor: '#00000000',
-    titleBarStyle: 'hiddenInset',
+    // Mac 純正の信号機ボタン（赤・黄・緑）を含むタイトルバーを完全に消し、フレームレスにする
+    frame: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,

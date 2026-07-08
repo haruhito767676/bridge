@@ -8,11 +8,13 @@
   --fg: #1d1d1f;
   --fg-dim: rgba(60, 60, 67, 0.6);
   --accent: #0a84ff;
-  --item-bg: rgba(255, 255, 255, 0.55);
-  --item-bg-hover: rgba(255, 255, 255, 0.75);
+  --item-bg: rgba(255, 255, 255, 0.6);
+  --item-bg-hover: rgba(255, 255, 255, 0.82);
   --item-border: rgba(0, 0, 0, 0.06);
   --remove-bg: rgba(0, 0, 0, 0.12);
   --remove-fg: rgba(0, 0, 0, 0.55);
+  --divider: rgba(0, 0, 0, 0.08);
+  --handle-track: rgba(255, 255, 255, 0.18);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -20,10 +22,12 @@
     --fg: #f5f5f7;
     --fg-dim: rgba(235, 235, 245, 0.55);
     --item-bg: rgba(255, 255, 255, 0.08);
-    --item-bg-hover: rgba(255, 255, 255, 0.14);
+    --item-bg-hover: rgba(255, 255, 255, 0.16);
     --item-border: rgba(255, 255, 255, 0.08);
     --remove-bg: rgba(255, 255, 255, 0.16);
     --remove-fg: rgba(255, 255, 255, 0.7);
+    --divider: rgba(255, 255, 255, 0.08);
+    --handle-track: rgba(0, 0, 0, 0.18);
   }
 }
 
@@ -37,7 +41,7 @@ body {
   display: flex;
   flex-direction: row;
   font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", sans-serif;
-  font-size: 13px;
+  font-size: 13.5px;
   /* vibrancy (すりガラス) を透かすため背景は塗らない */
   background: transparent;
   color: var(--fg);
@@ -45,25 +49,31 @@ body {
   -webkit-user-select: none;
 }
 
-/* ---- つまみ（隠れているときに画面端へ残る 10px の帯）---- */
+/* ---- つまみ（隠れているときに画面端へ残る 15px の帯）---- */
 
 #handle {
-  width: 10px;
+  width: 15px;
   flex-shrink: 0;
   height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
   -webkit-app-region: no-drag;
+  transition: background-color 0.2s;
 }
 
 #handle::before {
   content: "";
   width: 4px;
-  height: 44px;
+  height: 52px;
   border-radius: 2px;
   background: var(--fg-dim);
   opacity: 0.5;
+  transition: opacity 0.15s;
+}
+
+#handle:hover::before {
+  opacity: 0.8;
 }
 
 /* ---- シェル本体（つまみの右側、ドロップゾーン等一式）---- */
@@ -76,23 +86,24 @@ body {
   flex-direction: column;
 }
 
-/* ---- タイトルバー (ウインドウのドラッグ移動領域) ---- */
+/* ---- タイトルバー (frame: false のためのドラッグ移動領域) ---- */
 
 #titlebar {
   -webkit-app-region: drag;
-  height: 38px;
+  height: 44px;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding-left: 64px; /* 信号機ボタンの分 */
-  padding-right: 8px;
-  font-size: 11px;
+  padding: 0 16px;
+  font-size: 12px;
   font-weight: 600;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.03em;
   color: var(--fg-dim);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  border-bottom: 1px solid var(--divider);
 }
 
 /* ---- ドロップゾーン ---- */
@@ -102,10 +113,11 @@ body {
   display: flex;
   flex-direction: column;
   overflow-y: auto;
-  padding: 8px;
+  overflow-x: hidden;
+  padding: 10px;
   border: 2px dashed transparent;
-  border-radius: 12px;
-  margin: 0 8px 8px;
+  border-radius: 16px;
+  margin: 10px 12px 12px;
   transition: border-color 0.15s, background-color 0.15s;
 }
 
@@ -128,18 +140,18 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 12px;
+  gap: 14px;
   color: var(--fg-dim);
   pointer-events: none;
 }
 
 #drop-icon {
-  width: 44px;
-  height: 44px;
+  width: 52px;
+  height: 52px;
 }
 
 .empty-label {
-  font-size: 12px;
+  font-size: 13px;
 }
 
 /* ---- ファイルリスト ---- */
@@ -148,27 +160,28 @@ body {
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
 .file-item {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 10px;
+  gap: 12px;
+  padding: 11px 14px;
   background: var(--item-bg);
   border: 1px solid var(--item-border);
-  border-radius: 10px;
+  border-radius: 14px;
   cursor: grab;
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
-  transition: background-color 0.15s, opacity 0.2s, transform 0.2s;
+  backdrop-filter: blur(24px) saturate(1.6);
+  -webkit-backdrop-filter: blur(24px) saturate(1.6);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 4px 14px rgba(0, 0, 0, 0.03);
+  transition: background-color 0.15s, opacity 0.2s, transform 0.2s, box-shadow 0.15s;
 }
 
 .file-item:hover {
   background: var(--item-bg-hover);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06), 0 8px 20px rgba(0, 0, 0, 0.05);
 }
 
 .file-item:active {
@@ -189,17 +202,17 @@ body {
 }
 
 .file-icon {
-  width: 26px;
-  height: 26px;
+  width: 30px;
+  height: 30px;
   flex-shrink: 0;
 }
 
 /* 画像ファイルの実物サムネイル */
 .file-icon.thumbnail {
-  width: 34px;
-  height: 34px;
+  width: 40px;
+  height: 40px;
   object-fit: cover;
-  border-radius: 6px;
+  border-radius: 8px;
   border: 1px solid var(--item-border);
   background: rgba(0, 0, 0, 0.04);
 }
@@ -216,9 +229,11 @@ body {
 
 .file-name {
   flex: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: 13px;
   pointer-events: none;
 }
 
@@ -226,8 +241,8 @@ body {
 
 .remove-button {
   flex-shrink: 0;
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -257,21 +272,24 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 6px 16px 10px;
-  min-height: 32px;
+  padding: 10px 18px 14px;
+  min-height: 36px;
   color: var(--fg-dim);
-  font-size: 11px;
+  font-size: 11.5px;
+  border-top: 1px solid var(--divider);
 }
 
 #clear-button {
   font-family: inherit;
-  font-size: 11px;
-  padding: 3px 10px;
+  font-size: 11.5px;
+  font-weight: 500;
+  padding: 4px 12px;
   border: 1px solid var(--item-border);
-  border-radius: 6px;
+  border-radius: 7px;
   background: var(--item-bg);
   color: var(--fg);
   cursor: pointer;
+  transition: border-color 0.12s, color 0.12s, background-color 0.12s;
 }
 
 #clear-button:hover {
