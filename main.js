@@ -10,11 +10,23 @@ let win = null;
 let isExpanded = false;
 
 /**
+ * 現在マウスカーソルがあるディスプレイ（＝ユーザーが今操作しているモニター）を返す。
+ * getPrimaryDisplay() だと常にプライマリモニター基準になってしまい、
+ * マルチモニターでは意図しないモニターに表示されてしまう。
+ */
+function getActiveDisplay() {
+  return screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+}
+
+/**
  * 展開/収納それぞれの状態におけるウィンドウ矩形を計算する。
  * 収納時はウィンドウの大部分を画面右外に逃がし、左端 PEEK_WIDTH px だけ残す。
+ * workArea は各ディスプレイの scaleFactor に応じた DIP（論理ピクセル）値が
+ * 返るため、渡された display の workArea をそのまま使えば拡大率が異なる
+ * モニター間でもサイズが崩れない。
  */
-function shelfBounds(expanded) {
-  const { workArea } = screen.getPrimaryDisplay();
+function shelfBounds(expanded, display = getActiveDisplay()) {
+  const { workArea } = display;
   const y = workArea.y + Math.round((workArea.height - SHELF_HEIGHT) / 2);
   const x = expanded
     ? workArea.x + workArea.width - SHELF_WIDTH
@@ -22,11 +34,29 @@ function shelfBounds(expanded) {
   return { x, y, width: SHELF_WIDTH, height: SHELF_HEIGHT };
 }
 
+/**
+ * win.setBounds() を安全に適用する。
+ * Windows では、拡大率(DPI)が異なるモニターへウィンドウを一気に移動させると
+ * Electron 側が移動前のモニターの scaleFactor でサイズを計算してしまい、
+ * ウィンドウが一瞬（あるいはそのまま）異常なサイズ・位置になるバグがある。
+ * 一度 setBounds してから次の tick で同じ値を再適用すると、
+ * 新しいモニターの DPI で正しく再計算される。
+ */
+function applyBounds(bounds, animate = false) {
+  if (!win) return;
+  win.setBounds(bounds, animate);
+  if (process.platform === 'win32') {
+    setImmediate(() => {
+      if (win) win.setBounds(bounds);
+    });
+  }
+}
+
 function setExpanded(expanded) {
   if (!win || isExpanded === expanded) return;
   isExpanded = expanded;
   // 第2引数 true で macOS ネイティブのスムーズなアニメーションになる
-  win.setBounds(shelfBounds(expanded), true);
+  applyBounds(shelfBounds(expanded), true);
   win.webContents.send('shelf:state', expanded);
 }
 
@@ -62,9 +92,9 @@ function createWindow() {
   // フォーカスが外れたら（シェルフが空のときだけ renderer 側の判断で）収納
   win.on('blur', () => win.webContents.send('shelf:blurred'));
 
-  // ディスプレイ構成が変わったら位置を取り直す
+  // ディスプレイ構成（解像度・拡大率など）が変わったら位置を取り直す
   screen.on('display-metrics-changed', () => {
-    if (win) win.setBounds(shelfBounds(isExpanded));
+    if (win) applyBounds(shelfBounds(isExpanded));
   });
 }
 
