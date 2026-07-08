@@ -1,125 +1,150 @@
-// Bridge — シェルフの Renderer プロセス側ロジック
+// シェルフに置かれたファイル: { path, name, icon, removing }
+const items = [];
+let selectedItem = null;
 
 const dropZone = document.getElementById('drop-zone');
-const fileList = document.getElementById('file-list');
-const clearButton = document.getElementById('clear-button');
+const listEl = document.getElementById('file-list');
+const emptyEl = document.getElementById('empty-state');
+const countEl = document.getElementById('item-count');
+const clearBtn = document.getElementById('clear-button');
 
-/** シェルフに置かれたファイル (絶対パスの配列、重複なし) */
-const items = new Map(); // path -> <li> element
+// ---- 1. ファイルを受け取る（Finder → Bridge）----
 
-let dragDepth = 0; // dragenter/dragleave は子要素間でも発火するため深さで管理
+// ウインドウ全体でブラウザ既定のファイルオープン動作を止める
+document.addEventListener('dragover', (e) => e.preventDefault());
+document.addEventListener('drop', (e) => e.preventDefault());
 
-// ---- 展開 / 収納 ----
-
-function requestExpand() {
-  window.bridge.expand();
-}
-
-function requestCollapseIfIdle() {
-  // アイテムを保持している間は Yoink と同様に出しっぱなしにする
-  if (items.size === 0 && dragDepth === 0) {
-    window.bridge.collapse();
-  }
-}
-
-window.bridge.onShelfState((expanded) => {
-  document.body.classList.toggle('collapsed', !expanded);
+dropZone.addEventListener('dragover', (e) => {
+  e.preventDefault();
+  dropZone.classList.add('drag-over');
 });
 
-window.bridge.onBlurred(requestCollapseIfIdle);
-
-// 初期状態は収納
-document.body.classList.add('collapsed');
-
-// つまみ (=ウィンドウの見えている端) にマウスが乗ったら展開
-document.body.addEventListener('mouseenter', requestExpand);
-document.body.addEventListener('mouseleave', () => {
-  // ドロップ操作の途中 (ファイルドラッグ中) は閉じない
-  requestCollapseIfIdle();
+dropZone.addEventListener('dragleave', () => {
+  dropZone.classList.remove('drag-over');
 });
 
-// ---- ドラッグ & ドロップ ----
+dropZone.addEventListener('drop', (e) => {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
 
-document.addEventListener('dragenter', (event) => {
-  event.preventDefault();
-  dragDepth += 1;
-  requestExpand();
-  dropZone.classList.add('dragover');
-});
-
-document.addEventListener('dragover', (event) => {
-  event.preventDefault();
-  event.dataTransfer.dropEffect = 'copy';
-});
-
-document.addEventListener('dragleave', (event) => {
-  event.preventDefault();
-  dragDepth = Math.max(0, dragDepth - 1);
-  if (dragDepth === 0) {
-    dropZone.classList.remove('dragover');
-    requestCollapseIfIdle();
-  }
-});
-
-document.addEventListener('drop', async (event) => {
-  event.preventDefault();
-  dragDepth = 0;
-  dropZone.classList.remove('dragover');
-
-  for (const file of event.dataTransfer.files) {
+  for (const file of e.dataTransfer.files) {
+    // Electron 32+ では file.path が廃止されたため webUtils 経由で絶対パスを取得
     const filePath = window.bridge.getPathForFile(file);
-    if (filePath && !items.has(filePath)) {
-      await addItem(filePath, file.name);
-    }
+    if (!filePath) continue;
+    if (items.some((item) => item.path === filePath)) continue; // 重複は追加しない
+
+    const item = { path: filePath, name: file.name, icon: null, removing: false };
+    items.push(item);
+
+    // OS標準アイコンは Main プロセスから非同期で取得し、届いたら再描画
+    window.bridge.getFileIcon(filePath).then((dataUrl) => {
+      if (dataUrl) {
+        item.icon = dataUrl;
+        render();
+      }
+    });
   }
-  updateHasItems();
+  render();
 });
 
-// ---- シェルフアイテム ----
+// ---- 2. 個別削除（リストから外すだけ。元のファイルには触れない）----
 
-async function addItem(filePath, fileName) {
-  const li = document.createElement('li');
-  li.className = 'file-item';
-  li.draggable = true;
-
-  const icon = document.createElement('img');
-  icon.className = 'file-icon';
-  icon.draggable = false;
-  const iconDataUrl = await window.bridge.getFileIcon(filePath);
-  if (iconDataUrl) icon.src = iconDataUrl;
-
-  const name = document.createElement('span');
-  name.className = 'file-name';
-  name.textContent = fileName;
-  name.title = filePath;
-
-  const remove = document.createElement('button');
-  remove.className = 'remove-button';
-  remove.textContent = '✕';
-  remove.addEventListener('click', () => {
-    items.delete(filePath);
-    li.remove();
-    updateHasItems();
-  });
-
-  // HTML5 のドラッグを止めて、main プロセス経由のネイティブドラッグに切り替える
-  li.addEventListener('dragstart', (event) => {
-    event.preventDefault();
-    window.bridge.startDrag(filePath);
-  });
-
-  li.append(icon, name, remove);
-  fileList.appendChild(li);
-  items.set(filePath, li);
+function removeItem(item) {
+  const index = items.indexOf(item);
+  if (index === -1) return;
+  items.splice(index, 1);
+  if (selectedItem === item) selectedItem = null;
+  render();
 }
 
-function updateHasItems() {
-  document.body.classList.toggle('has-items', items.size > 0);
+// フェードアウトしてから削除する
+function fadeOutAndRemove(item) {
+  if (item.removing) return;
+  item.removing = true;
+  render();
+  setTimeout(() => removeItem(item), 200);
 }
 
-clearButton.addEventListener('click', () => {
-  items.clear();
-  fileList.replaceChildren();
-  updateHasItems();
-  requestCollapseIfIdle();
+// ---- 3. ファイルを外へ引き出す（Bridge → Finder 等）----
+
+function onItemDragStart(e, item) {
+  // HTML5 のドラッグを止め、OS標準のネイティブドラッグに置き換える
+  e.preventDefault();
+  window.bridge.startDrag(item.path);
+
+  // ドラッグ開始と同時にフェードアウトしてリストから削除
+  setTimeout(() => fadeOutAndRemove(item), 0);
+}
+
+// ---- 4. 選択 + スペースキーでクイックルック ----
+
+document.addEventListener('keydown', (e) => {
+  if (e.code !== 'Space' || !selectedItem) return;
+  e.preventDefault();
+  window.bridge.previewFile(selectedItem.path, selectedItem.name);
 });
+
+// 何もない場所をクリックしたら選択解除
+dropZone.addEventListener('click', (e) => {
+  if (e.target === dropZone || e.target === listEl) {
+    selectedItem = null;
+    render();
+  }
+});
+
+// ---- 画面描画 ----
+
+function render() {
+  listEl.textContent = '';
+
+  for (const item of items) {
+    const li = document.createElement('li');
+    li.className =
+      'file-item' +
+      (item === selectedItem ? ' selected' : '') +
+      (item.removing ? ' removing' : '');
+    li.draggable = !item.removing;
+    li.title = item.path;
+    li.addEventListener('click', () => {
+      selectedItem = item;
+      render();
+    });
+    li.addEventListener('dragstart', (e) => onItemDragStart(e, item));
+
+    const img = document.createElement('img');
+    img.className = 'file-icon';
+    img.draggable = false;
+    if (item.icon) img.src = item.icon;
+
+    const name = document.createElement('span');
+    name.className = 'file-name';
+    name.textContent = item.name;
+
+    // ホバー時に現れる「×」ボタン
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'remove-button';
+    removeBtn.title = 'リストから外す';
+    removeBtn.textContent = '×';
+    removeBtn.addEventListener('click', (e) => {
+      e.stopPropagation(); // アイテムの選択を発火させない
+      fadeOutAndRemove(item);
+    });
+
+    li.append(img, name, removeBtn);
+    listEl.appendChild(li);
+  }
+
+  const isEmpty = items.length === 0;
+  emptyEl.hidden = !isEmpty;
+  listEl.hidden = isEmpty;
+  countEl.textContent = isEmpty ? '' : `${items.length} 個`;
+  clearBtn.hidden = isEmpty;
+}
+
+clearBtn.addEventListener('click', () => {
+  items.length = 0;
+  selectedItem = null;
+  render();
+});
+
+render();

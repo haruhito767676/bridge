@@ -1,19 +1,16 @@
 const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
 contextBridge.exposeInMainWorld('bridge', {
-  expand: () => ipcRenderer.send('shelf:expand'),
-  collapse: () => ipcRenderer.send('shelf:collapse'),
-
-  // File オブジェクトから絶対パスを取得（Electron 32+ では file.path が廃止されたため）
+  // Electron 32+ では File.path が廃止されたため、公式後継 API で絶対パスを取得する
   getPathForFile: (file) => webUtils.getPathForFile(file),
 
-  // ネイティブなドラッグアウト開始
-  startDrag: (filePath) => ipcRenderer.send('shelf:drag-out', filePath),
+  // OS標準のドラッグアウトを Main プロセスに依頼する
+  startDrag: (filePath) => ipcRenderer.send('ondragstart', filePath),
 
   // リスト表示用のファイルアイコン (Data URL)
-  getFileIcon: (filePath) => ipcRenderer.invoke('shelf:file-icon', filePath),
+  getFileIcon: (filePath) => ipcRenderer.invoke('get-file-icon', filePath),
 
-  // main プロセスからの状態通知
-  onShelfState: (callback) => ipcRenderer.on('shelf:state', (_e, expanded) => callback(expanded)),
-  onBlurred: (callback) => ipcRenderer.on('shelf:blurred', () => callback()),
+  // Mac 純正クイックルックでプレビュー
+  previewFile: (filePath, fileName) =>
+    ipcRenderer.send('preview-file', filePath, fileName),
 });
