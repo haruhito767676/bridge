@@ -8,29 +8,34 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <!-- hiddenInset タイトルバーの分。ウインドウのドラッグ移動領域を兼ねる -->
-  <header id="titlebar">Bridge</header>
+  <!-- 隠れているときに画面端に残る「つまみ」。ホバー/ドラッグ進入でシェルターが開く -->
+  <div id="handle"></div>
 
-  <div id="drop-zone">
-    <!-- 空のときのプレースホルダ -->
-    <div id="empty-state">
-      <svg id="drop-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor"
-           stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M24 8v20" />
-        <path d="M15 20l9 9 9-9" />
-        <path d="M8 32v4a4 4 0 0 0 4 4h24a4 4 0 0 0 4-4v-4" />
-      </svg>
-      <p class="empty-label">ここにファイルをドロップ</p>
+  <div id="shell">
+    <!-- hiddenInset タイトルバーの分。ウインドウのドラッグ移動領域を兼ねる -->
+    <header id="titlebar">Bridge</header>
+
+    <div id="drop-zone">
+      <!-- 空のときのプレースホルダ -->
+      <div id="empty-state">
+        <svg id="drop-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor"
+             stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M24 8v20" />
+          <path d="M15 20l9 9 9-9" />
+          <path d="M8 32v4a4 4 0 0 0 4 4h24a4 4 0 0 0 4-4v-4" />
+        </svg>
+        <p class="empty-label">ここにファイルをドロップ</p>
+      </div>
+
+      <!-- ドロップされたファイルのリスト -->
+      <ul id="file-list"></ul>
     </div>
 
-    <!-- ドロップされたファイルのリスト -->
-    <ul id="file-list"></ul>
+    <footer id="shelf-footer">
+      <span id="item-count"></span>
+      <button id="clear-button" title="すべてクリア">クリア</button>
+    </footer>
   </div>
-
-  <footer id="shelf-footer">
-    <span id="item-count"></span>
-    <button id="clear-button" title="すべてクリア">クリア</button>
-  </footer>
 
   <script src="renderer.js"></script>
 </body>

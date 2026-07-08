@@ -1,6 +1,7 @@
 // シェルフに置かれたファイル: { path, name, icon, isImage, downloading, removing }
 const items = [];
-let selectedItem = null;
+const selectedItems = new Set();
+let lastSelectedIndex = null;
 
 const dropZone = document.getElementById('drop-zone');
 const listEl = document.getElementById('file-list');
@@ -27,6 +28,16 @@ function toFileUrl(filePath) {
 // ウインドウ全体でブラウザ既定のファイルオープン動作を止める
 document.addEventListener('dragover', (e) => e.preventDefault());
 document.addEventListener('drop', (e) => e.preventDefault());
+
+// ---- つまみホバー / ドラッグ進入でシェルターを開き、外れたら閉じる ----
+
+document.addEventListener('mouseenter', () => window.bridge.expandShelter());
+document.addEventListener('mouseleave', () => window.bridge.collapseShelter());
+document.addEventListener('dragenter', () => window.bridge.expandShelter());
+document.addEventListener('dragleave', (e) => {
+  // ウインドウの外へ本当に抜けたときだけ閉じる（子要素間の移動では relatedTarget が null にならない）
+  if (e.relatedTarget === null) window.bridge.collapseShelter();
+});
 
 dropZone.addEventListener('dragover', (e) => {
   e.preventDefault();
@@ -134,6 +145,46 @@ function addWebUrl(url) {
     });
 }
 
+// ドラッグされた選択テキストを Main プロセスで snippet_[タイムスタンプ].txt として保存し追加する
+function addTextSnippet(text) {
+  const item = {
+    path: null,
+    name: 'テキストを保存中…',
+    icon: null,
+    isImage: false,
+    downloading: true,
+    removing: false,
+  };
+  items.push(item);
+  render();
+
+  window.bridge
+    .saveTextSnippet(text)
+    .then((path) => {
+      if (item.removing) return; // 保存中に × で消された
+      if (items.some((other) => other !== item && other.path === path)) {
+        removeItem(item); // 既に同じファイルがある
+        return;
+      }
+      item.path = path;
+      item.name = path.split('/').pop();
+      item.downloading = false;
+      window.bridge.getFileIcon(path).then((dataUrl) => {
+        if (dataUrl) {
+          item.icon = dataUrl;
+          render();
+        }
+      });
+      render();
+    })
+    .catch((err) => {
+      console.error('テキストの保存に失敗:', err);
+      item.name = '保存に失敗';
+      render();
+      setTimeout(() => fadeOutAndRemove(item), 1500);
+    });
+}
+
 dropZone.addEventListener('drop', (e) => {
   e.preventDefault();
   dropZone.classList.remove('drag-over');
@@ -148,10 +199,16 @@ dropZone.addEventListener('drop', (e) => {
     addedFile = true;
   }
 
-  // ファイルがなければ Web 画像/リンクのドロップとみなし URL を抽出
   if (!addedFile) {
+    // ファイルでなければ Web 画像/リンクの URL とみなして抽出
     const url = extractWebUrl(e.dataTransfer);
-    if (url) addWebUrl(url);
+    if (url) {
+      addWebUrl(url);
+    } else {
+      // URL でもなければ選択されたテキストとみなし .txt として保存する
+      const text = e.dataTransfer.getData('text/plain');
+      if (text && text.trim()) addTextSnippet(text);
+    }
   }
 });
 
@@ -164,7 +221,7 @@ function removeItem(item) {
   const index = items.indexOf(item);
   if (index === -1) return;
   items.splice(index, 1);
-  if (selectedItem === item) selectedItem = null;
+  selectedItems.delete(item);
   render();
 }
 
@@ -176,30 +233,63 @@ function fadeOutAndRemove(item) {
   setTimeout(() => removeItem(item), 200);
 }
 
-// ---- 3. ファイルを外へ引き出す（Bridge → Finder 等）----
+// ---- 3. ファイルを外へ引き出す（Bridge → Finder 等、複数選択の一括ドラッグアウトに対応）----
 
 function onItemDragStart(e, item) {
   // HTML5 のドラッグを止め、OS標準のネイティブドラッグに置き換える
   e.preventDefault();
   if (item.downloading || !item.path) return;
-  window.bridge.startDrag(item.path);
+
+  // 選択されていないアイテムをドラッグし始めたら、そのアイテム単体の選択に切り替える (Finder と同じ挙動)
+  if (!selectedItems.has(item)) {
+    selectedItems.clear();
+    selectedItems.add(item);
+    render();
+  }
+
+  const draggedItems = [...selectedItems].filter((it) => it.path && !it.downloading);
+  if (draggedItems.length === 0) return;
+  window.bridge.startDrag(draggedItems.map((it) => it.path));
 
   // ドラッグ開始と同時にフェードアウトしてリストから削除
-  setTimeout(() => fadeOutAndRemove(item), 0);
+  for (const it of draggedItems) {
+    setTimeout(() => fadeOutAndRemove(it), 0);
+  }
 }
 
-// ---- 4. 選択 + スペースキーでクイックルック ----
+// ---- 4. 選択（複数選択対応）+ スペースキーでクイックルック ----
+
+function onItemClick(e, item) {
+  const index = items.indexOf(item);
+  if (e.metaKey || e.ctrlKey) {
+    // ⌘/Ctrl+クリックで個別にトグル
+    if (selectedItems.has(item)) selectedItems.delete(item);
+    else selectedItems.add(item);
+  } else if (e.shiftKey && lastSelectedIndex !== null) {
+    // Shift+クリックで範囲選択
+    const [start, end] = [lastSelectedIndex, index].sort((a, b) => a - b);
+    selectedItems.clear();
+    for (let i = start; i <= end; i++) selectedItems.add(items[i]);
+  } else {
+    selectedItems.clear();
+    selectedItems.add(item);
+  }
+  lastSelectedIndex = index;
+  render();
+}
 
 document.addEventListener('keydown', (e) => {
-  if (e.code !== 'Space' || !selectedItem || !selectedItem.path) return;
+  if (e.code !== 'Space' || selectedItems.size === 0) return;
+  const item = [...selectedItems][0];
+  if (!item.path) return;
   e.preventDefault();
-  window.bridge.previewFile(selectedItem.path, selectedItem.name);
+  window.bridge.previewFile(item.path, item.name);
 });
 
 // 何もない場所をクリックしたら選択解除
 dropZone.addEventListener('click', (e) => {
   if (e.target === dropZone || e.target === listEl) {
-    selectedItem = null;
+    selectedItems.clear();
     render();
   }
 });
@@ -213,15 +303,12 @@ function render() {
     const li = document.createElement('li');
     li.className =
       'file-item' +
-      (item === selectedItem ? ' selected' : '') +
+      (selectedItems.has(item) ? ' selected' : '') +
       (item.removing ? ' removing' : '') +
       (item.downloading ? ' downloading' : '');
     li.draggable = !item.removing && !item.downloading;
     li.title = item.path || item.name;
-    li.addEventListener('click', () => {
-      selectedItem = item;
-      render();
-    });
+    li.addEventListener('click', (e) => onItemClick(e, item));
     li.addEventListener('dragstart', (e) => onItemDragStart(e, item));
 
     const img = document.createElement('img');
@@ -262,7 +349,7 @@ function render() {
 
 clearBtn.addEventListener('click', () => {
   items.length = 0;
-  selectedItem = null;
+  selectedItems.clear();
   render();
 });
 

@@ -35,7 +35,7 @@ body {
 
 body {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", sans-serif;
   font-size: 13px;
   /* vibrancy (すりガラス) を透かすため背景は塗らない */
@@ -43,6 +43,37 @@ body {
   color: var(--fg);
   user-select: none;
   -webkit-user-select: none;
+}
+
+/* ---- つまみ（隠れているときに画面端へ残る 10px の帯）---- */
+
+#handle {
+  width: 10px;
+  flex-shrink: 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-app-region: no-drag;
+}
+
+#handle::before {
+  content: "";
+  width: 4px;
+  height: 44px;
+  border-radius: 2px;
+  background: var(--fg-dim);
+  opacity: 0.5;
+}
+
+/* ---- シェル本体（つまみの右側、ドロップゾーン等一式）---- */
+
+#shell {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 /* ---- タイトルバー (ウインドウのドラッグ移動領域) ---- */
@@ -53,12 +84,15 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding-left: 70px; /* 信号機ボタンの分 */
-  padding-right: 70px;
-  font-size: 12px;
+  padding-left: 64px; /* 信号機ボタンの分 */
+  padding-right: 8px;
+  font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.02em;
   color: var(--fg-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ---- ドロップゾーン ---- */

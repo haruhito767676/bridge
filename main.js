@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, net } = require('electron');
+const { app, BrowserWindow, ipcMain, net, screen } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const fsp = require('fs/promises');
@@ -7,6 +7,57 @@ let win = null;
 let rendererReady = false;
 // Renderer の準備が整う前に URL スキーム経由で届いたファイルを溜めるキュー
 const pendingFiles = [];
+
+// ---- 右端への常駐 & スライド隠れ ----
+
+const SHELTER_WIDTH = 130; // シェルターウインドウの幅（開いたとき）
+const TAB_WIDTH = 10; // 隠れているときに画面端へ残す「つまみ」の幅
+const SHELTER_HEIGHT = 400;
+
+let expanded = false;
+let collapseTimer = null;
+
+// 現在マウスがあるディスプレイの右端中央を基準にドック位置を計算する
+function dockedBounds(shown) {
+  const cursor = screen.getCursorScreenPoint();
+  const display = screen.getDisplayNearestPoint(cursor);
+  const { x: dx, y: dy, width: dw, height: dh } = display.workArea;
+
+  const height = Math.min(SHELTER_HEIGHT, dh);
+  const y = Math.round(dy + (dh - height) / 2);
+  const rightEdge = dx + dw;
+  const x = Math.round(shown ? rightEdge - SHELTER_WIDTH : rightEdge - TAB_WIDTH);
+
+  return { x, y, width: SHELTER_WIDTH, height };
+}
+
+function applyDock(shown) {
+  if (!win) return;
+  // 第2引数 true で macOS ネイティブのスライドアニメーションがかかる
+  win.setBounds(dockedBounds(shown), true);
+}
+
+function expandShelter() {
+  if (!win) return;
+  if (collapseTimer) {
+    clearTimeout(collapseTimer);
+    collapseTimer = null;
+  }
+  if (expanded) return;
+  expanded = true;
+  applyDock(true);
+}
+
+function collapseShelter() {
+  if (!win) return;
+  if (collapseTimer) clearTimeout(collapseTimer);
+  collapseTimer = setTimeout(() => {
+    collapseTimer = null;
+    if (!expanded) return;
+    expanded = false;
+    applyDock(false);
+  }, 220);
+}
 
 // ---- 多重起動防止 ----
 // Windows/Linux では bridge:// が第2インスタンスの argv に届くため必須。
@@ -24,11 +75,11 @@ if (process.defaultApp && process.argv.length >= 2) {
 }
 
 function createWindow() {
+  const bounds = dockedBounds(false); // 起動時は「つまみ」だけ見えている隠れ状態から始める
+
   win = new BrowserWindow({
-    width: 280,
-    height: 400,
-    minWidth: 220,
-    minHeight: 280,
+    ...bounds,
+    resizable: false,
     alwaysOnTop: true,
     fullscreenable: false,
     title: 'Bridge',
@@ -57,6 +108,11 @@ function createWindow() {
   win.on('closed', () => {
     win = null;
     rendererReady = false;
+    expanded = false;
+    if (collapseTimer) {
+      clearTimeout(collapseTimer);
+      collapseTimer = null;
+    }
   });
 }
 
@@ -130,6 +186,7 @@ function sendFileToRenderer(filePath) {
     if (win.isMinimized()) win.restore();
     win.show();
     win.focus();
+    expandShelter();
     win.webContents.send('add-file', filePath);
   } else {
     pendingFiles.push(filePath);
@@ -144,6 +201,17 @@ async function saveTextAsFile(text) {
   await fsp.writeFile(dest, text, 'utf8');
   return dest;
 }
+
+// Renderer でドラッグ選択されたテキストを snippet_[タイムスタンプ].txt として保存する
+async function saveSnippetAsFile(text) {
+  const dir = downloadDir();
+  await fsp.mkdir(dir, { recursive: true });
+  const dest = reserveDest(dir, `snippet_${Date.now()}.txt`);
+  await fsp.writeFile(dest, text, 'utf8');
+  return dest;
+}
+
+ipcMain.handle('save-text-snippet', (_event, text) => saveSnippetAsFile(text));
 
 // bridge://add?path=/絶対パス または bridge://add?text=https://... / 任意テキスト
 async function handleBridgeUrl(rawUrl) {
@@ -195,18 +263,24 @@ app.on('second-instance', (_event, argv) => {
   if (url) handleBridgeUrl(url);
 });
 
-// ---- ファイルを外へ引き出す（OS標準のネイティブドラッグアウト）----
-ipcMain.on('ondragstart', async (event, filePath) => {
+// ---- ファイルを外へ引き出す（OS標準のネイティブドラッグアウト、複数選択対応）----
+ipcMain.on('ondragstart', async (event, payload) => {
+  const files = Array.isArray(payload) ? payload : payload && payload.files;
+  if (!files || files.length === 0) return;
   try {
-    const icon = await app.getFileIcon(filePath);
+    const icon = await app.getFileIcon(files[0]);
     event.sender.startDrag({
-      file: filePath,
-      icon: icon,
+      files,
+      icon,
     });
   } catch (err) {
-    console.error('drag-out failed:', filePath, err);
+    console.error('drag-out failed:', files, err);
   }
 });
+
+// ---- シェルターウインドウの開閉（つまみホバー / ドラッグ進入 / マウスアウト）----
+ipcMain.on('shelter-expand', () => expandShelter());
+ipcMain.on('shelter-collapse', () => collapseShelter());
 
 // ---- リスト表示用のファイルアイコン (Finder と同じ OS 標準アイコン) ----
 ipcMain.handle('get-file-icon', async (_event, filePath) => {

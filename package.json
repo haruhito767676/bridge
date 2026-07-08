@@ -4,11 +4,42 @@
   "description": "Mac/Windows 間でファイルやクリップボードを共有するユーティリティ (プロトタイプ: Yoink 風ファイルシェルフ)",
   "main": "main.js",
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "build": "electron-builder",
+    "build:mac": "electron-builder --mac"
   },
   "author": "haruhito767676",
   "license": "MIT",
   "devDependencies": {
-    "electron": "^43.1.0"
+    "electron": "^43.1.0",
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "com.haruhito767676.bridge",
+    "productName": "Bridge",
+    "files": [
+      "main.js",
+      "preload.js",
+      "renderer.js",
+      "index.html",
+      "styles.css"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "protocols": {
+      "name": "Bridge URL Scheme",
+      "schemes": ["bridge"]
+    },
+    "mac": {
+      "category": "public.app-category.utilities",
+      "target": "dmg"
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "linux": {
+      "target": "AppImage"
+    }
   }
 }
