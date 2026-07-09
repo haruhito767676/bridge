@@ -279,6 +279,16 @@ function onItemClick(e, item) {
 }
 
 document.addEventListener('keydown', (e) => {
+  // ⌘+A (Mac) / Ctrl+A (Win) でリスト内の全アイテムを選択
+  if ((e.metaKey || e.ctrlKey) && e.code === 'KeyA') {
+    if (items.length === 0) return;
+    e.preventDefault();
+    selectedItems.clear();
+    for (const item of items) selectedItems.add(item);
+    render();
+    return;
+  }
+
   if (e.code !== 'Space' || selectedItems.size === 0) return;
   const item = [...selectedItems][0];
   if (!item.path) return;
@@ -286,12 +296,96 @@ document.addEventListener('keydown', (e) => {
   window.bridge.previewFile(item.path, item.name);
 });
 
-// 何もない場所をクリックしたら選択解除
+// 何もない場所をクリックしたら選択解除（矩形選択直後のクリックでは解除しない）
+let suppressEmptyClick = false;
 dropZone.addEventListener('click', (e) => {
+  if (suppressEmptyClick) {
+    suppressEmptyClick = false;
+    return;
+  }
   if (e.target === dropZone || e.target === listEl) {
     selectedItems.clear();
     render();
   }
+});
+
+// ---- 5. マウスドラッグによる矩形選択（Finder ライクなラバーバンド選択）----
+
+let dragStart = null;
+let dragBaseSelection = null;
+let dragMoved = false;
+let selectionBox = null;
+
+function rectFromPoints(x1, y1, x2, y2) {
+  return {
+    left: Math.min(x1, x2),
+    right: Math.max(x1, x2),
+    top: Math.min(y1, y2),
+    bottom: Math.max(y1, y2),
+  };
+}
+
+function rectsIntersect(a, b) {
+  return !(a.right < b.left || a.left > b.right || a.bottom < b.top || a.top > b.bottom);
+}
+
+dropZone.addEventListener('mousedown', (e) => {
+  if (e.button !== 0) return;
+  // ファイルアイテムや操作ボタン上でのドラッグは対象外（ドラッグ移動/選択と衝突するため）
+  if (e.target.closest('.file-item') || e.target.closest('#clear-button')) return;
+
+  dragStart = { x: e.clientX, y: e.clientY };
+  dragMoved = false;
+  // Shift/⌘/Ctrl を押しながらのドラッグは既存の選択に追加する
+  dragBaseSelection = (e.shiftKey || e.metaKey || e.ctrlKey) ? new Set(selectedItems) : new Set();
+
+  if (!selectionBox) {
+    selectionBox = document.createElement('div');
+    selectionBox.className = 'selection-box';
+    dropZone.appendChild(selectionBox);
+  }
+  selectionBox.style.left = '0px';
+  selectionBox.style.top = '0px';
+  selectionBox.style.width = '0px';
+  selectionBox.style.height = '0px';
+  selectionBox.hidden = false;
+
+  e.preventDefault();
+});
+
+document.addEventListener('mousemove', (e) => {
+  if (!dragStart) return;
+  dragMoved = true;
+
+  const pointerRect = rectFromPoints(dragStart.x, dragStart.y, e.clientX, e.clientY);
+
+  // 選択枠を drop-zone のスクロール位置基準の座標系で描画
+  const zoneRect = dropZone.getBoundingClientRect();
+  selectionBox.style.left = `${pointerRect.left - zoneRect.left + dropZone.scrollLeft}px`;
+  selectionBox.style.top = `${pointerRect.top - zoneRect.top + dropZone.scrollTop}px`;
+  selectionBox.style.width = `${pointerRect.right - pointerRect.left}px`;
+  selectionBox.style.height = `${pointerRect.bottom - pointerRect.top}px`;
+
+  // 枠に触れたアイテムを選択に加える（ベース選択とマージ）
+  selectedItems.clear();
+  for (const item of dragBaseSelection) selectedItems.add(item);
+  items.forEach((item, i) => {
+    const li = listEl.children[i];
+    if (li && rectsIntersect(pointerRect, li.getBoundingClientRect())) {
+      selectedItems.add(item);
+    }
+  });
+
+  render();
+});
+
+document.addEventListener('mouseup', () => {
+  if (!dragStart) return;
+  dragStart = null;
+  dragBaseSelection = null;
+  if (selectionBox) selectionBox.hidden = true;
+  // ドラッグして選択した直後に発火する click イベントで選択が消えないようにする
+  if (dragMoved) suppressEmptyClick = true;
 });
 
 // ---- 画面描画 ----

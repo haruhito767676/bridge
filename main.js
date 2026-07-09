@@ -88,8 +88,8 @@ if (process.defaultApp && process.argv.length >= 2) {
 }
 
 function createWindow() {
-  // 起動時は「つまみ」だけ見えている隠れ状態から始める
-  const bounds = dockedBoundsForDisplay(currentDisplay(), false);
+  // 起動時は「つまみ」だけ見えている隠れ状態から始める。初期位置はメインディスプレイの右端中央に厳密固定する
+  const bounds = dockedBoundsForDisplay(screen.getPrimaryDisplay(), false);
 
   win = new BrowserWindow({
     ...bounds,
@@ -109,6 +109,9 @@ function createWindow() {
       nodeIntegration: false,
     },
   });
+
+  // 別の操作スペース（仮想デスクトップ）やフルスクリーンアプリに切り替えても常に最前面に追従させる
+  win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
 
   win.loadFile('index.html');
 
