@@ -15,6 +15,11 @@
     <!-- frame: false のためネイティブタイトルバーは無し。ウインドウのドラッグ移動領域を兼ねる -->
     <header id="titlebar">Bridge</header>
 
+    <!-- インクリメンタル検索バー (ボタンなし)。
+         :f / :file で一時保存ファイルのみ、:c / :clip でクリップボード履歴のみに絞り込む -->
+    <input id="search-bar" type="search" placeholder=" アイテムを検索" spellcheck="false"
+           autocomplete="off" />
+
     <div id="drop-zone">
       <!-- 空のときのプレースホルダ -->
       <div id="empty-state">

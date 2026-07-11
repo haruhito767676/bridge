@@ -158,6 +158,44 @@ body.drag-mode #drop-zone.drag-over {
   border-bottom: 1px solid var(--divider);
 }
 
+/* ---- インクリメンタル検索バー (極薄のすりガラス、ボタンなし) ---- */
+
+#search-bar {
+  -webkit-app-region: no-drag;
+  flex-shrink: 0;
+  height: 28px;
+  margin: 10px 12px 0;
+  padding: 0 10px 0 28px;
+  font-family: inherit;
+  font-size: 12px;
+  color: var(--fg);
+  background-color: var(--item-bg);
+  border: 1px solid var(--item-border);
+  border-radius: 9px;
+  outline: none;
+  backdrop-filter: blur(24px) saturate(1.6);
+  -webkit-backdrop-filter: blur(24px) saturate(1.6);
+  /* body の user-select: none を上書きして入力・テキスト選択を可能にする */
+  user-select: text;
+  -webkit-user-select: text;
+  /* 左端の虫眼鏡アイコン (グレーはライト/ダーク両テーマで馴染む) */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23898989' stroke-width='2.5' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: 9px center;
+  background-size: 13px 13px;
+  transition: border-color 0.15s, background-color 0.15s, box-shadow 0.15s;
+}
+
+#search-bar::placeholder {
+  color: var(--fg-dim);
+}
+
+#search-bar:focus {
+  border-color: var(--accent);
+  background-color: var(--item-bg-hover);
+  box-shadow: 0 0 0 2.5px rgba(10, 132, 255, 0.18);
+}
+
 /* ---- ドロップゾーン ---- */
 
 #drop-zone {

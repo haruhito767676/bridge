@@ -10,6 +10,9 @@ contextBridge.exposeInMainWorld('bridge', {
   // リスト表示用のファイルアイコン (Data URL)
   getFileIcon: (filePath) => ipcRenderer.invoke('get-file-icon', filePath),
 
+  // Finder 純正の「種類」ラベル (例: 「PDF書類」「フォルダ」)
+  getFileKind: (filePath) => ipcRenderer.invoke('get-file-kind', filePath),
+
   // Web 画像の URL を Main プロセスでダウンロードし { path, name } を受け取る
   downloadUrl: (url) => ipcRenderer.invoke('download-url', url),
 
@@ -40,4 +43,10 @@ contextBridge.exposeInMainWorld('bridge', {
 
   // テキスト履歴を生成済みの .txt (無ければその場で生成) で OS ネイティブドラッグアウトする
   dragClipboardText: (payload) => ipcRenderer.send('drag-clipboard-text', payload),
+
+  // 履歴の上限あふれでリストから消えた裏生成ファイル (clipboard_*.png) をディスクから削除する
+  deleteTempFile: (filePath) => ipcRenderer.send('delete-temp-file', filePath),
+
+  // 終了時クリーンアップの判定用に、現在リストに保持しているパス一覧を Main へ共有する
+  reportRetainedPaths: (paths) => ipcRenderer.send('report-retained-paths', paths),
 });

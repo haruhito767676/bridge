@@ -1,5 +1,6 @@
 // シェルフのアイテム (最新順)。kind: 'file' | 'clip-text' | 'clip-image'
-// { kind, path, name, text, icon, isImage, downloading, removing, timestamp }
+// { kind, path, name, text, icon, isImage, downloading, removing, timestamp, fileKind }
+// fileKind: kind === 'file' のアイテムに非同期で付与される Finder 純正の種類名 (例:「PDF書類」「フォルダ」)
 const items = [];
 const selectedItems = new Set();
 let lastSelectedIndex = null;
@@ -7,8 +8,64 @@ let lastSelectedIndex = null;
 const dropZone = document.getElementById('drop-zone');
 const listEl = document.getElementById('file-list');
 const emptyEl = document.getElementById('empty-state');
+const emptyLabel = emptyEl.querySelector('.empty-label');
 const countEl = document.getElementById('item-count');
 const clearBtn = document.getElementById('clear-button');
+const searchBar = document.getElementById('search-bar');
+
+// ---- インクリメンタル検索 (入力のたびにリアルタイム絞り込み) ----
+
+// 現在表示中のアイテム (検索フィルター適用後、items と同じく最新順)。
+// render() が更新し、矩形選択・Shift 範囲選択・⌘A の添字は常にこの配列を基準にする
+let visibleItems = [];
+let searchQuery = '';
+
+// 特殊フィルター: `:f` / `:file` で始まれば一時保存ファイル (.user-dropped) のみ、
+// `:c` / `:clip` で始まればクリップボード履歴 (.clipboard-history) のみに絞る。
+// プレフィックスの後に続く文字列は通常のキーワードとして追加で絞り込む
+function parseSearchQuery(raw) {
+  const query = raw.trim();
+  const m = /^:(file|clip|f|c)(?:\s+(.*))?$/i.exec(query);
+  if (!m) return { kind: null, keyword: query.toLowerCase() };
+  return {
+    kind: m[1].toLowerCase().startsWith('f') ? 'file' : 'clip',
+    keyword: (m[2] || '').trim().toLowerCase(),
+  };
+}
+
+function filterItems() {
+  if (!searchQuery.trim()) return items.slice();
+  const { kind, keyword } = parseSearchQuery(searchQuery);
+  return items.filter((item) => {
+    if (kind === 'file' && item.kind !== 'file') return false;
+    if (kind === 'clip' && item.kind === 'file') return false;
+    if (!keyword) return true;
+    // ファイル名・パス・テキストの中身への部分一致
+    const haystack = [item.name, item.path, item.text]
+      .filter(Boolean)
+      .join('\n')
+      .toLowerCase();
+    return haystack.includes(keyword);
+  });
+}
+
+searchBar.addEventListener('input', () => {
+  searchQuery = searchBar.value;
+  // 絞り込みで見えなくなったアイテムが選択されたまま残らないようにする
+  selectedItems.clear();
+  lastSelectedIndex = null;
+  render();
+});
+
+// Esc で検索をクリアしてリスト全体へ戻る
+searchBar.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    searchBar.value = '';
+    searchQuery = '';
+    searchBar.blur();
+    render();
+  }
+});
 
 // ---- 画像判定とサムネイル用ヘルパー ----
 
@@ -81,6 +138,15 @@ dropZone.addEventListener('dragleave', () => {
   dropZone.classList.remove('drag-over');
 });
 
+// Finder 純正の「種類」ラベル (例: 「PDF書類」「フォルダ」) を非同期取得してアイテムへ反映する
+function attachFileKind(item, filePath) {
+  window.bridge.getFileKind(filePath).then((kindLabel) => {
+    if (!kindLabel) return;
+    item.fileKind = kindLabel;
+    render();
+  });
+}
+
 // ローカルファイルをリストへ追加する共通処理
 function addLocalFile(filePath, fileName) {
   if (!filePath) return;
@@ -108,6 +174,7 @@ function addLocalFile(filePath, fileName) {
       }
     });
   }
+  attachFileKind(item, filePath);
   render();
 }
 
@@ -174,6 +241,7 @@ function addWebUrl(url) {
           }
         });
       }
+      attachFileKind(item, path);
       render();
     })
     .catch((err) => {
@@ -217,6 +285,7 @@ function addTextSnippet(text) {
           render();
         }
       });
+      attachFileKind(item, path);
       render();
     })
     .catch((err) => {
@@ -266,6 +335,11 @@ function trimClipHistory() {
   for (const extra of clips.slice(MAX_CLIP_ITEMS)) {
     items.splice(items.indexOf(extra), 1);
     selectedItems.delete(extra);
+    // 上限あふれで履歴から消える画像は裏生成の clipboard_*.png なので、
+    // Main 側に依頼してディスクからも完全削除しストレージを圧迫しない
+    if (extra.kind === 'clip-image' && extra.path) {
+      window.bridge.deleteTempFile(extra.path);
+    }
   }
 }
 
@@ -382,7 +456,8 @@ function onItemClick(e, item) {
     return;
   }
 
-  const index = items.indexOf(item);
+  // 添字は検索フィルター適用後の表示中リストを基準にする
+  const index = visibleItems.indexOf(item);
   if (e.metaKey || e.ctrlKey) {
     // ⌘/Ctrl+クリックで個別にトグル
     if (selectedItems.has(item)) selectedItems.delete(item);
@@ -391,7 +466,7 @@ function onItemClick(e, item) {
     // Shift+クリックで範囲選択
     const [start, end] = [lastSelectedIndex, index].sort((a, b) => a - b);
     selectedItems.clear();
-    for (let i = start; i <= end; i++) selectedItems.add(items[i]);
+    for (let i = start; i <= end; i++) selectedItems.add(visibleItems[i]);
   } else {
     selectedItems.clear();
     selectedItems.add(item);
@@ -401,12 +476,15 @@ function onItemClick(e, item) {
 }
 
 document.addEventListener('keydown', (e) => {
-  // ⌘+A (Mac) / Ctrl+A (Win) でリスト内の全アイテムを選択
+  // 検索バーへの入力中はリスト操作のショートカット (⌘A / Space) を奪わない
+  if (e.target === searchBar) return;
+
+  // ⌘+A (Mac) / Ctrl+A (Win) で表示中の全アイテムを選択 (検索中は絞り込み結果のみ)
   if ((e.metaKey || e.ctrlKey) && e.code === 'KeyA') {
-    if (items.length === 0) return;
+    if (visibleItems.length === 0) return;
     e.preventDefault();
     selectedItems.clear();
-    for (const item of items) selectedItems.add(item);
+    for (const item of visibleItems) selectedItems.add(item);
     render();
     return;
   }
@@ -488,10 +566,11 @@ document.addEventListener('mousemove', (e) => {
   selectionBox.style.width = `${pointerRect.right - pointerRect.left}px`;
   selectionBox.style.height = `${pointerRect.bottom - pointerRect.top}px`;
 
-  // 枠に触れたアイテムを選択に加える（ベース選択とマージ）
+  // 枠に触れたアイテムを選択に加える（ベース選択とマージ）。
+  // DOM の並びは検索フィルター適用後の表示中リストと 1:1 対応する
   selectedItems.clear();
   for (const item of dragBaseSelection) selectedItems.add(item);
-  items.forEach((item, i) => {
+  visibleItems.forEach((item, i) => {
     const li = listEl.children[i];
     if (li && rectsIntersect(pointerRect, li.getBoundingClientRect())) {
       selectedItems.add(item);
@@ -519,8 +598,9 @@ function formatTime(timestamp) {
 
 function render() {
   listEl.textContent = '';
+  visibleItems = filterItems();
 
-  for (const item of items) {
+  for (const item of visibleItems) {
     const li = document.createElement('li');
     // 色分けクラスは必ずどちらか一方を付与する:
     //   user-dropped (ゴールド)    … kind === 'file' = ユーザーが明示的に置いた本物のファイル
@@ -570,7 +650,11 @@ function render() {
       const time = document.createElement('span');
       time.className = 'item-time';
       const label =
-        item.kind === 'clip-text' ? 'コピー' : item.kind === 'clip-image' ? '画像コピー' : 'ファイル';
+        item.kind === 'clip-text'
+          ? 'コピー'
+          : item.kind === 'clip-image'
+            ? '画像コピー'
+            : item.fileKind || 'ファイル'; // Finder 純正の種類名 (取得前は「ファイル」で暫定表示)
       time.textContent = `${label} · ${formatTime(item.timestamp)}`;
       lines.appendChild(time);
     }
@@ -589,11 +673,23 @@ function render() {
     listEl.appendChild(li);
   }
 
-  const isEmpty = items.length === 0;
-  emptyEl.hidden = !isEmpty;
-  listEl.hidden = isEmpty;
-  countEl.textContent = isEmpty ? '' : `${items.length} 個`;
-  clearBtn.hidden = isEmpty;
+  const noItems = items.length === 0;
+  const noVisible = visibleItems.length === 0;
+
+  // 検索で 0 件のときはプレースホルダの文言を切り替えて「該当なし」を伝える
+  emptyLabel.textContent = noItems ? 'ここにファイルをドロップ' : '一致するアイテムがありません';
+  emptyEl.hidden = !noVisible;
+  listEl.hidden = noVisible;
+  countEl.textContent = noItems
+    ? ''
+    : visibleItems.length === items.length
+      ? `${items.length} 個`
+      : `${visibleItems.length} / ${items.length} 個`;
+  clearBtn.hidden = noItems;
+
+  // 終了時クリーンアップ (残骸ファイル削除) の判定用に、
+  // 「現在リストに保持しているパス」を Main プロセスへ常時共有する
+  window.bridge.reportRetainedPaths(items.map((it) => it.path).filter(Boolean));
 }
 
 clearBtn.addEventListener('click', () => {

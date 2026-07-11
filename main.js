@@ -4,6 +4,9 @@ const fs = require('fs');
 const fsp = require('fs/promises');
 const crypto = require('crypto');
 const { pathToFileURL, fileURLToPath } = require('url');
+const { execFile } = require('child_process');
+const { promisify } = require('util');
+const execFileAsync = promisify(execFile);
 
 let win = null;
 let rendererReady = false;
@@ -152,6 +155,16 @@ function downloadDir() {
   return path.join(app.getPath('userData'), 'downloads');
 }
 
+// ---- セッション一時ファイルの追跡 (自動クリーンアップの対象管理) ----
+
+// このセッションで裏生成した一時ファイル (clipboard_*.png / snippet_*.txt) の絶対パス。
+// 終了時にリストへ残っていない「残骸」だけを削除する判定に使う
+const sessionTempFiles = new Set();
+
+// Renderer が現在リストに保持しているパス一覧 (render のたびに報告が届く)。
+// ここに含まれるファイルはユーザーがまだ使う可能性があるため終了時も消さない
+let retainedPaths = new Set();
+
 // 同名ファイルがあれば "name-1.ext" のように連番を振る
 function reserveDest(dir, name) {
   const ext = path.extname(name);
@@ -228,6 +241,7 @@ async function saveSnippetAsFile(text) {
   await fsp.mkdir(dir, { recursive: true });
   const dest = reserveDest(dir, `snippet_${Date.now()}.txt`);
   await fsp.writeFile(dest, text, 'utf8');
+  sessionTempFiles.add(dest); // 終了時の残骸掃除の対象として追跡
   return dest;
 }
 
@@ -312,6 +326,39 @@ ipcMain.handle('get-file-icon', async (_event, filePath) => {
   }
 });
 
+// ---- Finder 純正の「種類」ラベル (kMDItemKind) ----
+
+// mdls / 拡張子どちらからも種類名を決められないときの最終フォールバック
+function extensionFallbackKind(filePath) {
+  const ext = path.extname(filePath).replace(/^\./, '');
+  return ext ? `${ext.toUpperCase()}ファイル` : 'ファイル';
+}
+
+// フォルダは即断、通常ファイルは macOS の mdls から Finder と同じ正式名称を取得する。
+// mdls が使えない環境 (他OS・実行失敗) では拡張子から整形した名前にフォールバックする
+async function getFileKindLabel(filePath) {
+  try {
+    const stat = await fsp.stat(filePath);
+    if (stat.isDirectory()) return 'フォルダ';
+  } catch {
+    // stat に失敗した場合もフォールバックへ進む (mdls 側の失敗判定に委ねる)
+  }
+
+  if (process.platform === 'darwin') {
+    try {
+      const { stdout } = await execFileAsync('mdls', ['-name', 'kMDItemKind', '-raw', filePath]);
+      const kind = stdout.trim();
+      if (kind && kind !== '(null)') return kind;
+    } catch (err) {
+      console.error('mdls の実行に失敗:', filePath, err);
+    }
+  }
+
+  return extensionFallbackKind(filePath);
+}
+
+ipcMain.handle('get-file-kind', (_event, filePath) => getFileKindLabel(filePath));
+
 // ---- スペースキーで Mac 純正クイックルック ----
 ipcMain.on('preview-file', (event, filePath, fileName) => {
   const sender = BrowserWindow.fromWebContents(event.sender);
@@ -334,11 +381,11 @@ const clipHistory = [];
 
 function pushClipHistory(entry) {
   clipHistory.unshift(entry);
-  while (clipHistory.length > MAX_CLIP_HISTORY) {
-    const old = clipHistory.pop();
-    // 上限あふれで履歴から消えたアイテムの一時ファイルは残しても使い道がないので削除
-    if (old.path) fsp.unlink(old.path).catch(() => {});
-  }
+  // 上限あふれ時のディスク削除は、表示リストの真実を持つ Renderer 側のトリミング
+  // (delete-temp-file IPC) が担う。Main 単独で消すと、ユーザーが × で別の履歴を
+  // 消したときに両者の並びがズレて「まだ表示中のファイル」を誤削除しうるため、
+  // ここでは配列の長さだけを抑える (消し損ねは終了時クリーンアップが回収する)
+  while (clipHistory.length > MAX_CLIP_HISTORY) clipHistory.pop();
 }
 
 // 画像の同一判定キー (サイズ + ピクセルの MD5)。Bridge 自身の書き戻し検知スルーにも使う
@@ -353,6 +400,7 @@ async function saveClipboardImage(image) {
   await fsp.mkdir(dir, { recursive: true });
   const dest = reserveDest(dir, `clipboard_${Date.now()}.png`);
   await fsp.writeFile(dest, image.toPNG());
+  sessionTempFiles.add(dest); // 終了時の残骸掃除の対象として追跡
   return dest;
 }
 
@@ -539,6 +587,38 @@ ipcMain.on('drag-clipboard-text', async (event, payload) => {
   } catch (err) {
     console.error('クリップボードテキストのドラッグアウトに失敗:', err);
   }
+});
+
+// ---- 一時ファイルの自動クリーンアップ (ディスク保護) ----
+
+// Renderer から届く「現在リストに保持しているパス一覧」を常に最新へ更新する
+ipcMain.on('report-retained-paths', (_event, paths) => {
+  retainedPaths = new Set(
+    Array.isArray(paths) ? paths.filter((p) => typeof p === 'string') : []
+  );
+});
+
+// 履歴の上限あふれで Renderer のリストから消えた一時ファイルを完全削除する。
+// このセッションで自分が裏生成したファイル以外は絶対に消さない (ユーザーの実ファイル保護)
+ipcMain.on('delete-temp-file', (_event, filePath) => {
+  if (typeof filePath !== 'string' || !sessionTempFiles.has(filePath)) return;
+  sessionTempFiles.delete(filePath);
+  fsp.unlink(filePath).catch(() => {}); // 既に無い場合などは無視
+});
+
+// アプリ終了時: 今セッションで自動生成した clipboard_*.png / snippet_*.txt のうち、
+// 現在もリストに保持されていない (= 明示的に残す意思のない) 残骸をまとめて削除する。
+// will-quit 内は非同期処理を待たずにプロセスが落ちうるため同期 API で確実に消す
+app.on('will-quit', () => {
+  for (const p of sessionTempFiles) {
+    if (retainedPaths.has(p)) continue;
+    try {
+      fs.unlinkSync(p);
+    } catch {
+      // 既に削除済み・アクセス不可などは無視 (掃除が目的なので失敗しても続行)
+    }
+  }
+  sessionTempFiles.clear();
 });
 
 app.whenReady().then(() => {
