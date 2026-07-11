@@ -27,4 +27,17 @@ contextBridge.exposeInMainWorld('bridge', {
   // シェルターウインドウの開閉（つまみホバー / ドラッグ進入 / マウスアウト）
   expandShelter: () => ipcRenderer.send('shelter-expand'),
   collapseShelter: () => ipcRenderer.send('shelter-collapse'),
+
+  // クリップボード監視で検知された新規コピーを受け取る
+  onClipboardItem: (callback) =>
+    ipcRenderer.on('clipboard-item', (_event, item) => callback(item)),
+
+  // 履歴アイテムのクリックで OS クリップボードへ再セット (Main 側で自動格納も行う)
+  writeClipboardText: (text) => ipcRenderer.send('clipboard-write-text', text),
+  writeClipboardImage: (filePath) => ipcRenderer.send('clipboard-write-image', filePath),
+  // ファイルアイテムのクリックで「OS のファイル形式」としてセット (Finder で ⌘V → 本物のファイルを複製)
+  writeClipboardFile: (filePath) => ipcRenderer.send('clipboard-write-file', filePath),
+
+  // テキスト履歴を生成済みの .txt (無ければその場で生成) で OS ネイティブドラッグアウトする
+  dragClipboardText: (payload) => ipcRenderer.send('drag-clipboard-text', payload),
 });

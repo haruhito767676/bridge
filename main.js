@@ -1,7 +1,9 @@
-const { app, BrowserWindow, ipcMain, net, screen } = require('electron');
+const { app, BrowserWindow, ipcMain, net, screen, clipboard, nativeImage } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const fsp = require('fs/promises');
+const crypto = require('crypto');
+const { pathToFileURL, fileURLToPath } = require('url');
 
 let win = null;
 let rendererReady = false;
@@ -316,8 +318,232 @@ ipcMain.on('preview-file', (event, filePath, fileName) => {
   if (sender) sender.previewFile(filePath, fileName);
 });
 
+// ---- クリップボード履歴（バックグラウンド監視）----
+
+const CLIPBOARD_POLL_MS = 500;
+// 直近の履歴のみ保持する上限。超えた分は古いものから捨て、裏で作った一時ファイルも掃除する
+const MAX_CLIP_HISTORY = 20;
+let lastClipText = '';
+let lastClipImageKey = '';
+let lastClipFileKey = ''; // Finder でコピーされたファイル群の同一判定キー (パスを \n 連結)
+let clipboardPolling = false;
+
+// Main 側で保持する履歴 (最新順)。テキストは「生データ + 裏で生成した .txt パス」の二刀流で持つ
+// { type: 'clipboard-text' | 'clipboard-image', text, path, timestamp }
+const clipHistory = [];
+
+function pushClipHistory(entry) {
+  clipHistory.unshift(entry);
+  while (clipHistory.length > MAX_CLIP_HISTORY) {
+    const old = clipHistory.pop();
+    // 上限あふれで履歴から消えたアイテムの一時ファイルは残しても使い道がないので削除
+    if (old.path) fsp.unlink(old.path).catch(() => {});
+  }
+}
+
+// 画像の同一判定キー (サイズ + ピクセルの MD5)。Bridge 自身の書き戻し検知スルーにも使う
+function imageKey(image) {
+  const { width, height } = image.getSize();
+  return `${width}x${height}:${crypto.createHash('md5').update(image.toBitmap()).digest('hex')}`;
+}
+
+// コピーされた画像は即ファイル化しておく (サムネイル表示とドラッグアウトを既存フローに乗せるため)
+async function saveClipboardImage(image) {
+  const dir = downloadDir();
+  await fsp.mkdir(dir, { recursive: true });
+  const dest = reserveDest(dir, `clipboard_${Date.now()}.png`);
+  await fsp.writeFile(dest, image.toPNG());
+  return dest;
+}
+
+function sendClipboardItem(item) {
+  if (win !== null && rendererReady) win.webContents.send('clipboard-item', item);
+}
+
+// Finder のファイルコピーで検知したパスを、ウインドウを奪わずに通常ドロップと同じ扱いでリストへ追加する
+function addFileQuietly(filePath) {
+  if (win !== null && rendererReady) {
+    win.webContents.send('add-file', filePath);
+  } else {
+    pendingFiles.push(filePath);
+  }
+}
+
+// Finder で「ファイル自体」がコピーされているか調べ、絶対パスの配列を返す (macOS)
+function readCopiedFilePaths() {
+  const paths = [];
+
+  // 複数ファイル対応: NSFilenamesPboardType は XML plist で全ファイルのパスを持つ
+  try {
+    const buf = clipboard.readBuffer('NSFilenamesPboardType');
+    if (buf && buf.length > 0) {
+      const xml = buf.toString('utf8');
+      for (const m of xml.matchAll(/<string>([^<]+)<\/string>/g)) {
+        const p = m[1]
+          .replace(/&amp;/g, '&')
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>')
+          .replace(/&quot;/g, '"')
+          .replace(/&apos;/g, "'");
+        if (p.startsWith('/')) paths.push(p);
+      }
+    }
+  } catch {
+    // フォーマットが無い環境では読み出し自体が失敗するので無視
+  }
+
+  // 単一ファイルのフォールバック: public.file-url は file:// URL が入る
+  if (paths.length === 0) {
+    try {
+      const fileUrl = clipboard.read('public.file-url');
+      if (fileUrl && fileUrl.startsWith('file://')) {
+        paths.push(fileURLToPath(fileUrl.trim()));
+      }
+    } catch {
+      // 同上
+    }
+  }
+
+  return paths;
+}
+
+async function pollClipboard() {
+  if (clipboardPolling) return; // 画像保存中に次のポーリングが重ならないようにする
+  clipboardPolling = true;
+  try {
+    // ファイル: Finder で ⌘C されたファイルを最優先で検知し、リストへ自動追加する。
+    // ファイルコピー時はパス文字列などの付随テキストも載るため、その tick の
+    // テキスト/画像判定はスキップして誤検知 (偽のテキスト履歴) を防ぐ
+    const copiedFiles = readCopiedFilePaths();
+    if (copiedFiles.length > 0) {
+      const key = copiedFiles.join('\n');
+      if (key !== lastClipFileKey) {
+        lastClipFileKey = key;
+        lastClipText = clipboard.readText(); // 付随テキストを履歴に入れない
+        for (const p of copiedFiles) {
+          if (fs.existsSync(p)) addFileQuietly(p);
+        }
+      }
+      return;
+    }
+    lastClipFileKey = '';
+
+    // テキスト: 前回と異なる非空テキストなら履歴へ。
+    // 生テキスト (クリックで即ペースト用) を保持しつつ、裏で snippet_[タイムスタンプ].txt も
+    // 同時生成してドラッグアウト用のファイルパスを持たせる (データの二刀流)
+    const text = clipboard.readText();
+    if (text !== lastClipText) {
+      lastClipText = text;
+      if (text && text.trim()) {
+        let snippetPath = null;
+        try {
+          snippetPath = await saveSnippetAsFile(text);
+        } catch (err) {
+          console.error('スニペットファイルの生成に失敗 (生テキストのみで履歴に残す):', err);
+        }
+        const entry = { type: 'clipboard-text', text, path: snippetPath, timestamp: Date.now() };
+        pushClipHistory(entry);
+        sendClipboardItem(entry);
+      }
+    }
+
+    // 画像: 形式チェックを先に行い、画像が無いときの readImage デコードを避ける
+    const hasImage = clipboard.availableFormats().some((f) => f.startsWith('image/'));
+    if (hasImage) {
+      const image = clipboard.readImage();
+      if (!image.isEmpty()) {
+        const key = imageKey(image);
+        if (key !== lastClipImageKey) {
+          lastClipImageKey = key;
+          const savedPath = await saveClipboardImage(image);
+          const entry = { type: 'clipboard-image', text: null, path: savedPath, timestamp: Date.now() };
+          pushClipHistory(entry);
+          sendClipboardItem(entry);
+        }
+      }
+    } else {
+      lastClipImageKey = '';
+    }
+  } catch (err) {
+    console.error('クリップボード監視に失敗:', err);
+  } finally {
+    clipboardPolling = false;
+  }
+}
+
+function startClipboardWatcher() {
+  // 起動時点でクリップボードに入っている内容は履歴に入れない (基準値として記録するだけ)
+  lastClipText = clipboard.readText();
+  const image = clipboard.readImage();
+  lastClipImageKey = image.isEmpty() ? '' : imageKey(image);
+  lastClipFileKey = readCopiedFilePaths().join('\n');
+  setInterval(pollClipboard, CLIPBOARD_POLL_MS);
+}
+
+// ---- クリップボード履歴の再利用 (クリックでコピー & 自動格納) ----
+
+// クリック直後は待たずにウインドウを隠し、ユーザーがすぐ ⌘V でペーストできる状態にする
+function collapseShelterNow() {
+  if (!win) return;
+  if (collapseTimer) {
+    clearTimeout(collapseTimer);
+    collapseTimer = null;
+  }
+  expanded = false;
+  applyDock(false, currentDisplay());
+}
+
+ipcMain.on('clipboard-write-text', (_event, text) => {
+  clipboard.writeText(text); // 生のテキストデータを OS に書き戻す → 即ペースト可能
+  lastClipText = text; // 自分で書き戻した分は監視でスルーする
+  lastClipFileKey = '';
+  collapseShelterNow(); // コピー完了 → 即座にウインドウを閉じてペーストへ移れるようにする
+});
+
+// ファイルアイテムのクリック: パスを OS の「ファイル形式」(public.file-url) でクリップボードへ。
+// Finder で ⌘V すると本物のファイルとして複製・ペーストされる
+ipcMain.on('clipboard-write-file', (_event, filePath) => {
+  if (!filePath || !fs.existsSync(filePath)) return;
+  clipboard.writeBuffer('public.file-url', Buffer.from(pathToFileURL(filePath).toString(), 'utf8'));
+  // 自分で書き戻した分は監視でスルーする (基準値を書き戻し後の状態に合わせる)
+  lastClipFileKey = filePath;
+  lastClipText = clipboard.readText();
+  lastClipImageKey = '';
+  collapseShelterNow();
+});
+
+ipcMain.on('clipboard-write-image', (_event, filePath) => {
+  const image = nativeImage.createFromPath(filePath);
+  if (image.isEmpty()) return;
+  clipboard.writeImage(image);
+  // 書き戻し後のクリップボードを読み直して基準値にする (エンコード差分による再検知を防ぐ)
+  const readBack = clipboard.readImage();
+  lastClipImageKey = readBack.isEmpty() ? '' : imageKey(readBack);
+  lastClipText = clipboard.readText();
+  lastClipFileKey = '';
+  collapseShelterNow();
+});
+
+// テキスト履歴のドラッグアウト: 検知時に裏で生成済みの snippet_*.txt をそのまま OS ネイティブドラッグに乗せる。
+// (生成に失敗していた等でパスが無い場合のみ、その場で .txt に書き出すフォールバック)
+ipcMain.on('drag-clipboard-text', async (event, payload) => {
+  try {
+    let dest = payload && payload.path;
+    if (!dest || !fs.existsSync(dest)) {
+      const text = payload && payload.text;
+      if (!text) return;
+      dest = await saveSnippetAsFile(text);
+    }
+    const icon = await app.getFileIcon(dest);
+    event.sender.startDrag({ files: [dest], icon });
+  } catch (err) {
+    console.error('クリップボードテキストのドラッグアウトに失敗:', err);
+  }
+});
+
 app.whenReady().then(() => {
   createWindow();
+  startClipboardWatcher();
 
   // Windows/Linux で bridge:// から直接起動された場合は argv に URL が入っている
   const initialUrl = process.argv.find((arg) => arg.startsWith('bridge://'));

@@ -79,11 +79,63 @@ body {
 /* ---- シェル本体（つまみの右側、ドロップゾーン等一式）---- */
 
 #shell {
+  position: relative; /* ドラッグ進入時の #drop-overlay の基準 */
   flex: 1;
   min-width: 0;
   height: 100%;
   display: flex;
   flex-direction: column;
+}
+
+/* ---- ドロップモード (外部ドラッグ進入時の UI 自動切り替え) ---- */
+
+#drop-overlay {
+  position: absolute;
+  inset: 10px;
+  z-index: 20;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  /* ドロップイベント自体は下の #drop-zone に透過させる (純粋な視覚レイヤー) */
+  pointer-events: none;
+  border: 2px dashed var(--accent);
+  border-radius: 16px;
+  background: rgba(10, 132, 255, 0.1);
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+#drop-overlay svg {
+  width: 52px;
+  height: 52px;
+}
+
+body.drag-mode #drop-overlay {
+  display: flex;
+}
+
+/* ドラッグ進入中は #drop-overlay 以外のすべての既存 UI を強制的に不可視化し、
+   オーバーレイだけが 100% 単独で表示されるようにする (UI の二重被りの完全防止)。
+   個別 ID の列挙ではなく catch-all セレクタで body 配下を丸ごと遮断するため、
+   将来 UI 要素が増えても漏れなく隠れる。
+   ※ #shell と #drop-zone は #drop-overlay の座標基準かつドロップイベントの
+     受け皿なので要素自体は残し、その中身と視覚要素だけを消す */
+body.drag-mode > *:not(#shell),
+body.drag-mode #shell > *:not(#drop-zone):not(#drop-overlay),
+body.drag-mode #drop-zone > * {
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+body.drag-mode #drop-zone,
+body.drag-mode #drop-zone.drag-over {
+  border-color: transparent !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
 }
 
 /* ---- タイトルバー (frame: false のためのドラッグ移動領域) ---- */
@@ -201,9 +253,45 @@ body {
   opacity: 0.7;
 }
 
+/* ---- 一時保存ファイル (ユーザーが明示的に置いた本物のファイル) ----
+   アンバーゴールドのすりガラス。選択枠 (ブルー) と衝突しない暖色で主役として表示する */
+.file-item.user-dropped {
+  background: rgba(255, 159, 10, 0.12);
+  border: 1px solid rgba(255, 159, 10, 0.25);
+  color: var(--fg);
+  backdrop-filter: blur(28px) saturate(1.8);
+  -webkit-backdrop-filter: blur(28px) saturate(1.8);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 6px 18px rgba(255, 159, 10, 0.08);
+}
+
+.file-item.user-dropped:hover {
+  background: rgba(255, 159, 10, 0.2);
+  border-color: rgba(255, 159, 10, 0.4);
+}
+
+/* ---- クリップボード履歴 (テキスト/画像コピーの自動ログ) ----
+   グリーンのすりガラス。文字色は薄めず、ゴールドと対等な視認性を保つ */
+.file-item.clipboard-history {
+  background: rgba(52, 199, 89, 0.12);
+  border: 1px solid rgba(52, 199, 89, 0.25);
+  color: var(--fg);
+  backdrop-filter: blur(28px) saturate(1.8);
+  -webkit-backdrop-filter: blur(28px) saturate(1.8);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 6px 18px rgba(52, 199, 89, 0.08);
+}
+
+.file-item.clipboard-history:hover {
+  background: rgba(52, 199, 89, 0.2);
+  border-color: rgba(52, 199, 89, 0.4);
+}
+
+/* ---- 選択状態 ----
+   ゴールド/グリーンの地色に勝てるよう !important でブルーを強制し、
+   選択されたアイテムがどの色分けでも一目で分かるようにする */
 .file-item.selected {
-  border-color: var(--accent);
-  background: rgba(10, 132, 255, 0.14);
+  border-color: #007aff !important;
+  background: rgba(0, 122, 255, 0.2) !important;
+  box-shadow: 0 0 0 1px rgba(0, 122, 255, 0.35), 0 4px 14px rgba(0, 122, 255, 0.15);
 }
 
 /* ドラッグアウト・×ボタンで消えるときのフェードアウト */
@@ -239,14 +327,51 @@ body {
   font-style: italic;
 }
 
-.file-name {
+/* 名前 + 時刻ラベルの 2 段組 (タイムライン表示) */
+.item-lines {
   flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  pointer-events: none;
+}
+
+.file-name {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 13px;
   pointer-events: none;
+}
+
+/* クリップボードテキストの冒頭プレビューは 2 行まで折り返して表示 */
+.file-name.clip-preview {
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-height: 1.35;
+}
+
+.item-time {
+  font-size: 10.5px;
+  color: var(--fg-dim);
+}
+
+/* ---- クリップボード履歴アイテム ---- */
+
+.clip-badge {
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  border-radius: 8px;
+  background: rgba(52, 199, 89, 0.18);
 }
 
 /* ---- ホバー時に現れる × ボタン ---- */

@@ -35,6 +35,17 @@
       <span id="item-count"></span>
       <button id="clear-button" title="すべてクリア">クリア</button>
     </footer>
+
+    <!-- 外部からのファイル/テキストのドラッグ進入時だけ最前面に現れるドロップエリア -->
+    <div id="drop-overlay">
+      <svg viewBox="0 0 48 48" fill="none" stroke="currentColor"
+           stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M24 8v20" />
+        <path d="M15 20l9 9 9-9" />
+        <path d="M8 32v4a4 4 0 0 0 4 4h24a4 4 0 0 0 4-4v-4" />
+      </svg>
+      <p>ここにドロップして追加</p>
+    </div>
   </div>
 
   <script src="renderer.js"></script>
