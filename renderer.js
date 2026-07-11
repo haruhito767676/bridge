@@ -740,18 +740,32 @@ function formatTime(timestamp) {
   return `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
-// ファイル名を中央で省略し、拡張子だけは必ず末尾に残す (例: "very-long-report-2024...pdf")
-// フォルダ/クリップボード履歴には使わない (拡張子を保護する意味がないため通常の末尾省略のまま)
-function truncateMiddleKeepExt(name, maxLen = 15) {
-  if (name.length <= maxLen) return name;
-
+// ファイル名を「拡張子を除いた本体」と「拡張子」に分割する。
+// フォルダ/クリップボード履歴には使わない (拡張子を保護する意味がないため ext は空にする)
+function splitNameExt(name) {
   const dotIndex = name.lastIndexOf('.');
   const hasExt = dotIndex > 0 && dotIndex < name.length - 1; // 先頭ドット(隠しファイル)は拡張子扱いしない
-  const ext = hasExt ? name.slice(dotIndex) : '';
-  const base = hasExt ? name.slice(0, dotIndex) : name;
+  return hasExt
+    ? { base: name.slice(0, dotIndex), ext: name.slice(dotIndex) }
+    : { base: name, ext: '' };
+}
 
-  const headLen = Math.max(1, maxLen - ext.length - 3); // 3 = '...' の長さ
-  return `${base.slice(0, headLen)}...${ext}`;
+// Finder 方式のファイル名整形 (JS 側で完全制御):
+//   短い名前 … 「名前 + 拡張子」をそのまま連結
+//   長い名前 … 「本体の先頭10文字 + '⋯' + 本体の末尾5文字 + 拡張子」の中間省略
+// 例: 01_【神楽坂、野田】ファイルまとめ.pdf → 01_【神楽坂、野田⋯イルまとめ.pdf
+// サロゲートペア (絵文字等) を分断しないよう Array.from でコードポイント単位に数える
+const NAME_HEAD_CHARS = 10;
+const NAME_TAIL_CHARS = 5;
+
+function formatDisplayName(name, hasExt) {
+  const { base, ext } = hasExt ? splitNameExt(name) : { base: name, ext: '' };
+  const chars = Array.from(base);
+  // 省略しても短くならない長さ (head + tail + ⋯ 以下) はそのまま表示する
+  if (chars.length <= NAME_HEAD_CHARS + NAME_TAIL_CHARS + 1) return base + ext;
+  return (
+    chars.slice(0, NAME_HEAD_CHARS).join('') + '⋯' + chars.slice(-NAME_TAIL_CHARS).join('') + ext
+  );
 }
 
 function render() {
@@ -799,14 +813,25 @@ function render() {
     const lines = document.createElement('div');
     lines.className = 'item-lines';
 
-    const name = document.createElement('span');
-    name.className = 'file-name' + (item.kind === 'clip-text' ? ' clip-preview' : '');
-    // フォルダ・クリップボード履歴は拡張子を残す必要がないため従来通り末尾を CSS の ellipsis に任せる。
-    // 実ファイルだけは拡張子が隠れないよう中央省略で整形する
-    const isRealFile = isUserFile && item.fileKind !== 'フォルダ';
-    const displayName = isRealFile ? truncateMiddleKeepExt(item.name) : item.name;
-    name.textContent = item.downloading ? `ダウンロード中… ${displayName}` : displayName;
-    lines.appendChild(name);
+    // Finder 方式: JS で整形済みの「先頭10文字 + ⋯ + 末尾5文字 + 拡張子」を
+    // 1 本の文字列として .name-full に入れ、左詰めで表示する。
+    // フォルダ・クリップボード履歴は拡張子分割をせず名前全体を本体として扱う。
+    const nameFull = document.createElement('span');
+    nameFull.className = 'name-full' + (item.kind === 'clip-text' ? ' clip-preview' : '');
+
+    if (item.kind === 'clip-text') {
+      // テキスト履歴は冒頭プレビュー (2 行折り返し) のまま。ツールチップは本文全体
+      nameFull.textContent = item.name;
+      nameFull.title = item.text;
+    } else {
+      const isRealFile = isUserFile && item.fileKind !== 'フォルダ';
+      const display = formatDisplayName(item.name, isRealFile);
+      nameFull.textContent = item.downloading ? `ダウンロード中… ${display}` : display;
+      // ホバー時に OS ネイティブのツールチップでファイル名の全文を必ず確認できるようにする
+      nameFull.title = item.name;
+    }
+
+    lines.appendChild(nameFull);
 
     if (item.timestamp) {
       const time = document.createElement('span');
