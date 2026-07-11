@@ -469,7 +469,7 @@ body.drag-mode #drop-zone.drag-over {
   cursor: default;
 }
 
-.file-item.downloading .name-full {
+.file-item.downloading .item-name-container {
   font-style: italic;
 }
 
@@ -483,24 +483,50 @@ body.drag-mode #drop-zone.drag-over {
   pointer-events: none;
 }
 
-/* ファイル名表示: Finder 方式の中間省略 (先頭10文字 + ⋯ + 末尾5文字 + 拡張子) を
-   JS 側で整形した 1 本の文字列として表示する。
-   整形済み文字列全体が右端に寄らないよう、ブロック要素として左詰めに固定する */
-.name-full {
-  display: block;
+/* ファイル名表示: Finder ライクに「名前の直後に拡張子」を隙間なく置く 1 行構成。
+   名前 (.name-main) は renderer.js がコンテナの実ピクセル幅を測って
+   「前半 ⋯ 後半」へ動的にトリミングするため、合計幅は常に親要素内に収まる */
+.item-name-container {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: baseline;
   width: 100%;
   min-width: 0;
   overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis; /* 整形後もなお幅が足りない極端なケースの保険 */
-  text-align: left;
   font-size: 13px;
   cursor: help; /* title属性で全文ツールチップが出せることを示す */
-  pointer-events: auto; /* このスパン自身をホバー対象にし、title のツールチップを即時表示させる */
+  pointer-events: auto; /* この要素自身をホバー対象にし、title のツールチップを即時表示させる */
+}
+
+/* flex: 0 1 auto で「内容ぶんの幅だけ占める」ようにし、拡張子が名前の直後に密着する。
+   nowrap + ellipsis は JS の再計測が走る前の一瞬や極小幅のための保険 */
+.name-main {
+  flex: 0 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 拡張子は margin を入れず名前に直結し、縮まないよう幅を保護する */
+.name-ext {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* 幅測定用の隠しスパン: .name-main と同じフォントで、レイアウトに影響させず実測する */
+.name-measure {
+  position: absolute;
+  top: 0;
+  left: -9999px;
+  visibility: hidden;
+  white-space: pre;
+  font-size: 13px;
+  pointer-events: none;
 }
 
 /* クリップボードテキストの冒頭プレビューは 2 行まで折り返して表示 */
-.name-full.clip-preview {
+.name-main.clip-preview {
   white-space: normal;
   display: -webkit-box;
   -webkit-box-orient: vertical;

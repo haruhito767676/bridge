@@ -750,26 +750,79 @@ function splitNameExt(name) {
     : { base: name, ext: '' };
 }
 
-// Finder 方式のファイル名整形 (JS 側で完全制御):
-//   短い名前 … 「名前 + 拡張子」をそのまま連結
-//   長い名前 … 「本体の先頭10文字 + '⋯' + 本体の末尾5文字 + 拡張子」の中間省略
-// 例: 01_【神楽坂、野田】ファイルまとめ.pdf → 01_【神楽坂、野田⋯イルまとめ.pdf
-// サロゲートペア (絵文字等) を分断しないよう Array.from でコードポイント単位に数える
-const NAME_HEAD_CHARS = 10;
+// ---- ピクセル幅ベースの Finder 方式ファイル名省略 ----
+
+// 幅測定用の隠しスパン (使い回し)。実際の表示 (.name-main) と同じフォント指定を
+// CSS (.name-measure) 側で揃え、getBoundingClientRect().width で実ピクセル幅を測る
+let measureEl = null;
+
+function measureTextWidth(text) {
+  if (!measureEl) {
+    measureEl = document.createElement('span');
+    measureEl.className = 'name-measure';
+    document.body.appendChild(measureEl);
+  }
+  measureEl.textContent = text;
+  return measureEl.getBoundingClientRect().width;
+}
+
+// 本体文字列が availableWidth (px) に収まるならそのまま返し、
+// 超える場合のみ「前半 ⋯ 後半」の形式へ動的にトリミングする。
+// 後半は末尾 5 文字を優先確保し、前半に残せる文字数を二分探索で最大化する
+// (全文字を 1 文字ずつ測るより測定回数が桁違いに少ない)。
+// サロゲートペア (絵文字等) を分断しないよう Array.from でコードポイント単位に扱う
 const NAME_TAIL_CHARS = 5;
 
-function formatDisplayName(name, hasExt) {
-  const { base, ext } = hasExt ? splitNameExt(name) : { base: name, ext: '' };
+function truncateToWidth(base, availableWidth) {
+  if (measureTextWidth(base) <= availableWidth) return base;
+
   const chars = Array.from(base);
-  // 省略しても短くならない長さ (head + tail + ⋯ 以下) はそのまま表示する
-  if (chars.length <= NAME_HEAD_CHARS + NAME_TAIL_CHARS + 1) return base + ext;
-  return (
-    chars.slice(0, NAME_HEAD_CHARS).join('') + '⋯' + chars.slice(-NAME_TAIL_CHARS).join('') + ext
-  );
+  const fits = (head, tail) =>
+    measureTextWidth(
+      chars.slice(0, head).join('') + '⋯' + chars.slice(chars.length - tail).join('')
+    ) <= availableWidth;
+
+  // 幅が極端に狭いときは確保する末尾文字数自体を減らして収める
+  let tail = Math.min(NAME_TAIL_CHARS, chars.length);
+  while (tail > 0 && !fits(0, tail)) tail--;
+  if (tail === 0 && !fits(0, 0)) return '⋯'; // ⋯ すら入らない極小幅 (CSS の ellipsis が保険)
+
+  let lo = 0;
+  let hi = chars.length - tail;
+  while (lo < hi) {
+    const mid = Math.ceil((lo + hi) / 2);
+    if (fits(mid, tail)) lo = mid;
+    else hi = mid - 1;
+  }
+  return chars.slice(0, lo).join('') + '⋯' + chars.slice(chars.length - tail).join('');
 }
+
+// 直近の render() で生成したファイル名要素の一覧。
+// DOM へ追加しレイアウトが確定した後 (render 末尾・ウインドウリサイズ時) に
+// コンテナの実幅を測ってトリミングを適用するために保持する
+let nameEntries = [];
+
+function applyNameTruncation() {
+  for (const { container, nameEl, extEl, baseText } of nameEntries) {
+    const available =
+      container.getBoundingClientRect().width - extEl.getBoundingClientRect().width;
+    nameEl.textContent = truncateToWidth(baseText, available);
+  }
+}
+
+// ウインドウ幅が変わったら利用可能幅も変わるので再計測して省略をやり直す
+let resizeRaf = null;
+window.addEventListener('resize', () => {
+  if (resizeRaf) cancelAnimationFrame(resizeRaf);
+  resizeRaf = requestAnimationFrame(() => {
+    resizeRaf = null;
+    applyNameTruncation();
+  });
+});
 
 function render() {
   listEl.textContent = '';
+  nameEntries = [];
   visibleItems = filterItems();
 
   for (const item of visibleItems) {
@@ -813,25 +866,38 @@ function render() {
     const lines = document.createElement('div');
     lines.className = 'item-lines';
 
-    // Finder 方式: JS で整形済みの「先頭10文字 + ⋯ + 末尾5文字 + 拡張子」を
-    // 1 本の文字列として .name-full に入れ、左詰めで表示する。
-    // フォルダ・クリップボード履歴は拡張子分割をせず名前全体を本体として扱う。
-    const nameFull = document.createElement('span');
-    nameFull.className = 'name-full' + (item.kind === 'clip-text' ? ' clip-preview' : '');
+    // Finder ライク: 名前 (.name-main) の直後に拡張子 (.name-ext) を隙間なく置く 1 行構成。
+    // ここでは全文のまま入れておき、render 末尾の applyNameTruncation() が
+    // コンテナの実ピクセル幅を測って「前半 ⋯ 後半」へ動的にトリミングする。
+    // フォルダ・クリップボード履歴は拡張子分割をせず名前全体を本体として扱う
+    const nameContainer = document.createElement('div');
+    nameContainer.className = 'item-name-container';
+
+    const nameMain = document.createElement('span');
+    nameMain.className = 'name-main' + (item.kind === 'clip-text' ? ' clip-preview' : '');
+    const nameExt = document.createElement('span');
+    nameExt.className = 'name-ext';
+
+    // ホバー時に OS ネイティブのツールチップで全文 (クリップボードは本文全体) を必ず出せるよう、
+    // ファイル名系のすべての要素に title を付与する
+    const fullTitle = item.kind === 'clip-text' ? item.text : item.name;
+    nameContainer.title = fullTitle;
+    nameMain.title = fullTitle;
+    nameExt.title = fullTitle;
 
     if (item.kind === 'clip-text') {
-      // テキスト履歴は冒頭プレビュー (2 行折り返し) のまま。ツールチップは本文全体
-      nameFull.textContent = item.name;
-      nameFull.title = item.text;
+      nameMain.textContent = item.name; // 冒頭プレビューは 2 行折り返しのままトリミング対象外
     } else {
       const isRealFile = isUserFile && item.fileKind !== 'フォルダ';
-      const display = formatDisplayName(item.name, isRealFile);
-      nameFull.textContent = item.downloading ? `ダウンロード中… ${display}` : display;
-      // ホバー時に OS ネイティブのツールチップでファイル名の全文を必ず確認できるようにする
-      nameFull.title = item.name;
+      const { base, ext } = isRealFile ? splitNameExt(item.name) : { base: item.name, ext: '' };
+      const baseText = item.downloading ? `ダウンロード中… ${base}` : base;
+      nameMain.textContent = baseText;
+      nameExt.textContent = ext;
+      nameEntries.push({ container: nameContainer, nameEl: nameMain, extEl: nameExt, baseText });
     }
 
-    lines.appendChild(nameFull);
+    nameContainer.append(nameMain, nameExt);
+    lines.appendChild(nameContainer);
 
     if (item.timestamp) {
       const time = document.createElement('span');
@@ -873,6 +939,10 @@ function render() {
       ? `${items.length} 個`
       : `${visibleItems.length} / ${items.length} 個`;
   clearBtn.hidden = noItems;
+
+  // リストの表示/非表示が確定しレイアウトが取れる状態になってから、
+  // 各ファイル名をコンテナの実ピクセル幅に合わせて「前半 ⋯ 後半」へトリミングする
+  applyNameTruncation();
 
   // 終了時クリーンアップ (残骸ファイル削除) の判定用に、
   // 「現在リストに保持しているパス」を Main プロセスへ常時共有する
