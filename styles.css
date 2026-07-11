@@ -469,7 +469,7 @@ body.drag-mode #drop-zone.drag-over {
   cursor: default;
 }
 
-.file-item.downloading .item-name-container {
+.file-item.downloading .item-title {
   font-style: italic;
 }
 
@@ -483,55 +483,47 @@ body.drag-mode #drop-zone.drag-over {
   pointer-events: none;
 }
 
-/* ファイル名表示: Finder ライクに「名前の直後に拡張子」を隙間なく置く 1 行構成。
-   名前 (.name-main) は renderer.js がコンテナの実ピクセル幅を測って
-   「前半 ⋯ 後半」へ動的にトリミングするため、合計幅は常に親要素内に収まる */
-.item-name-container {
-  display: flex;
-  flex-wrap: nowrap;
-  align-items: baseline;
+/* タイトル: JS (formatFileName) の一発整形で確実に収まる長さになっているため、
+   flex を使わないシンプルなブロックの左詰めテキストとして表示する。
+   nowrap + ellipsis は想定を超える極小幅の保険 */
+.item-title {
+  display: block;
   width: 100%;
-  min-width: 0;
+  text-align: left;
   overflow: hidden;
-  font-size: 13px;
-  cursor: help; /* title属性で全文ツールチップが出せることを示す */
-  pointer-events: auto; /* この要素自身をホバー対象にし、title のツールチップを即時表示させる */
-}
-
-/* flex: 0 1 auto で「内容ぶんの幅だけ占める」ようにし、拡張子が名前の直後に密着する。
-   nowrap + ellipsis は JS の再計測が走る前の一瞬や極小幅のための保険 */
-.name-main {
-  flex: 0 1 auto;
-  min-width: 0;
   white-space: nowrap;
-  overflow: hidden;
   text-overflow: ellipsis;
-}
-
-/* 拡張子は margin を入れず名前に直結し、縮まないよう幅を保護する */
-.name-ext {
-  flex-shrink: 0;
-  white-space: nowrap;
-}
-
-/* 幅測定用の隠しスパン: .name-main と同じフォントで、レイアウトに影響させず実測する */
-.name-measure {
-  position: absolute;
-  top: 0;
-  left: -9999px;
-  visibility: hidden;
-  white-space: pre;
   font-size: 13px;
-  pointer-events: none;
+  cursor: help;
+  /* 親 .item-lines の pointer-events: none を打ち消し、mouseenter/mouseleave を拾えるようにする */
+  pointer-events: auto;
 }
 
 /* クリップボードテキストの冒頭プレビューは 2 行まで折り返して表示 */
-.name-main.clip-preview {
+.item-title.clip-preview {
   white-space: normal;
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   line-height: 1.35;
+}
+
+/* ---- カスタムツールチップ (OS 標準 title 属性の代替、renderer.js が動的生成) ---- */
+.bridge-tooltip {
+  position: absolute;
+  background: rgba(20, 20, 20, 0.9);
+  color: #fff;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  z-index: 9999;
+  pointer-events: none;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  /* 長いファイル名・コピー本文はウインドウ内で折り返す */
+  max-width: 280px;
+  word-break: break-all;
+  line-height: 1.4;
 }
 
 .item-time {

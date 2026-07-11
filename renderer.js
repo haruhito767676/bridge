@@ -750,79 +750,107 @@ function splitNameExt(name) {
     : { base: name, ext: '' };
 }
 
-// ---- ピクセル幅ベースの Finder 方式ファイル名省略 ----
+// ---- 全角・半角の視覚幅を考慮した Finder 流の中央省略 ----
 
-// 幅測定用の隠しスパン (使い回し)。実際の表示 (.name-main) と同じフォント指定を
-// CSS (.name-measure) 側で揃え、getBoundingClientRect().width で実ピクセル幅を測る
-let measureEl = null;
-
-function measureTextWidth(text) {
-  if (!measureEl) {
-    measureEl = document.createElement('span');
-    measureEl.className = 'name-measure';
-    document.body.appendChild(measureEl);
-  }
-  measureEl.textContent = text;
-  return measureEl.getBoundingClientRect().width;
+// 視覚幅カウント: 全角文字・英大文字 = 2、半角英数・記号 (ASCII) = 1
+function charUnits(ch) {
+  const cp = ch.codePointAt(0);
+  const isHalfAscii = cp >= 0x20 && cp <= 0x7e;
+  const isUpper = cp >= 0x41 && cp <= 0x5a;
+  return isHalfAscii && !isUpper ? 1 : 2;
 }
 
-// 本体文字列が availableWidth (px) に収まるならそのまま返し、
-// 超える場合のみ「前半 ⋯ 後半」の形式へ動的にトリミングする。
-// 後半は末尾 5 文字を優先確保し、前半に残せる文字数を二分探索で最大化する
-// (全文字を 1 文字ずつ測るより測定回数が桁違いに少ない)。
-// サロゲートペア (絵文字等) を分断しないよう Array.from でコードポイント単位に扱う
-const NAME_TAIL_CHARS = 5;
-
-function truncateToWidth(base, availableWidth) {
-  if (measureTextWidth(base) <= availableWidth) return base;
-
-  const chars = Array.from(base);
-  const fits = (head, tail) =>
-    measureTextWidth(
-      chars.slice(0, head).join('') + '⋯' + chars.slice(chars.length - tail).join('')
-    ) <= availableWidth;
-
-  // 幅が極端に狭いときは確保する末尾文字数自体を減らして収める
-  let tail = Math.min(NAME_TAIL_CHARS, chars.length);
-  while (tail > 0 && !fits(0, tail)) tail--;
-  if (tail === 0 && !fits(0, 0)) return '⋯'; // ⋯ すら入らない極小幅 (CSS の ellipsis が保険)
-
-  let lo = 0;
-  let hi = chars.length - tail;
-  while (lo < hi) {
-    const mid = Math.ceil((lo + hi) / 2);
-    if (fits(mid, tail)) lo = mid;
-    else hi = mid - 1;
-  }
-  return chars.slice(0, lo).join('') + '⋯' + chars.slice(chars.length - tail).join('');
+function countUnits(text) {
+  let total = 0;
+  for (const ch of text) total += charUnits(ch);
+  return total;
 }
 
-// 直近の render() で生成したファイル名要素の一覧。
-// DOM へ追加しレイアウトが確定した後 (render 末尾・ウインドウリサイズ時) に
-// コンテナの実幅を測ってトリミングを適用するために保持する
-let nameEntries = [];
+// 先頭 (fromEnd=true なら末尾) からカウント maxUnits 分の文字列を切り出す。
+// Array.from でコードポイント単位に扱い、サロゲートペア (絵文字等) を分断しない
+function sliceUnits(text, maxUnits, fromEnd) {
+  const chars = Array.from(text);
+  if (fromEnd) chars.reverse();
+  const out = [];
+  let total = 0;
+  for (const ch of chars) {
+    total += charUnits(ch);
+    if (total > maxUnits) break;
+    out.push(ch);
+  }
+  if (fromEnd) out.reverse();
+  return out.join('');
+}
 
-function applyNameTruncation() {
-  for (const { container, nameEl, extEl, baseText } of nameEntries) {
-    const available =
-      container.getBoundingClientRect().width - extEl.getBoundingClientRect().width;
-    nameEl.textContent = truncateToWidth(baseText, available);
+// 本体 (拡張子除く) の合計カウントが 14 (全角7文字相当) 以内ならそのまま「名前 + 拡張子」。
+// 超える場合のみ:
+//   拡張子あり … 「先頭カウント8 + ⋯ + 末尾カウント4 + 拡張子」の 1 つの文字列に整形 (中央省略)
+//   拡張子なし (フォルダ等) … 先頭カウント14 で切って末尾に「...」(末尾省略)
+// 後から描画結果を測って削り直す補正は行わず、この一発整形だけで
+// デフォルトのシェルフ幅に確実に収まるカウント数にしてある
+const NAME_MAX_UNITS = 14;
+const NAME_HEAD_UNITS = 8;
+const NAME_TAIL_UNITS = 4;
+
+function formatFileName(name, hasExt) {
+  const { base, ext } = hasExt ? splitNameExt(name) : { base: name, ext: '' };
+  
+  // ❌ ここを共通の NAME_MAX_UNITS にするのをやめる
+  // if (countUnits(base) <= NAME_MAX_UNITS) return base + ext;
+
+  // 🟢 1. 拡張子がない（フォルダやクリップボード）場合：限界の「28」まで目一杯使う！
+  if (!ext) {
+    if (countUnits(base) <= 28) return base; // 28カウント以内ならそのまま表示
+    return sliceUnits(base, 28, false) + '...'; // 超えたら28で切って末尾「...」
+  }
+  
+  // 🟢 2. 拡張子がある（ファイル）場合：安全第一の「14」で中央省略する
+  if (countUnits(base) <= 14) return base + ext;
+  
+  return (
+    sliceUnits(base, 8, false) + '⋯' + sliceUnits(base, 4, true) + ext
+  );
+}
+
+// ---- カスタムツールチップ (Electron では OS 標準の title 属性が機能しないため自作) ----
+
+// 表示中のツールチップは常に 1 つ。mouseleave・再描画で確実に消す
+let tooltipEl = null;
+
+function hideTooltip() {
+  if (tooltipEl) {
+    tooltipEl.remove();
+    tooltipEl = null;
   }
 }
 
-// ウインドウ幅が変わったら利用可能幅も変わるので再計測して省略をやり直す
-let resizeRaf = null;
-window.addEventListener('resize', () => {
-  if (resizeRaf) cancelAnimationFrame(resizeRaf);
-  resizeRaf = requestAnimationFrame(() => {
-    resizeRaf = null;
-    applyNameTruncation();
-  });
-});
+function showTooltip(target, text) {
+  hideTooltip();
+  tooltipEl = document.createElement('div');
+  tooltipEl.className = 'bridge-tooltip';
+  tooltipEl.textContent = text;
+  document.body.appendChild(tooltipEl);
+
+  // カード (タイトル要素) のすぐ下に出し、実寸を測ってから画面端からのはみ出しを補正する
+  const rect = target.getBoundingClientRect();
+  const tipRect = tooltipEl.getBoundingClientRect();
+  let left = rect.left;
+  let top = rect.bottom + 6;
+  if (left + tipRect.width > window.innerWidth - 8) {
+    left = Math.max(8, window.innerWidth - 8 - tipRect.width);
+  }
+  if (top + tipRect.height > window.innerHeight - 8) {
+    top = rect.top - tipRect.height - 6; // 下に収まらないときだけ上に反転
+  }
+  tooltipEl.style.left = `${left}px`;
+  tooltipEl.style.top = `${top}px`;
+}
 
 function render() {
+  // リストを作り直すと mouseleave が発火しないままホバー元の要素が消えるため、
+  // 残骸ツールチップをここで必ず取り除く
+  hideTooltip();
   listEl.textContent = '';
-  nameEntries = [];
   visibleItems = filterItems();
 
   for (const item of visibleItems) {
@@ -838,7 +866,6 @@ function render() {
     if (item.removing) li.classList.add('removing');
     if (item.downloading) li.classList.add('downloading');
     li.draggable = !item.removing && !item.downloading;
-    li.title = item.kind === 'clip-text' ? item.text : item.path || item.name;
     li.addEventListener('click', (e) => onItemClick(e, item));
     li.addEventListener('dragstart', (e) => onItemDragStart(e, item));
 
@@ -866,38 +893,27 @@ function render() {
     const lines = document.createElement('div');
     lines.className = 'item-lines';
 
-    // Finder ライク: 名前 (.name-main) の直後に拡張子 (.name-ext) を隙間なく置く 1 行構成。
-    // ここでは全文のまま入れておき、render 末尾の applyNameTruncation() が
-    // コンテナの実ピクセル幅を測って「前半 ⋯ 後半」へ動的にトリミングする。
-    // フォルダ・クリップボード履歴は拡張子分割をせず名前全体を本体として扱う
-    const nameContainer = document.createElement('div');
-    nameContainer.className = 'item-name-container';
-
-    const nameMain = document.createElement('span');
-    nameMain.className = 'name-main' + (item.kind === 'clip-text' ? ' clip-preview' : '');
-    const nameExt = document.createElement('span');
-    nameExt.className = 'name-ext';
-
-    // ホバー時に OS ネイティブのツールチップで全文 (クリップボードは本文全体) を必ず出せるよう、
-    // ファイル名系のすべての要素に title を付与する
-    const fullTitle = item.kind === 'clip-text' ? item.text : item.name;
-    nameContainer.title = fullTitle;
-    nameMain.title = fullTitle;
-    nameExt.title = fullTitle;
+    // タイトルは JS で整形済みの「1 つの文字列」を左詰めで表示する。
+    // 全角=2 / 半角=1 (英大文字は 2) の視覚幅カウントで 28 を超えるときだけ
+    // 「前半(14) ⋯ 後半(6) + 拡張子」の中央省略 (フォルダ等の拡張子なしは末尾を ... で省略)
+    const titleEl = document.createElement('div');
+    titleEl.className = 'item-title' + (item.kind === 'clip-text' ? ' clip-preview' : '');
 
     if (item.kind === 'clip-text') {
-      nameMain.textContent = item.name; // 冒頭プレビューは 2 行折り返しのままトリミング対象外
+      titleEl.textContent = item.name; // 冒頭プレビューは 2 行折り返し (CSS クランプ) のまま
     } else {
       const isRealFile = isUserFile && item.fileKind !== 'フォルダ';
-      const { base, ext } = isRealFile ? splitNameExt(item.name) : { base: item.name, ext: '' };
-      const baseText = item.downloading ? `ダウンロード中… ${base}` : base;
-      nameMain.textContent = baseText;
-      nameExt.textContent = ext;
-      nameEntries.push({ container: nameContainer, nameEl: nameMain, extEl: nameExt, baseText });
+      const prefix = item.downloading ? 'ダウンロード中… ' : '';
+      titleEl.textContent = prefix + formatFileName(item.name, isRealFile);
     }
 
-    nameContainer.append(nameMain, nameExt);
-    lines.appendChild(nameContainer);
+    // ホバーで全文 (クリップボードは本文全体) を自作ツールチップ表示。
+    // OS 標準の title 属性は Electron のウインドウ制約で機能しないため使わない
+    const fullText = item.kind === 'clip-text' ? item.text : item.name;
+    titleEl.addEventListener('mouseenter', () => showTooltip(titleEl, fullText));
+    titleEl.addEventListener('mouseleave', hideTooltip);
+
+    lines.appendChild(titleEl);
 
     if (item.timestamp) {
       const time = document.createElement('span');
@@ -939,10 +955,6 @@ function render() {
       ? `${items.length} 個`
       : `${visibleItems.length} / ${items.length} 個`;
   clearBtn.hidden = noItems;
-
-  // リストの表示/非表示が確定しレイアウトが取れる状態になってから、
-  // 各ファイル名をコンテナの実ピクセル幅に合わせて「前半 ⋯ 後半」へトリミングする
-  applyNameTruncation();
 
   // 終了時クリーンアップ (残骸ファイル削除) の判定用に、
   // 「現在リストに保持しているパス」を Main プロセスへ常時共有する
