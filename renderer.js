@@ -740,6 +740,20 @@ function formatTime(timestamp) {
   return `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
+// ファイル名を中央で省略し、拡張子だけは必ず末尾に残す (例: "very-long-report-2024...pdf")
+// フォルダ/クリップボード履歴には使わない (拡張子を保護する意味がないため通常の末尾省略のまま)
+function truncateMiddleKeepExt(name, maxLen = 15) {
+  if (name.length <= maxLen) return name;
+
+  const dotIndex = name.lastIndexOf('.');
+  const hasExt = dotIndex > 0 && dotIndex < name.length - 1; // 先頭ドット(隠しファイル)は拡張子扱いしない
+  const ext = hasExt ? name.slice(dotIndex) : '';
+  const base = hasExt ? name.slice(0, dotIndex) : name;
+
+  const headLen = Math.max(1, maxLen - ext.length - 3); // 3 = '...' の長さ
+  return `${base.slice(0, headLen)}...${ext}`;
+}
+
 function render() {
   listEl.textContent = '';
   visibleItems = filterItems();
@@ -787,7 +801,11 @@ function render() {
 
     const name = document.createElement('span');
     name.className = 'file-name' + (item.kind === 'clip-text' ? ' clip-preview' : '');
-    name.textContent = item.downloading ? `ダウンロード中… ${item.name}` : item.name;
+    // フォルダ・クリップボード履歴は拡張子を残す必要がないため従来通り末尾を CSS の ellipsis に任せる。
+    // 実ファイルだけは拡張子が隠れないよう中央省略で整形する
+    const isRealFile = isUserFile && item.fileKind !== 'フォルダ';
+    const displayName = isRealFile ? truncateMiddleKeepExt(item.name) : item.name;
+    name.textContent = item.downloading ? `ダウンロード中… ${displayName}` : displayName;
     lines.appendChild(name);
 
     if (item.timestamp) {
