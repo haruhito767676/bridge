@@ -31,6 +31,9 @@ contextBridge.exposeInMainWorld('bridge', {
   expandShelter: () => ipcRenderer.send('shelter-expand'),
   collapseShelter: () => ipcRenderer.send('shelter-collapse'),
 
+  // ウインドウが展開された瞬間の通知 (検索状態のリセット & 検索バーへの自動フォーカス用)
+  onShelterExpanded: (callback) => ipcRenderer.on('shelter-expanded', () => callback()),
+
   // クリップボード監視で検知された新規コピーを受け取る
   onClipboardItem: (callback) =>
     ipcRenderer.on('clipboard-item', (_event, item) => callback(item)),

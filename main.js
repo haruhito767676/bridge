@@ -64,6 +64,9 @@ function expandShelter() {
     win.setBounds(dockedBoundsForDisplay(display, false), false);
   }
   applyDock(true, display);
+
+  // 展開のたびに Renderer へ通知し、検索状態の完全リセットと検索バーへの自動フォーカスを行わせる
+  if (rendererReady) win.webContents.send('shelter-expanded');
 }
 
 function collapseShelter() {
@@ -368,8 +371,10 @@ ipcMain.on('preview-file', (event, filePath, fileName) => {
 // ---- クリップボード履歴（バックグラウンド監視）----
 
 const CLIPBOARD_POLL_MS = 500;
-// 直近の履歴のみ保持する上限。超えた分は古いものから捨て、裏で作った一時ファイルも掃除する
-const MAX_CLIP_HISTORY = 20;
+// ハイブリッド上限: テキスト履歴は資産として多めに残し、
+// 裏生成 PNG を伴う画像履歴はディスク保護のため少なめに抑える
+const MAX_TEXT_HISTORY = 100;
+const MAX_IMAGE_HISTORY = 30;
 let lastClipText = '';
 let lastClipImageKey = '';
 let lastClipFileKey = ''; // Finder でコピーされたファイル群の同一判定キー (パスを \n 連結)
@@ -382,10 +387,18 @@ const clipHistory = [];
 function pushClipHistory(entry) {
   clipHistory.unshift(entry);
   // 上限あふれ時のディスク削除は、表示リストの真実を持つ Renderer 側のトリミング
-  // (delete-temp-file IPC) が担う。Main 単独で消すと、ユーザーが × で別の履歴を
-  // 消したときに両者の並びがズレて「まだ表示中のファイル」を誤削除しうるため、
-  // ここでは配列の長さだけを抑える (消し損ねは終了時クリーンアップが回収する)
-  while (clipHistory.length > MAX_CLIP_HISTORY) clipHistory.pop();
+  // (delete-temp-file IPC → fs.promises.unlink) が担う。Main 単独で消すと、ユーザーが
+  // × で別の履歴を消したときに両者の並びがズレて「まだ表示中のファイル」を誤削除
+  // しうるため、ここでは種別ごとの配列の長さだけを抑える
+  // (消し損ねは終了時クリーンアップが回収する)
+  let textCount = 0;
+  let imageCount = 0;
+  for (let i = 0; i < clipHistory.length; ) {
+    const isImage = clipHistory[i].type === 'clipboard-image';
+    const over = isImage ? ++imageCount > MAX_IMAGE_HISTORY : ++textCount > MAX_TEXT_HISTORY;
+    if (over) clipHistory.splice(i, 1);
+    else i++;
+  }
 }
 
 // 画像の同一判定キー (サイズ + ピクセルの MD5)。Bridge 自身の書き戻し検知スルーにも使う

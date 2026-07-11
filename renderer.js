@@ -12,34 +12,32 @@ const emptyLabel = emptyEl.querySelector('.empty-label');
 const countEl = document.getElementById('item-count');
 const clearBtn = document.getElementById('clear-button');
 const searchBar = document.getElementById('search-bar');
+const suggestEl = document.getElementById('search-suggest');
+const badgeEl = document.getElementById('filter-badge');
+const badgeLabel = document.getElementById('filter-badge-label');
+const badgeRemove = document.getElementById('filter-badge-remove');
 
-// ---- インクリメンタル検索 (入力のたびにリアルタイム絞り込み) ----
+// ---- スマート検索 (フィルターバッジ + サジェスト + インクリメンタル絞り込み) ----
 
 // 現在表示中のアイテム (検索フィルター適用後、items と同じく最新順)。
 // render() が更新し、矩形選択・Shift 範囲選択・⌘A の添字は常にこの配列を基準にする
 let visibleItems = [];
 let searchQuery = '';
 
-// 特殊フィルター: `:f` / `:file` で始まれば一時保存ファイル (.user-dropped) のみ、
-// `:c` / `:clip` で始まればクリップボード履歴 (.clipboard-history) のみに絞る。
-// プレフィックスの後に続く文字列は通常のキーワードとして追加で絞り込む
-function parseSearchQuery(raw) {
-  const query = raw.trim();
-  const m = /^:(file|clip|f|c)(?:\s+(.*))?$/i.exec(query);
-  if (!m) return { kind: null, keyword: query.toLowerCase() };
-  return {
-    kind: m[1].toLowerCase().startsWith('f') ? 'file' : 'clip',
-    keyword: (m[2] || '').trim().toLowerCase(),
-  };
-}
+// 種別フィルターは「Tab / Enter でバッジ化が確定したときだけ」有効になるモードフラグで持つ。
+// 生の入力文字列に ":file" 等がたまたま含まれていてもフィルターとは解釈しない (誤検知の完全回避)
+let filterMode = null; // 'file' | 'clip' | null
 
 function filterItems() {
-  if (!searchQuery.trim()) return items.slice();
-  const { kind, keyword } = parseSearchQuery(searchQuery);
+  const keyword = searchQuery.trim().toLowerCase();
+  // バッジ未確定の ":xxx" 入力中はコマンド候補の打鍵途中なので、キーワードとして絞り込まない
+  const pendingCommand = !filterMode && keyword.startsWith(':');
+  if (!filterMode && (!keyword || pendingCommand)) return items.slice();
+
   return items.filter((item) => {
-    if (kind === 'file' && item.kind !== 'file') return false;
-    if (kind === 'clip' && item.kind === 'file') return false;
-    if (!keyword) return true;
+    if (filterMode === 'file' && item.kind !== 'file') return false;
+    if (filterMode === 'clip' && item.kind === 'file') return false;
+    if (!keyword || pendingCommand) return true;
     // ファイル名・パス・テキストの中身への部分一致
     const haystack = [item.name, item.path, item.text]
       .filter(Boolean)
@@ -49,21 +47,157 @@ function filterItems() {
   });
 }
 
-searchBar.addEventListener('input', () => {
+// ---- サジェスト (「:」入力で file / clip を検索窓直下に浮き出させる) ----
+
+const FILTER_SUGGESTIONS = [
+  { mode: 'file', label: 'file' }, // 一時保存ファイル (.user-dropped) のみ
+  { mode: 'clip', label: 'clip' }, // クリップボード履歴 (.clipboard-history) のみ
+];
+// バッジ内表示名: コマンド文字列ではなく名詞に変換 (内部の filterMode フラグはコマンド名のまま保持)
+const FILTER_BADGE_LABELS = {
+  file: 'ファイル',
+  clip: 'クリップボード',
+};
+let suggestIndex = -1; // Tab / ↑↓ キーで動くハイライト位置。-1 は「未選択」(Enter は通常の文字検索として扱う)
+
+// 現在の入力に対して表示すべき候補。バッジ確定済み、または「:」始まりでなければ空
+function currentSuggestions() {
+  if (filterMode) return [];
+  const value = searchBar.value;
+  if (!value.startsWith(':')) return [];
+  const typed = value.slice(1).split(/\s/)[0].toLowerCase();
+  return FILTER_SUGGESTIONS.filter((s) => s.label.startsWith(typed));
+}
+
+function renderSuggest() {
+  const matches = currentSuggestions();
+  suggestEl.textContent = '';
+  if (matches.length === 0 || document.activeElement !== searchBar) {
+    suggestEl.hidden = true;
+    return;
+  }
+  if (suggestIndex >= matches.length) suggestIndex = 0;
+  matches.forEach((s, i) => {
+    const li = document.createElement('li');
+    li.textContent = s.label; // 絵文字などの装飾なし、テキストのみ
+    if (i === suggestIndex) li.classList.add('active');
+    // click だと先に blur が走ってサジェストが消えるため mousedown で確定する
+    li.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      commitFilter(s.mode);
+    });
+    suggestEl.appendChild(li);
+  });
+  suggestEl.hidden = false;
+}
+
+// サジェストの確定: 入力中の ":xxx" を検索窓左端のテキストバッジへ吸着させる。
+// ":file foo" のように後続キーワードが打たれていればそれは入力欄に残し、続けて絞り込める
+function commitFilter(mode) {
+  filterMode = mode;
+  badgeLabel.textContent = FILTER_BADGE_LABELS[mode];
+  badgeEl.classList.add('search-badge');
+  badgeEl.classList.toggle('badge-file', mode === 'file');
+  badgeEl.classList.toggle('badge-clip', mode === 'clip');
+  badgeEl.hidden = false;
+  const v = searchBar.value;
+  searchBar.value = v.startsWith(':') ? v.replace(/^:\S*\s*/, '') : v;
   searchQuery = searchBar.value;
-  // 絞り込みで見えなくなったアイテムが選択されたまま残らないようにする
+  suggestIndex = -1;
+  selectedItems.clear();
+  lastSelectedIndex = null;
+  renderSuggest(); // filterMode が立ったので必ず隠れる
+  searchBar.focus();
+  render();
+}
+
+function clearFilterBadge() {
+  if (!filterMode) return;
+  filterMode = null;
+  badgeEl.hidden = true;
+  badgeLabel.textContent = '';
+  badgeEl.classList.remove('search-badge', 'badge-file', 'badge-clip');
+  suggestIndex = -1;
+  selectedItems.clear();
+  lastSelectedIndex = null;
+  renderSuggest();
+  render();
+}
+
+// 検索窓・バッジ・サジェスト・選択状態をまとめて初期状態へ戻す (全リスト表示に復帰)
+function resetSearchState() {
+  searchBar.value = '';
+  searchQuery = '';
+  filterMode = null;
+  badgeEl.hidden = true;
+  badgeLabel.textContent = '';
+  badgeEl.classList.remove('search-badge', 'badge-file', 'badge-clip');
+  suggestIndex = -1;
+  suggestEl.hidden = true;
+  suggestEl.textContent = '';
   selectedItems.clear();
   lastSelectedIndex = null;
   render();
+}
+
+badgeRemove.addEventListener('click', () => {
+  clearFilterBadge();
+  searchBar.focus();
 });
 
-// Esc で検索をクリアしてリスト全体へ戻る
+searchBar.addEventListener('input', () => {
+  searchQuery = searchBar.value;
+  suggestIndex = -1;
+  // 絞り込みで見えなくなったアイテムが選択されたまま残らないようにする
+  selectedItems.clear();
+  lastSelectedIndex = null;
+  renderSuggest();
+  render();
+});
+
+searchBar.addEventListener('focus', () => {
+  suggestIndex = -1;
+  renderSuggest();
+});
+searchBar.addEventListener('blur', () => {
+  suggestEl.hidden = true;
+});
+
 searchBar.addEventListener('keydown', (e) => {
+  const matches = currentSuggestions();
+
+  // サジェスト表示中: Tab / ↑↓ でハイライトを順番に移動。Enter はハイライト済みの項目がある時だけ確定する
+  // (何も選択されていない状態の Enter はここでは何もせず、通常の文字検索として扱われる)
+  if (matches.length > 0 && !suggestEl.hidden) {
+    if (e.key === 'Tab' || e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      const forward = e.key === 'ArrowDown' || (e.key === 'Tab' && !e.shiftKey);
+      if (suggestIndex === -1) {
+        suggestIndex = forward ? 0 : matches.length - 1;
+      } else {
+        suggestIndex = (suggestIndex + (forward ? 1 : matches.length - 1)) % matches.length;
+      }
+      renderSuggest();
+      return;
+    }
+    if (e.key === 'Enter' && suggestIndex !== -1) {
+      e.preventDefault();
+      commitFilter(matches[Math.min(suggestIndex, matches.length - 1)].mode);
+      return;
+    }
+  }
+
+  // 入力欄が空の状態での Backspace はバッジの消去
+  if (e.key === 'Backspace' && filterMode && searchBar.value === '') {
+    e.preventDefault();
+    clearFilterBadge();
+    return;
+  }
+
+  // Esc で検索・バッジを完全クリアしてリスト全体へ戻る
   if (e.key === 'Escape') {
-    searchBar.value = '';
-    searchQuery = '';
+    resetSearchState();
     searchBar.blur();
-    render();
   }
 });
 
@@ -326,20 +460,30 @@ dropZone.addEventListener('drop', (e) => {
 // bridge:// URL スキーム経由 (Mac クイックアクション等) で届いたファイル
 window.bridge.onAddFile((filePath) => addLocalFile(filePath));
 
+// ウインドウが展開されるたびに検索状態 (文字列・バッジ・サジェスト・選択) を完全リセットして
+// 最新の全リスト表示へ戻し、そのまま打ち始められるよう検索バーへ自動フォーカスする
+window.bridge.onShelterExpanded(() => {
+  resetSearchState();
+  searchBar.focus();
+});
+
 // ---- クリップボード履歴（Main の監視から届いた新規コピーをタイムライン先頭へ）----
 
-const MAX_CLIP_ITEMS = 20; // 直近 20 件だけ保持し、古い履歴は自動削除してリストの埋もれを防ぐ
+// ハイブリッド上限: テキスト履歴は検索資産として 100 件まで保持し、
+// 裏生成 PNG を伴う画像履歴はディスク保護のため 30 件で打ち切る
+const MAX_TEXT_CLIP_ITEMS = 100;
+const MAX_IMAGE_CLIP_ITEMS = 30;
 
 function trimClipHistory() {
-  const clips = items.filter((it) => it.kind !== 'file');
-  for (const extra of clips.slice(MAX_CLIP_ITEMS)) {
+  const texts = items.filter((it) => it.kind === 'clip-text');
+  const images = items.filter((it) => it.kind === 'clip-image');
+  const overflow = [...texts.slice(MAX_TEXT_CLIP_ITEMS), ...images.slice(MAX_IMAGE_CLIP_ITEMS)];
+  for (const extra of overflow) {
     items.splice(items.indexOf(extra), 1);
     selectedItems.delete(extra);
-    // 上限あふれで履歴から消える画像は裏生成の clipboard_*.png なので、
-    // Main 側に依頼してディスクからも完全削除しストレージを圧迫しない
-    if (extra.kind === 'clip-image' && extra.path) {
-      window.bridge.deleteTempFile(extra.path);
-    }
+    // 上限あふれで履歴から消える裏生成ファイル (clipboard_*.png / snippet_*.txt) は
+    // Main 側に依頼して fs.promises.unlink でディスクからも完全削除し、ストレージを圧迫しない
+    if (extra.path) window.bridge.deleteTempFile(extra.path);
   }
 }
 
