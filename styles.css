@@ -545,26 +545,20 @@ body.drag-mode #drop-zone.drag-over {
   line-height: 1.4;
 }
 
-/* 1段目: 出身地バッジ + 時刻 の横並び行 */
-.item-meta-top {
+/* 1段目: 「種別名 · 時刻」 (例: "PNGファイル · 15:13") */
+.item-meta-line {
+  font-size: 10.5px;
+  color: var(--fg-dim);
+}
+
+/* 2段目: 出身地バッジの行。外部デバイス由来のアイテムにのみ生成される (ローカルは行ごと省略) */
+.item-badge-line {
   display: flex;
   align-items: center;
-  gap: 6px;
 }
 
-/* 2段目: 種別ラベル (画像コピー / PNG ファイル 等) */
-.item-kind {
-  font-size: 10.5px;
-  color: var(--fg-dim);
-}
-
-.item-time {
-  font-size: 10.5px;
-  color: var(--fg-dim);
-}
-
-/* ---- 出身デバイスバッジ (ローカル / 他拠点から同期されたアイテムの見分け) ----
-   1段目でバッジ + 時刻が横並びになる小さなすりガラスチップ。カードの邪魔をしない最小サイズ */
+/* ---- 出身デバイスバッジ (外部デバイスから同期されたアイテムの見分け) ----
+   2段目に単独で置かれる小さなすりガラスチップ。カードの邪魔をしない最小サイズ */
 
 .device-badge {
   display: inline-block;

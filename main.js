@@ -764,7 +764,10 @@ const PROBE_TIMEOUT_MS = 800;
 const SYNC_BODY_LIMIT = 10 * 1024 * 1024;
 const MAX_SYNC_STORE = 500;
 
-let syncConfig = { port: DEFAULT_SYNC_PORT, peers: [], autoScan: true };
+// 同期通信の認証トークンを載せる HTTP ヘッダー名 (サーバー・クライアント共通)
+const SYNC_TOKEN_HEADER = 'x-bridge-token';
+
+let syncConfig = { port: DEFAULT_SYNC_PORT, peers: [], autoScan: true, secretToken: null };
 
 // 同期台帳: 自分が生成したアイテムと他拠点から受信したアイテムの両方を持ち、
 // 3 台以上のメッシュ構成でも任意の 2 台が到達可能でさえあれば全体が収束するよう中継役も担う。
@@ -778,27 +781,46 @@ function syncConfigPath() {
 }
 
 // 静的ピア指定用の設定ファイル。無ければデフォルトを書き出してユーザーが追記できるようにする
-// 例: { "port": 9095, "peers": ["192.168.1.23", "192.168.1.40:9095"], "autoScan": true }
+// 例: { "port": 9095, "peers": ["192.168.1.23", "192.168.1.40:9095"], "autoScan": true,
+//       "myDeviceName": "Win-Desk", "secretToken": "全デバイスで揃える共有キー" }
 function loadSyncConfig() {
+  let parsed = null;
   try {
-    const parsed = JSON.parse(fs.readFileSync(syncConfigPath(), 'utf8'));
+    parsed = JSON.parse(fs.readFileSync(syncConfigPath(), 'utf8'));
+  } catch {
+    parsed = null; // 未作成・壊れている場合はデフォルト設定から作り直す
+  }
+
+  if (parsed && typeof parsed === 'object') {
     syncConfig = {
       port: Number(parsed.port) || DEFAULT_SYNC_PORT,
       peers: Array.isArray(parsed.peers) ? parsed.peers.filter((p) => typeof p === 'string') : [],
       autoScan: parsed.autoScan !== false,
+      secretToken:
+        typeof parsed.secretToken === 'string' && parsed.secretToken.trim()
+          ? parsed.secretToken.trim()
+          : null,
     };
     // myDeviceName が指定されていれば、設定画面なしに JSON 編集だけで表示名を短縮できるようにする
     if (typeof parsed.myDeviceName === 'string' && parsed.myDeviceName.trim()) {
       deviceName = parsed.myDeviceName.trim();
     }
-  } catch {
+  }
+
+  // secretToken が未設定なら暗号学的に安全なランダムキーを自動生成して設定ファイルへ書き戻す。
+  // 同期させたいデバイス同士では sync-config.json の secretToken を同じ値に手動で揃えること
+  // (一致しない相手からのアクセスは全エンドポイントで 401 遮断される)
+  if (!syncConfig.secretToken) {
+    syncConfig.secretToken = crypto.randomBytes(32).toString('hex');
+    const out =
+      parsed && typeof parsed === 'object'
+        ? parsed
+        : { port: DEFAULT_SYNC_PORT, peers: [], autoScan: true };
+    out.secretToken = syncConfig.secretToken;
     try {
-      fs.writeFileSync(
-        syncConfigPath(),
-        JSON.stringify({ port: DEFAULT_SYNC_PORT, peers: [], autoScan: true }, null, 2)
-      );
+      fs.writeFileSync(syncConfigPath(), JSON.stringify(out, null, 2));
     } catch {
-      // 書き出せなくてもデフォルト設定のまま動作を続ける
+      // 書き出せなくてもメモリ上のトークンで動作を続ける (次回起動では別のトークンが生成される)
     }
   }
 }
@@ -886,22 +908,31 @@ function addPeer(host, port, device) {
 
 function httpGetJson(host, port, pathName, timeoutMs = PROBE_TIMEOUT_MS) {
   return new Promise((resolve, reject) => {
-    const req = http.get({ host, port, path: pathName, timeout: timeoutMs }, (res) => {
-      let body = '';
-      res.setEncoding('utf8');
-      res.on('data', (c) => {
-        body += c;
-        if (body.length > SYNC_BODY_LIMIT) req.destroy(new Error('response too large'));
-      });
-      res.on('end', () => {
-        if (res.statusCode !== 200) return reject(new Error(`HTTP ${res.statusCode}`));
-        try {
-          resolve(JSON.parse(body));
-        } catch (err) {
-          reject(err);
-        }
-      });
-    });
+    const req = http.get(
+      {
+        host,
+        port,
+        path: pathName,
+        timeout: timeoutMs,
+        headers: { [SYNC_TOKEN_HEADER]: syncConfig.secretToken || '' },
+      },
+      (res) => {
+        let body = '';
+        res.setEncoding('utf8');
+        res.on('data', (c) => {
+          body += c;
+          if (body.length > SYNC_BODY_LIMIT) req.destroy(new Error('response too large'));
+        });
+        res.on('end', () => {
+          if (res.statusCode !== 200) return reject(new Error(`HTTP ${res.statusCode}`));
+          try {
+            resolve(JSON.parse(body));
+          } catch (err) {
+            reject(err);
+          }
+        });
+      }
+    );
     req.on('timeout', () => req.destroy(new Error('timeout')));
     req.on('error', reject);
   });
@@ -917,7 +948,11 @@ function httpPostJson(host, port, pathName, payload, timeoutMs = 3000) {
         path: pathName,
         method: 'POST',
         timeout: timeoutMs,
-        headers: { 'Content-Type': 'application/json; charset=utf-8', 'Content-Length': Buffer.byteLength(body) },
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8',
+          'Content-Length': Buffer.byteLength(body),
+          [SYNC_TOKEN_HEADER]: syncConfig.secretToken || '',
+        },
       },
       (res) => {
         res.resume(); // レスポンス本文は読み捨てる (ステータスだけ見る)
@@ -941,7 +976,13 @@ function sanitizeSyncFileName(name) {
 function downloadEntryFile(peer, entry) {
   return new Promise((resolve, reject) => {
     const req = http.get(
-      { host: peer.host, port: peer.port, path: `/file?id=${encodeURIComponent(entry.id)}`, timeout: 15000 },
+      {
+        host: peer.host,
+        port: peer.port,
+        path: `/file?id=${encodeURIComponent(entry.id)}`,
+        timeout: 15000,
+        headers: { [SYNC_TOKEN_HEADER]: syncConfig.secretToken || '' },
+      },
       (res) => {
         if (res.statusCode !== 200) {
           res.resume();
@@ -1110,6 +1151,18 @@ function respondJson(res, obj) {
   res.end(JSON.stringify(obj));
 }
 
+// リクエストヘッダーの secretToken を厳格に照合する。
+// 文字列比較のタイミング差からトークンを推測されないよう timingSafeEqual で比較する
+function isAuthorizedRequest(req) {
+  const provided = Buffer.from(String(req.headers[SYNC_TOKEN_HEADER] || ''), 'utf8');
+  const expected = Buffer.from(syncConfig.secretToken || '', 'utf8');
+  return (
+    expected.length > 0 &&
+    provided.length === expected.length &&
+    crypto.timingSafeEqual(provided, expected)
+  );
+}
+
 function startSyncServer() {
   const server = http.createServer((req, res) => {
     // ソケット異常 (切断・ハングアップ) はこの接続だけを res.end() で安全に閉じ、
@@ -1122,6 +1175,15 @@ function startSyncServer() {
       }
     });
     res.on('error', () => {});
+
+    // 秘密鍵認証: secretToken が一致しないリクエストは /ping・/items・/file・/push を含む
+    // 全エンドポイントで 401 Unauthorized として即時遮断する。これにより同一 LAN 内に
+    // 他人の Bridge が居ても、クリップボード履歴やファイルが混線・漏洩することはない
+    if (!isAuthorizedRequest(req)) {
+      res.writeHead(401);
+      res.end();
+      return;
+    }
 
     let url;
     try {

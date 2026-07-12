@@ -909,22 +909,16 @@ function showTooltip(target, text) {
 
 // ---- 出身デバイスバッジ (アイテムがどのデバイスで生まれたかを一目で示す) ----
 
-// fromDevice が空 (ローカル生成) または自分のデバイス名なら「ローカル」、
-// 他拠点から同期されたものはその拠点名 (例: "Win-PC", "MacBook") をそのまま表示する
+// fromDevice が空 (ローカル生成) または自分のデバイス名ならバッジは出さず null を返す。
+// 外部デバイスから同期されたものだけ拠点名 (例: "Win-PC", "MacBook") のバッジを作る
 function createDeviceBadge(item) {
+  if (!item.fromDevice || item.fromDevice === localDeviceName) return null;
   const badge = document.createElement('div');
-  badge.className = 'device-badge';
-  const isLocal = !item.fromDevice || item.fromDevice === localDeviceName;
-  if (isLocal) {
-    badge.textContent = 'ローカル';
-    badge.classList.add('device-local');
-  } else {
-    badge.textContent = item.fromDevice;
-    badge.classList.add('device-remote');
-    // 出身デバイスの OS で色味を変える (Windows は青みがかった背景)
-    if (item.fromPlatform === 'win32') badge.classList.add('device-win');
-    else if (item.fromPlatform === 'darwin') badge.classList.add('device-mac');
-  }
+  badge.className = 'device-badge device-remote';
+  badge.textContent = item.fromDevice;
+  // 出身デバイスの OS で色味を変える (Windows は青みがかった背景)
+  if (item.fromPlatform === 'win32') badge.classList.add('device-win');
+  else if (item.fromPlatform === 'darwin') badge.classList.add('device-mac');
   return badge;
 }
 
@@ -997,29 +991,28 @@ function render() {
 
     lines.appendChild(titleEl);
 
-    // 1段目: 出身地バッジ + 時刻 を横並びで配置 (縦幅を圧縮するため種別と行を分ける)
-    const metaTop = document.createElement('div');
-    metaTop.className = 'item-meta-top';
-    metaTop.appendChild(createDeviceBadge(item));
-    if (item.timestamp) {
-      const time = document.createElement('span');
-      time.className = 'item-time';
-      time.textContent = formatTime(item.timestamp);
-      metaTop.appendChild(time);
-    }
-    lines.appendChild(metaTop);
+    // 1段目: 「種別名 · 時刻」 (例: "PNGファイル · 15:13")
+    const kindLabel =
+      item.kind === 'clip-text'
+        ? 'コピー'
+        : item.kind === 'clip-image'
+          ? '画像コピー'
+          : item.fileKind || 'ファイル'; // Finder 純正の種類名 (取得前は「ファイル」で暫定表示)
+    const metaLine = document.createElement('div');
+    metaLine.className = 'item-meta-line';
+    metaLine.textContent = item.timestamp
+      ? `${kindLabel} · ${formatTime(item.timestamp)}`
+      : kindLabel;
+    lines.appendChild(metaLine);
 
-    // 2段目: 種別 (例: 画像コピー, PNGファイル)
-    if (item.timestamp) {
-      const kind = document.createElement('span');
-      kind.className = 'item-kind';
-      kind.textContent =
-        item.kind === 'clip-text'
-          ? 'コピー'
-          : item.kind === 'clip-image'
-            ? '画像コピー'
-            : item.fileKind || 'ファイル'; // Finder 純正の種類名 (取得前は「ファイル」で暫定表示)
-      lines.appendChild(kind);
+    // 2段目: 出身地バッジ (例: [Mac])。外部デバイス由来のアイテムだけ改行して表示し、
+    // ローカル生まれのものは行ごと DOM 生成をスキップしてカードの縦幅を詰める
+    const deviceBadge = createDeviceBadge(item);
+    if (deviceBadge) {
+      const badgeLine = document.createElement('div');
+      badgeLine.className = 'item-badge-line';
+      badgeLine.appendChild(deviceBadge);
+      lines.appendChild(badgeLine);
     }
 
     // ホバー時に現れる「×」ボタン
