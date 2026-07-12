@@ -80,18 +80,16 @@ function expandShelter() {
   }
   applyDock(true, display);
 
-  // Windows のフォアグラウンドロック (他アプリがフォーカスを持っていると手前に出られない
-  // OS 制限) を回避するガード: 展開中だけ screen-saver レベルへ一時的に引き上げて確実に
-  // 最前面へ浮上させ、格納時に通常レベルへ戻す (resetAlwaysOnTopLevel)
-  win.setAlwaysOnTop(true, 'screen-saver');
+  // screen-saver レベルだと OS 側のドラッグ中アイコン/カーソル描画より Bridge が
+  // 手前に出てしまうため、通常の floating レベルに留めて OS 描画を Bridge より前面に保つ
+  win.setAlwaysOnTop(true, 'floating');
   win.moveTop();
 
   // 展開のたびに Renderer へ通知し、検索状態の完全リセットと検索バーへの自動フォーカスを行わせる
   if (rendererReady) win.webContents.send('shelter-expanded');
 }
 
-// 展開中に screen-saver レベルへ引き上げた最前面度を、格納時に通常の最前面へ戻す。
-// 引き上げたままにすると OS のスクリーンセーバーや通知よりも手前に居座り続けてしまう
+// 格納時に最前面レベルを通常の floating へ戻す (念のための明示的リセット)
 function resetAlwaysOnTopLevel() {
   if (win) win.setAlwaysOnTop(true, 'floating');
 }
@@ -553,7 +551,7 @@ function addFileQuietly(filePath, origin) {
 }
 
 // Finder で「ファイル自体」がコピーされているか調べ、絶対パスの配列を返す (macOS)
-function readCopiedFilePaths() {
+function readCopiedFilePathsMac() {
   const paths = [];
 
   // 複数ファイル対応: NSFilenamesPboardType は XML plist で全ファイルのパスを持つ
@@ -588,6 +586,93 @@ function readCopiedFilePaths() {
   }
 
   return paths;
+}
+
+// テキストの中から file:// URL を探して絶対パスへ変換する (Windows/Mac 共通のパーサー)
+function extractFileUrlPaths(text) {
+  const paths = [];
+  if (!text) return paths;
+  for (const m of text.matchAll(/file:\/\/\/?[^\s"'<>]+/gi)) {
+    try {
+      const p = fileURLToPath(m[0]);
+      if (p) paths.push(p);
+    } catch {
+      // URL として不正な断片はスキップ
+    }
+  }
+  return paths;
+}
+
+// テキストの中から "C:\..." 形式の Windows 絶対パスを探す (エクスプローラーが
+// CF_HDROP のみを載せて file:// 表現を持たない場合の最終フォールバック用)
+function extractWindowsAbsolutePaths(text) {
+  const paths = [];
+  if (!text) return paths;
+  for (const m of text.matchAll(/[A-Za-z]:\\[^\r\n"<>|?*]+/g)) {
+    const p = m[0].trim().replace(/[.,;:]+$/, '');
+    if (p) paths.push(p);
+  }
+  return paths;
+}
+
+// Windows のエクスプローラーで「ファイル自体」がコピーされているか調べ、絶対パスの配列を返す。
+// 実機検証の結果、エクスプローラーの Ctrl+C は availableFormats() に text/uri-list を含めるものの
+// read/readBuffer で読むと空文字になり (Electron/Chromium 側の Windows 実装の制約)、
+// Chromium Web Custom MIME Data・readText・readHTML もすべて空になることを確認した。
+// 実体のパスはレガシーな CF_FILENAMEW registered format ("FileNameW") にしか乗らないため、
+// これを最優先で読む。ただし CF_FILENAMEW は仕様上 1 ファイル分しか保持できず、Electron から
+// CF_HDROP (複数ファイルの本来のフォーマット) を読む手段が無いため、複数選択時も先頭の 1 件だけが
+// 取れる制約が残る (ベストエフォート)
+function readCopiedFilePathsWindows() {
+  let paths = [];
+
+  try {
+    const buf = clipboard.readBuffer('FileNameW');
+    if (buf && buf.length > 0) {
+      const p = buf.toString('utf16le').replace(/\u0000+$/, '').trim();
+      if (p) paths.push(p);
+    }
+  } catch {
+    // フォーマットが無い環境では読み出し自体が失敗するので無視
+  }
+
+  // 保険: 将来の Electron/Chromium の挙動変更や、text/uri-list・独自 MIME データに
+  // file:// を載せてくる他アプリからのコピーにも対応できるようにしておく
+  if (paths.length === 0) {
+    try {
+      const buf = clipboard.readBuffer('Chromium Web Custom MIME Data');
+      if (buf && buf.length > 0) paths = extractFileUrlPaths(buf.toString('utf8'));
+    } catch {
+      // 同上
+    }
+  }
+
+  if (paths.length === 0) {
+    try {
+      paths = extractFileUrlPaths(clipboard.read('text/uri-list'));
+    } catch {
+      // 同上
+    }
+  }
+
+  if (paths.length === 0) {
+    const plain = clipboard.readText();
+    paths = extractFileUrlPaths(plain);
+    if (paths.length === 0) paths = extractWindowsAbsolutePaths(plain);
+  }
+
+  // 誤検知したただの文字列を弾くため、実在するパスだけを残す
+  return [...new Set(paths)].filter((p) => {
+    try {
+      return fs.existsSync(p);
+    } catch {
+      return false;
+    }
+  });
+}
+
+function readCopiedFilePaths() {
+  return process.platform === 'win32' ? readCopiedFilePathsWindows() : readCopiedFilePathsMac();
 }
 
 async function pollClipboard() {
@@ -707,11 +792,32 @@ ipcMain.on('clipboard-write-text', (_event, text) => {
   collapseShelterNow(); // コピー完了 → 即座にウインドウを閉じてペーストへ移れるようにする
 });
 
-// ファイルアイテムのクリック: パスを OS の「ファイル形式」(public.file-url) でクリップボードへ。
-// Finder で ⌘V すると本物のファイルとして複製・ペーストされる
-ipcMain.on('clipboard-write-file', (_event, filePath) => {
+// Windows のクリップボードへ「本物のファイル」として書き込む (CF_HDROP)。
+// Electron の clipboard.writeBuffer は RegisterClipboardFormat 経由の独自フォーマット専用で、
+// CF_HDROP のような定義済み ID には効かないため直接は書けない。.NET の
+// Clipboard.SetFileDropList が正しく CF_HDROP を組み立ててくれる PowerShell の
+// Set-Clipboard -LiteralPath を経由することで、チャットアプリ等での Ctrl+V に
+// 実ファイル添付として乗るようにする
+function writeFilesToWindowsClipboard(paths) {
+  const psLiteral = (s) => `'${s.replace(/'/g, "''")}'`;
+  const script = `Set-Clipboard -LiteralPath @(${paths.map(psLiteral).join(',')})`;
+  return execFileAsync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script]);
+}
+
+// ファイルアイテムのクリック: パスを OS の「ファイル形式」でクリップボードへ。
+// mac: public.file-url / Windows: CF_HDROP。それぞれ ⌘V・Ctrl+V で本物のファイルとして複製・ペーストされる
+ipcMain.on('clipboard-write-file', async (_event, filePath) => {
   if (!filePath || !fs.existsSync(filePath)) return;
-  clipboard.writeBuffer('public.file-url', Buffer.from(pathToFileURL(filePath).toString(), 'utf8'));
+  if (process.platform === 'win32') {
+    try {
+      await writeFilesToWindowsClipboard([filePath]);
+    } catch (err) {
+      console.error('Windows クリップボードへのファイル書き込みに失敗:', err);
+      return;
+    }
+  } else {
+    clipboard.writeBuffer('public.file-url', Buffer.from(pathToFileURL(filePath).toString(), 'utf8'));
+  }
   // 自分で書き戻した分は監視でスルーする (基準値を書き戻し後の状態に合わせる)
   lastClipFileKey = filePath;
   lastClipText = clipboard.readText();
