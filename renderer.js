@@ -971,7 +971,7 @@ function render() {
       li.appendChild(img);
     }
 
-    // 中央: 名前 (テキスト履歴は冒頭プレビュー) + 時刻ラベルの 2 段
+    // 中央: 名前 (テキスト履歴は冒頭プレビュー) + [バッジ+時刻] + 種別 の 3 段
     const lines = document.createElement('div');
     lines.className = 'item-lines';
 
@@ -997,22 +997,29 @@ function render() {
 
     lines.appendChild(titleEl);
 
+    // 1段目: 出身地バッジ + 時刻 を横並びで配置 (縦幅を圧縮するため種別と行を分ける)
+    const metaTop = document.createElement('div');
+    metaTop.className = 'item-meta-top';
+    metaTop.appendChild(createDeviceBadge(item));
     if (item.timestamp) {
       const time = document.createElement('span');
       time.className = 'item-time';
-      const label =
+      time.textContent = formatTime(item.timestamp);
+      metaTop.appendChild(time);
+    }
+    lines.appendChild(metaTop);
+
+    // 2段目: 種別 (例: 画像コピー, PNGファイル)
+    if (item.timestamp) {
+      const kind = document.createElement('span');
+      kind.className = 'item-kind';
+      kind.textContent =
         item.kind === 'clip-text'
           ? 'コピー'
           : item.kind === 'clip-image'
             ? '画像コピー'
             : item.fileKind || 'ファイル'; // Finder 純正の種類名 (取得前は「ファイル」で暫定表示)
-      time.textContent = `${label} · ${formatTime(item.timestamp)}`;
-      // 時刻ラベルの隣に出身デバイスバッジを添える (タイトルの省略・ツールチップには一切影響しない)
-      time.appendChild(createDeviceBadge(item));
-      lines.appendChild(time);
-    } else {
-      // 時刻が無いアイテムでも出身地は常に分かるようにする
-      lines.appendChild(createDeviceBadge(item));
+      lines.appendChild(kind);
     }
 
     // ホバー時に現れる「×」ボタン

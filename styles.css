@@ -320,6 +320,25 @@ body.drag-mode #drop-zone.drag-over {
   transition: border-color 0.15s, background-color 0.15s;
 }
 
+/* Windows 標準の太い白スクロールバーを撲滅し、Mac 風の細く目立たないバーに統一する */
+#drop-zone::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+#drop-zone::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+#drop-zone::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+}
+
+#drop-zone::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255, 255, 255, 0.35);
+}
+
 /* ---- マウスドラッグによる矩形選択枠 ---- */
 
 .selection-box {
@@ -526,18 +545,30 @@ body.drag-mode #drop-zone.drag-over {
   line-height: 1.4;
 }
 
+/* 1段目: 出身地バッジ + 時刻 の横並び行 */
+.item-meta-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* 2段目: 種別ラベル (画像コピー / PNG ファイル 等) */
+.item-kind {
+  font-size: 10.5px;
+  color: var(--fg-dim);
+}
+
 .item-time {
   font-size: 10.5px;
   color: var(--fg-dim);
 }
 
 /* ---- 出身デバイスバッジ (ローカル / 他拠点から同期されたアイテムの見分け) ----
-   時刻ラベルの隣に寄り添う小さなすりガラスチップ。カードの邪魔をしない最小サイズ */
+   1段目でバッジ + 時刻が横並びになる小さなすりガラスチップ。カードの邪魔をしない最小サイズ */
 
 .device-badge {
   display: inline-block;
   vertical-align: middle;
-  margin-left: 6px;
   padding: 2px 6px;
   font-size: 10px;
   font-weight: 600;

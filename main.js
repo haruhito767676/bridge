@@ -755,7 +755,7 @@ app.on('will-quit', () => {
 // 外出先から帰宅した場合など、ピアが再び到達可能になった時点で lastSyncedTs 以降の
 // 差分だけが自動でローカルの Bridge へ取り込まれる。
 
-const deviceName = os.hostname();
+let deviceName = os.hostname();
 
 const DEFAULT_SYNC_PORT = 9095;
 const SYNC_POLL_MS = 20 * 1000; // 既知ピアへの差分ポーリング間隔 (再接続の自動検知を兼ねる)
@@ -787,6 +787,10 @@ function loadSyncConfig() {
       peers: Array.isArray(parsed.peers) ? parsed.peers.filter((p) => typeof p === 'string') : [],
       autoScan: parsed.autoScan !== false,
     };
+    // myDeviceName が指定されていれば、設定画面なしに JSON 編集だけで表示名を短縮できるようにする
+    if (typeof parsed.myDeviceName === 'string' && parsed.myDeviceName.trim()) {
+      deviceName = parsed.myDeviceName.trim();
+    }
   } catch {
     try {
       fs.writeFileSync(
