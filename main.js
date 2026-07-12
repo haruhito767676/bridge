@@ -73,14 +73,27 @@ function expandShelter() {
   const sameDisplay = display.id === winDisplay.id;
   if (expanded && sameDisplay) return;
   expanded = true;
+  lastExpandedAt = Date.now();
 
   if (!sameDisplay) {
     win.setBounds(dockedBoundsForDisplay(display, false), false);
   }
   applyDock(true, display);
 
+  // Windows のフォアグラウンドロック (他アプリがフォーカスを持っていると手前に出られない
+  // OS 制限) を回避するガード: 展開中だけ screen-saver レベルへ一時的に引き上げて確実に
+  // 最前面へ浮上させ、格納時に通常レベルへ戻す (resetAlwaysOnTopLevel)
+  win.setAlwaysOnTop(true, 'screen-saver');
+  win.moveTop();
+
   // 展開のたびに Renderer へ通知し、検索状態の完全リセットと検索バーへの自動フォーカスを行わせる
   if (rendererReady) win.webContents.send('shelter-expanded');
+}
+
+// 展開中に screen-saver レベルへ引き上げた最前面度を、格納時に通常の最前面へ戻す。
+// 引き上げたままにすると OS のスクリーンセーバーや通知よりも手前に居座り続けてしまう
+function resetAlwaysOnTopLevel() {
+  if (win) win.setAlwaysOnTop(true, 'floating');
 }
 
 function collapseShelter() {
@@ -91,6 +104,7 @@ function collapseShelter() {
     if (!expanded) return;
     expanded = false;
     applyDock(false, currentDisplay());
+    resetAlwaysOnTopLevel();
   }, 220);
 }
 
@@ -102,6 +116,29 @@ function collapseShelter() {
 
 const EDGE_POLL_MS = 100;
 let cursorWasInTabZone = false;
+
+// ---- 展開中の「カーソル離脱」強制格納 (Windows のマウス高速移動対策) ----
+// renderer の mouseleave はマウスの高速移動時に発火しないことがあり (特に Windows)、
+// ウインドウが引っ込まずに残り続ける。Main 側の同じポーリングでカーソルが
+// ウインドウ領域 (+判定マージン) から完全に外れたことを検知し、collapseShelterNow() で回収する
+
+// ウインドウ領域の「内側」判定に足す許容マージン (px)。エッジゾーンぶんの遊びを兼ねる
+const EXPANDED_EXIT_MARGIN = 48;
+// 展開直後の猶予 (ms)。bridge:// 受信などカーソルがウインドウの外にある状態での
+// プログラム的な展開を、ユーザーが気づく前に閉じてしまわないためのガード
+const EXPAND_GRACE_MS = 1000;
+let lastExpandedAt = 0;
+
+// カーソルが展開中ウインドウの領域 (+マージン) から完全に外れているか
+function cursorOutsideExpandedWindow(cursor) {
+  const b = win.getBounds();
+  return (
+    cursor.x < b.x - EXPANDED_EXIT_MARGIN ||
+    cursor.x > b.x + b.width + EXPANDED_EXIT_MARGIN ||
+    cursor.y < b.y - EXPANDED_EXIT_MARGIN ||
+    cursor.y > b.y + b.height + EXPANDED_EXIT_MARGIN
+  );
+}
 
 // カーソルが指定ディスプレイの「つまみ相当ゾーン」(右端 TAB_WIDTH 幅 × つまみの縦帯) に居るか
 function cursorInTabZone(cursor, display) {
@@ -117,6 +154,17 @@ function pollCursorForEdgeReveal() {
   // クリップボード再利用直後の即時収納 (collapseShelterNow) と喧嘩しない
   if (inZone && !cursorWasInTabZone) expandShelter();
   cursorWasInTabZone = inZone;
+
+  // 展開中にカーソルがウインドウ領域から完全に外れたら強制格納する。
+  // mouseleave の取りこぼし (マウスの高速移動) をここで完全に回収する
+  if (
+    expanded &&
+    !inZone &&
+    Date.now() - lastExpandedAt > EXPAND_GRACE_MS &&
+    cursorOutsideExpandedWindow(cursor)
+  ) {
+    collapseShelterNow();
+  }
 }
 
 function startEdgeRevealWatcher() {
@@ -649,6 +697,7 @@ function collapseShelterNow() {
   }
   expanded = false;
   applyDock(false, currentDisplay());
+  resetAlwaysOnTopLevel();
 }
 
 ipcMain.on('clipboard-write-text', (_event, text) => {
@@ -1349,6 +1398,43 @@ function startDeviceSync() {
 // Renderer が「ローカル / 他拠点」バッジを出し分けるための自分自身の情報
 ipcMain.handle('get-device-info', () => ({ device: deviceName, platform: process.platform }));
 
+// ---- フォルダの自動 .zip 化 (フォルダ除外ガードのアップグレード) ----
+// /file はフォルダをストリーム配信できないため、フォルダは登録前に OS 標準コマンドで
+// 「フォルダ名.zip」へ裏圧縮し、その zip の実体を同期相手へストリーム転送する。
+// 受信側は通常のファイル同期と同じ経路で zip のままハブへ保存する (自動展開はしない)
+
+// フォルダを一時保存フォルダ内の「フォルダ名.zip」へ圧縮し、生成した zip の絶対パスを返す
+async function zipFolder(folderPath) {
+  const dir = downloadDir();
+  await fsp.mkdir(dir, { recursive: true });
+  const base = path.basename(folderPath) || 'folder';
+  const dest = reserveDest(dir, `${sanitizeSyncFileName(base)}.zip`);
+
+  if (process.platform === 'win32') {
+    // PowerShell の単一引用符リテラル ('' でエスケープ) に包み、空白・日本語パスも安全に渡す
+    const q = (p) => `'${p.replace(/'/g, "''")}'`;
+    await execFileAsync(
+      'powershell.exe',
+      [
+        '-NoProfile',
+        '-NonInteractive',
+        '-Command',
+        `Compress-Archive -LiteralPath ${q(folderPath)} -DestinationPath ${q(dest)} -Force`,
+      ],
+      { windowsHide: true }
+    );
+  } else if (process.platform === 'darwin') {
+    // ditto は Finder の「圧縮」と同じ macOS 標準コマンド (--keepParent でフォルダごと格納)
+    await execFileAsync('ditto', ['-c', '-k', '--sequesterRsrc', '--keepParent', folderPath, dest]);
+  } else {
+    // Linux 等は zip コマンドへフォールバック (親ディレクトリ基準で相対パス格納)
+    await execFileAsync('zip', ['-r', dest, base], { cwd: path.dirname(folderPath) });
+  }
+
+  sessionTempFiles.add(dest); // 裏生成した zip は終了時クリーンアップの対象として追跡
+  return dest;
+}
+
 // Renderer で追加されたローカル生まれのファイル (D&D・Web ダウンロード・テキスト保存等) を
 // 同期台帳へ登録する。他拠点由来のアイテムは Renderer 側で登録をスキップするため循環しない
 ipcMain.on('sync-register-file', (_event, payload) => {
@@ -1360,9 +1446,25 @@ ipcMain.on('sync-register-file', (_event, payload) => {
   } catch {
     return; // 消えた・読めないパスは登録しない
   }
-  // フォルダは同期対象外 (ローカルのリスト表示のみ)。/file がストリーム配信できないため完全スキップする
-  if (stat.isDirectory()) return;
   registeredSyncPaths.add(filePath);
+  // フォルダはそのまま同期できないため、バックグラウンドで .zip 化してから台帳へ登録する。
+  // ローカルのリストにはフォルダのカードがそのまま残り、同期相手には zip が届く
+  if (stat.isDirectory()) {
+    zipFolder(filePath)
+      .then((zipPath) => {
+        registerLocalSyncEntry({
+          type: 'file',
+          name: path.basename(zipPath),
+          path: zipPath,
+          timestamp: Date.now(),
+        });
+      })
+      .catch((err) => {
+        registeredSyncPaths.delete(filePath); // 失敗した場合は次回の登録 (再ドロップ) で再挑戦できるようにする
+        console.error('フォルダの zip 化に失敗 (同期をスキップ):', filePath, err.message);
+      });
+    return;
+  }
   registerLocalSyncEntry({
     type: 'file',
     name: (payload && payload.name) || path.basename(filePath),

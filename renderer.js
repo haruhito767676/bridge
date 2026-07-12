@@ -306,6 +306,20 @@ function trimFileHistory() {
   }
 }
 
+// ---- 重複コピーのスタック化 (同一内容の再コピーはカードを増やさず最上位へ引き上げる) ----
+
+// match に一致する既存カードがあれば、新規追加せずリスト最上位へ移動して時刻だけを更新する。
+// 引き上げが起きたら true を返す (呼び出し側は新規カードの追加をスキップする)
+function bumpExistingItem(match, timestamp) {
+  const index = items.findIndex(match);
+  if (index === -1) return false;
+  const [existing] = items.splice(index, 1);
+  existing.timestamp = timestamp || Date.now();
+  items.unshift(existing);
+  render();
+  return true;
+}
+
 // Finder 純正の「種類」ラベル (例: 「PDF書類」「フォルダ」) を非同期取得してアイテムへ反映する
 function attachFileKind(item, filePath) {
   window.bridge.getFileKind(filePath).then((kindLabel) => {
@@ -319,12 +333,17 @@ function attachFileKind(item, filePath) {
 // origin が渡された場合は他拠点から同期されてきたファイル ({ fromDevice, fromPlatform })
 function addLocalFile(filePath, fileName, origin) {
   if (!filePath) return;
-  if (items.some((item) => item.path === filePath)) return; // 重複は追加しない
+  const name = fileName || filePath.split(/[\\/]/).pop(); // Windows のパス区切り (\) にも対応
+  // 全く同じファイル (同一パス、または同一ファイル名) が既にあればカードを増やさず、
+  // 既存カードを最上位へ引き上げて時刻だけを最新に更新する (重複排除・スタック)
+  if (bumpExistingItem((it) => it.kind === 'file' && (it.path === filePath || it.name === name))) {
+    return;
+  }
 
   const item = {
     kind: 'file',
     path: filePath,
-    name: fileName || filePath.split(/[\\/]/).pop(), // Windows のパス区切り (\) にも対応
+    name,
     text: null,
     icon: null,
     isImage: isImagePath(filePath),
@@ -548,6 +567,25 @@ function trimClipHistory() {
 
 window.bridge.onClipboardItem((data) => {
   const isImage = data.type === 'clipboard-image';
+
+  // 重複コピー: 同じ内容 (テキストは全文一致、画像は同一ファイル名) の履歴が既にあれば
+  // カードを増やさず、既存カードを最上位へ引き上げて時刻だけを最新に更新する
+  if (isImage) {
+    const fileName = data.path ? data.path.split(/[\\/]/).pop() : null;
+    if (
+      fileName &&
+      bumpExistingItem((it) => it.kind === 'clip-image' && it.name === fileName, data.timestamp)
+    ) {
+      return;
+    }
+  } else if (
+    bumpExistingItem((it) => it.kind === 'clip-text' && it.text === data.text, data.timestamp)
+  ) {
+    // 捨てる新規カードのために裏生成された snippet_*.txt はディスクに残さない
+    if (data.path) window.bridge.deleteTempFile(data.path);
+    return;
+  }
+
   const item = {
     kind: isImage ? 'clip-image' : 'clip-text',
     // テキスト履歴も Main 側で裏生成された snippet_*.txt のパスを持つ (ドラッグアウト用の二刀流)
