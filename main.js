@@ -455,7 +455,7 @@ const clipHistory = [];
 function pushClipHistory(entry) {
   clipHistory.unshift(entry);
   // 上限あふれ時のディスク削除は、表示リストの真実を持つ Renderer 側のトリミング
-  // (delete-temp-file IPC → fs.promises.unlink) が担う。Main 単独で消すと、ユーザーが
+  // (delete-temp-file IPC → fs.unlinkSync) が担う。Main 単独で消すと、ユーザーが
   // × で別の履歴を消したときに両者の並びがズレて「まだ表示中のファイル」を誤削除
   // しうるため、ここでは種別ごとの配列の長さだけを抑える
   // (消し損ねは終了時クリーンアップが回収する)
@@ -708,12 +708,22 @@ ipcMain.on('report-retained-paths', (_event, paths) => {
   );
 });
 
-// 履歴の上限あふれで Renderer のリストから消えた一時ファイルを完全削除する。
-// このセッションで自分が裏生成したファイル以外は絶対に消さない (ユーザーの実ファイル保護)
+// 履歴の上限あふれで Renderer のリストから消えた一時ファイルを完全削除する (自動お掃除)。
+// このセッションで自分が裏生成・同期受信したファイル以外は絶対に消さない (ユーザーの実ファイル保護)
 ipcMain.on('delete-temp-file', (_event, filePath) => {
   if (typeof filePath !== 'string' || !sessionTempFiles.has(filePath)) return;
   sessionTempFiles.delete(filePath);
-  fsp.unlink(filePath).catch(() => {}); // 既に無い場合などは無視
+  try {
+    fs.unlinkSync(filePath); // 用済みの実体を即時に完全削除し、ストレージの圧迫を防ぐ
+  } catch {
+    // 既に無い場合などは無視 (掃除が目的なので失敗しても続行)
+  }
+  // 同期台帳からも実体への参照を外す。以後ピアには hasFile: false で通知され、
+  // 消えたファイルを /file へ取りに来て 404 → 永久再試行になるのを防ぐ
+  for (const entry of syncStore) {
+    if (entry.path === filePath) entry.path = null;
+  }
+  registeredSyncPaths.delete(filePath);
 });
 
 // アプリ終了時: 今セッションで自動生成した clipboard_*.png / snippet_*.txt のうち、
@@ -808,8 +818,19 @@ function syncMetadata(entry) {
   };
 }
 
+// パスがフォルダかどうかの安全判定 (存在しない・stat 失敗は「フォルダではない」扱い)
+function isDirectorySafe(p) {
+  try {
+    return fs.statSync(p).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
 // 自分のデバイスで生まれたアイテムを台帳へ登録し、オンラインのピアへ即時プッシュする
 function registerLocalSyncEntry({ type, name, text, path: filePath, timestamp }) {
+  // 同期トリガーの最終関門: フォルダは台帳登録もピアへのプッシュも行わず完全スキップする
+  if (type !== 'text' && filePath && isDirectorySafe(filePath)) return null;
   const entry = {
     id: crypto.randomUUID(),
     type,
@@ -911,7 +932,8 @@ function sanitizeSyncFileName(name) {
   return cleaned || `synced-${Date.now()}`;
 }
 
-// ピアの /file?id= から実体ファイルをローカルの一時保存フォルダへバックグラウンド転送する
+// ピアの /file?id= から実体ファイルをローカルの一時保存フォルダへバックグラウンド転送する。
+// 一括読み込みせず createWriteStream へパイプするため、数 GB のファイルでもメモリを圧迫しない
 function downloadEntryFile(peer, entry) {
   return new Promise((resolve, reject) => {
     const req = http.get(
@@ -925,16 +947,27 @@ function downloadEntryFile(peer, entry) {
         fs.mkdirSync(dir, { recursive: true });
         const dest = reserveDest(dir, sanitizeSyncFileName(entry.name));
         const out = fs.createWriteStream(dest);
+        // 転送途中のネットワークエラーやソケットハングアップでは、両側のストリームを
+        // 確実に閉じて欠損ファイルを削除する。reject は次回ポーリングでの再試行につながる
+        let settled = false;
+        const fail = (err) => {
+          if (settled) return;
+          settled = true;
+          out.destroy();
+          res.destroy();
+          fsp.unlink(dest).catch(() => {});
+          reject(err);
+        };
         res.pipe(out);
         out.on('finish', () => {
+          if (settled) return;
+          settled = true;
           sessionTempFiles.add(dest); // 同期コピーも終了時クリーンアップの対象として追跡
           resolve(dest);
         });
-        out.on('error', (err) => {
-          fsp.unlink(dest).catch(() => {});
-          reject(err);
-        });
-        res.on('error', reject);
+        out.on('error', fail);
+        res.on('error', fail);
+        res.on('aborted', () => fail(new Error('socket hang up')));
       }
     );
     req.on('timeout', () => req.destroy(new Error('timeout')));
@@ -1075,6 +1108,17 @@ function respondJson(res, obj) {
 
 function startSyncServer() {
   const server = http.createServer((req, res) => {
+    // ソケット異常 (切断・ハングアップ) はこの接続だけを res.end() で安全に閉じ、
+    // サーバー自体や他ピアとの同期通信を絶対にフリーズさせない
+    req.on('error', () => {
+      try {
+        res.end();
+      } catch {
+        // 既にソケットが閉じていれば何もしない
+      }
+    });
+    res.on('error', () => {});
+
     let url;
     try {
       url = new URL(req.url, 'http://localhost');
@@ -1100,15 +1144,32 @@ function startSyncServer() {
       if (req.method === 'GET' && url.pathname === '/file') {
         const id = url.searchParams.get('id');
         const entry = syncStore.find((e) => e.id === id);
-        if (!entry || !entry.path || !fs.existsSync(entry.path)) {
+        let stat = null;
+        try {
+          stat = entry && entry.path ? fs.statSync(entry.path) : null;
+        } catch {
+          stat = null; // GC 済み・アクセス不可のパスは「無い」扱い
+        }
+        // フォルダは配信対象外として完全スキップ (存在しないのと同じ 404 を返す)
+        if (!stat || stat.isDirectory()) {
           res.writeHead(404);
           res.end();
           return;
         }
-        res.writeHead(200, { 'Content-Type': 'application/octet-stream' });
+        // 一括読み込みせずストリームでパイプする。数 GB のファイルでもメモリを圧迫しない
+        res.writeHead(200, {
+          'Content-Type': 'application/octet-stream',
+          'Content-Length': stat.size,
+        });
         const stream = fs.createReadStream(entry.path);
-        stream.on('error', () => res.destroy());
         stream.pipe(res);
+        // 読み取りエラー時も res.end() で接続を確実に閉じ、後続の同期通信を巻き添えにしない
+        stream.on('error', (err) => {
+          console.error('同期ファイルの配信に失敗:', entry.path, err.message);
+          res.end();
+        });
+        // 受信側の切断 (ソケットハングアップ) では読み取りを即座に止めて fd を解放する
+        res.on('close', () => stream.destroy());
         return;
       }
 
@@ -1161,6 +1222,8 @@ function startSyncServer() {
   });
 
   server.on('error', (err) => console.error('同期サーバーの起動に失敗:', err.message));
+  // 不正なリクエストや接続途中のソケット異常は該当ソケットだけを破棄し、サーバーを守る
+  server.on('clientError', (_err, socket) => socket.destroy());
   server.listen(syncConfig.port, '0.0.0.0');
 }
 
@@ -1225,7 +1288,14 @@ ipcMain.handle('get-device-info', () => ({ device: deviceName, platform: process
 ipcMain.on('sync-register-file', (_event, payload) => {
   const filePath = payload && payload.path;
   if (typeof filePath !== 'string' || registeredSyncPaths.has(filePath)) return;
-  if (!fs.existsSync(filePath)) return;
+  let stat;
+  try {
+    stat = fs.statSync(filePath);
+  } catch {
+    return; // 消えた・読めないパスは登録しない
+  }
+  // フォルダは同期対象外 (ローカルのリスト表示のみ)。/file がストリーム配信できないため完全スキップする
+  if (stat.isDirectory()) return;
   registeredSyncPaths.add(filePath);
   registerLocalSyncEntry({
     type: 'file',

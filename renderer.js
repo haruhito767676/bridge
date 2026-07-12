@@ -290,6 +290,22 @@ dropZone.addEventListener('dragleave', () => {
   dropZone.classList.remove('drag-over');
 });
 
+// ---- ハブ (ファイルアイテム) の最大保持数と自動お掃除 (ガベージコレクション) ----
+
+// 上限からあふれた最古のファイルアイテムはリストから外す。あわせて Main へ実体削除を依頼するが、
+// Main 側は sessionTempFiles (裏生成 snippet/クリップ PNG と他拠点から同期された一時ファイル) に
+// 含まれるものだけを削除するため、ユーザー自身がドロップした本物のファイルには絶対に触れない
+const MAX_FILE_ITEMS = 100;
+
+function trimFileHistory() {
+  const files = items.filter((it) => it.kind === 'file');
+  for (const extra of files.slice(MAX_FILE_ITEMS)) {
+    items.splice(items.indexOf(extra), 1);
+    selectedItems.delete(extra);
+    if (extra.path) window.bridge.deleteTempFile(extra.path);
+  }
+}
+
 // Finder 純正の「種類」ラベル (例: 「PDF書類」「フォルダ」) を非同期取得してアイテムへ反映する
 function attachFileKind(item, filePath) {
   window.bridge.getFileKind(filePath).then((kindLabel) => {
@@ -319,8 +335,10 @@ function addLocalFile(filePath, fileName, origin) {
     fromPlatform: origin ? origin.fromPlatform : null,
   };
   items.unshift(item); // タイムライン表示のため最新を先頭へ
+  trimFileHistory(); // 上限あふれの最古アイテムを外し、同期由来の一時ファイル実体もお掃除する
 
   // 自分のデバイスで生まれたファイルだけを同期台帳へ登録する (他拠点由来の再登録ループを防ぐ)
+  // (フォルダは Main 側の登録処理で除外されるため、ここでは判定しない)
   if (!item.fromDevice) window.bridge.registerSyncFile(filePath, item.name);
 
   // 画像はファイル自体をサムネイル表示するのでアイコン取得は不要
@@ -379,6 +397,7 @@ function addWebUrl(url) {
     fromPlatform: null,
   };
   items.unshift(item);
+  trimFileHistory();
   render();
 
   window.bridge
@@ -429,6 +448,7 @@ function addTextSnippet(text) {
     fromPlatform: null,
   };
   items.unshift(item);
+  trimFileHistory();
   render();
 
   window.bridge
@@ -519,8 +539,9 @@ function trimClipHistory() {
   for (const extra of overflow) {
     items.splice(items.indexOf(extra), 1);
     selectedItems.delete(extra);
-    // 上限あふれで履歴から消える裏生成ファイル (clipboard_*.png / snippet_*.txt) は
-    // Main 側に依頼して fs.promises.unlink でディスクからも完全削除し、ストレージを圧迫しない
+    // 上限あふれで履歴から消える裏生成ファイル (clipboard_*.png / snippet_*.txt) や
+    // 他拠点から同期された一時ファイルは、Main 側に依頼して fs.unlinkSync で
+    // ディスクからも完全削除し、ストレージを圧迫しない
     if (extra.path) window.bridge.deleteTempFile(extra.path);
   }
 }
