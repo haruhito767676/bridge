@@ -15,6 +15,23 @@ let rendererReady = false;
 // Renderer の準備が整う前に URL スキーム経由で届いたファイルを溜めるキュー
 const pendingFiles = [];
 
+// win が生きているか (destroy 直後〜 'closed' 発火までの隙間も含めて安全に判定する)
+function winAlive() {
+  return win !== null && !win.isDestroyed();
+}
+
+// Renderer へ IPC を送ってよい状態か (ウインドウ破棄・Renderer クラッシュ中は送らない)
+function canSendToRenderer() {
+  return winAlive() && rendererReady && !win.webContents.isDestroyed();
+}
+
+// Renderer 準備前のキューの上限。ウインドウが無い状態が長引いても無制限には溜め込まない
+const MAX_PENDING_ITEMS = 200;
+function pushPending(queue, item) {
+  queue.push(item);
+  if (queue.length > MAX_PENDING_ITEMS) queue.shift(); // 最古から追い出す
+}
+
 // ---- 右端への常駐 & スライド隠れ ----
 
 const SHELTER_WIDTH = 320; // シェルターウインドウの幅（開いたとき）
@@ -47,18 +64,18 @@ function currentDisplay() {
 // OS の自動配置に任せると復元時にモニターを跨ぐことがあるため、
 // 表示前に必ずこの関数で座標を確定させること
 function placeOnCursorDisplay(shown) {
-  if (!win) return;
+  if (!winAlive()) return;
   win.setBounds(dockedBoundsForDisplay(currentDisplay(), shown), false);
 }
 
 function applyDock(shown, display) {
-  if (!win) return;
+  if (!winAlive()) return;
   // 第2引数 true で macOS ネイティブのスライドアニメーションがかかる
   win.setBounds(dockedBoundsForDisplay(display, shown), true);
 }
 
 function expandShelter() {
-  if (!win) return;
+  if (!winAlive()) return;
   if (collapseTimer) {
     clearTimeout(collapseTimer);
     collapseTimer = null;
@@ -86,16 +103,16 @@ function expandShelter() {
   win.moveTop();
 
   // 展開のたびに Renderer へ通知し、検索状態の完全リセットと検索バーへの自動フォーカスを行わせる
-  if (rendererReady) win.webContents.send('shelter-expanded');
+  if (canSendToRenderer()) win.webContents.send('shelter-expanded');
 }
 
 // 格納時に最前面レベルを通常の floating へ戻す (念のための明示的リセット)
 function resetAlwaysOnTopLevel() {
-  if (win) win.setAlwaysOnTop(true, 'floating');
+  if (winAlive()) win.setAlwaysOnTop(true, 'floating');
 }
 
 function collapseShelter() {
-  if (!win) return;
+  if (!winAlive()) return;
   if (collapseTimer) clearTimeout(collapseTimer);
   collapseTimer = setTimeout(() => {
     collapseTimer = null;
@@ -145,7 +162,7 @@ function cursorInTabZone(cursor, display) {
 }
 
 function pollCursorForEdgeReveal() {
-  if (!win) return;
+  if (!winAlive()) return;
   const cursor = screen.getCursorScreenPoint();
   const inZone = cursorInTabZone(cursor, screen.getDisplayNearestPoint(cursor));
   // 「ゾーン外 → ゾーン内」の進入エッジでのみ展開する。居続けで再展開しないため、
@@ -174,7 +191,11 @@ function startEdgeRevealWatcher() {
 
 // ---- 多重起動防止 ----
 // Windows/Linux では bridge:// が第2インスタンスの argv に届くため必須。
-if (!app.requestSingleInstanceLock()) {
+// app.quit() は非同期のため、ロックが取れなかった場合はフラグで起動処理全体を止め、
+// 第2インスタンスがウインドウ生成・各種ウォッチャー・同期サーバー (ポート 9095) を
+// 一瞬でも動かさないようにする
+const gotSingleInstanceLock = app.requestSingleInstanceLock();
+if (!gotSingleInstanceLock) {
   app.quit();
 }
 
@@ -227,6 +248,16 @@ function createWindow() {
     while (pendingClipItems.length > 0) {
       win.webContents.send('clipboard-item', pendingClipItems.shift());
     }
+  });
+
+  // Renderer プロセスがクラッシュ・強制終了された場合は自動リロードで復帰させる。
+  // rendererReady を先に落とし、復帰完了 (did-finish-load) までの IPC はキューへ退避させる。
+  // これを怠るとクラッシュ後の webContents.send が例外を吐き続け、常駐アプリが死んだままになる
+  win.webContents.on('render-process-gone', (_event, details) => {
+    rendererReady = false;
+    if (details.reason === 'clean-exit') return;
+    console.error('Renderer プロセスが停止 (自動リロードで復帰):', details.reason);
+    if (winAlive()) win.webContents.reload();
   });
 
   win.on('closed', () => {
@@ -328,7 +359,7 @@ function addFilePayload(filePath, origin) {
 
 function sendFileToRenderer(filePath, origin) {
   const payload = addFilePayload(filePath, origin);
-  if (win !== null && rendererReady) {
+  if (canSendToRenderer()) {
     if (win.isMinimized()) win.restore();
     // show の前にカーソルのあるモニターへ強制配置し、OS の自動復元でモニターを跨ぐのを防ぐ
     placeOnCursorDisplay(expanded);
@@ -337,7 +368,7 @@ function sendFileToRenderer(filePath, origin) {
     expandShelter();
     win.webContents.send('add-file', payload);
   } else {
-    pendingFiles.push(payload);
+    pushPending(pendingFiles, payload);
   }
 }
 
@@ -398,12 +429,12 @@ async function handleBridgeUrl(rawUrl) {
 // macOS: 起動中・起動時どちらも open-url で届く (ready 前に登録が必要)
 app.on('open-url', (event, url) => {
   event.preventDefault();
-  handleBridgeUrl(url);
+  handleBridgeUrl(url).catch((err) => console.error('bridge:// の処理に失敗:', url, err));
 });
 
 // Windows/Linux: 2つ目のインスタンスの argv に bridge:// が入って届く
 app.on('second-instance', (_event, argv) => {
-  if (win !== null) {
+  if (winAlive()) {
     if (win.isMinimized()) win.restore();
     // show の前にカーソルのあるモニターへ強制配置し、OS の自動復元でモニターを跨ぐのを防ぐ
     placeOnCursorDisplay(expanded);
@@ -411,7 +442,7 @@ app.on('second-instance', (_event, argv) => {
     win.focus();
   }
   const url = argv.find((arg) => arg.startsWith('bridge://'));
-  if (url) handleBridgeUrl(url);
+  if (url) handleBridgeUrl(url).catch((err) => console.error('bridge:// の処理に失敗:', url, err));
 });
 
 // ---- ファイルを外へ引き出す（OS標準のネイティブドラッグアウト、複数選択対応）----
@@ -535,18 +566,18 @@ async function saveClipboardImage(image) {
 const pendingClipItems = [];
 
 function sendClipboardItem(item) {
-  if (win !== null && rendererReady) win.webContents.send('clipboard-item', item);
-  else pendingClipItems.push(item);
+  if (canSendToRenderer()) win.webContents.send('clipboard-item', item);
+  else pushPending(pendingClipItems, item);
 }
 
 // Finder のファイルコピーで検知したパスや他拠点から同期されたファイルを、
 // ウインドウを奪わずに通常ドロップと同じ扱いでリストへ追加する
 function addFileQuietly(filePath, origin) {
   const payload = addFilePayload(filePath, origin);
-  if (win !== null && rendererReady) {
+  if (canSendToRenderer()) {
     win.webContents.send('add-file', payload);
   } else {
-    pendingFiles.push(payload);
+    pushPending(pendingFiles, payload);
   }
 }
 
@@ -763,11 +794,16 @@ async function pollClipboard() {
 }
 
 function startClipboardWatcher() {
-  // 起動時点でクリップボードに入っている内容は履歴に入れない (基準値として記録するだけ)
-  lastClipText = clipboard.readText();
-  const image = clipboard.readImage();
-  lastClipImageKey = image.isEmpty() ? '' : imageKey(image);
-  lastClipFileKey = readCopiedFilePaths().join('\n');
+  // 起動時点でクリップボードに入っている内容は履歴に入れない (基準値として記録するだけ)。
+  // 初期読み取りが環境依存で失敗しても、監視の定期実行そのものは必ず開始する
+  try {
+    lastClipText = clipboard.readText();
+    const image = clipboard.readImage();
+    lastClipImageKey = image.isEmpty() ? '' : imageKey(image);
+    lastClipFileKey = readCopiedFilePaths().join('\n');
+  } catch (err) {
+    console.error('クリップボードの初期読み取りに失敗:', err);
+  }
   setInterval(pollClipboard, CLIPBOARD_POLL_MS);
 }
 
@@ -775,7 +811,7 @@ function startClipboardWatcher() {
 
 // クリック直後は待たずにウインドウを隠し、ユーザーがすぐ ⌘V でペーストできる状態にする
 function collapseShelterNow() {
-  if (!win) return;
+  if (!winAlive()) return;
   if (collapseTimer) {
     clearTimeout(collapseTimer);
     collapseTimer = null;
@@ -931,6 +967,20 @@ const syncStore = [];
 const seenSyncIds = new Set(); // id による重複同期・循環中継の防止
 const registeredSyncPaths = new Set(); // 同じローカルファイルの二重登録防止
 
+// seenSyncIds は常駐運用でコピーのたびに増え続けるため、古い id から追い出して上限を保つ (FIFO)。
+// 追い出された古いアイテムはピア側の syncStore からも溢れており (MAX_SYNC_STORE)、
+// 差分ポーリングも lastSyncedTs 比較で防いでいるため、再取り込みの実害はない
+const MAX_SEEN_SYNC_IDS = 5000;
+const seenSyncIdOrder = [];
+function rememberSyncId(id) {
+  if (seenSyncIds.has(id)) return;
+  seenSyncIds.add(id);
+  seenSyncIdOrder.push(id);
+  while (seenSyncIdOrder.length > MAX_SEEN_SYNC_IDS) {
+    seenSyncIds.delete(seenSyncIdOrder.shift());
+  }
+}
+
 function syncConfigPath() {
   return path.join(app.getPath('userData'), 'sync-config.json');
 }
@@ -1022,7 +1072,7 @@ function registerLocalSyncEntry({ type, name, text, path: filePath, timestamp })
     fromDevice: deviceName,
     fromPlatform: process.platform,
   };
-  seenSyncIds.add(entry.id);
+  rememberSyncId(entry.id);
   pushSyncEntry(entry);
   pushEntriesToPeers([entry]);
   return entry;
@@ -1143,10 +1193,19 @@ function downloadEntryFile(peer, entry) {
           res.resume();
           return reject(new Error(`HTTP ${res.statusCode}`));
         }
-        const dir = downloadDir();
-        fs.mkdirSync(dir, { recursive: true });
-        const dest = reserveDest(dir, sanitizeSyncFileName(entry.name));
-        const out = fs.createWriteStream(dest);
+        // 保存先の準備に失敗しても (ディスク満杯・権限など)、http コールバック内の
+        // 同期例外でプロセスごと落とさず reject して次回ポーリングの再試行へ回す
+        let dest;
+        let out;
+        try {
+          const dir = downloadDir();
+          fs.mkdirSync(dir, { recursive: true });
+          dest = reserveDest(dir, sanitizeSyncFileName(entry.name));
+          out = fs.createWriteStream(dest);
+        } catch (err) {
+          res.resume();
+          return reject(err);
+        }
         // 転送途中のネットワークエラーやソケットハングアップでは、両側のストリームを
         // 確実に閉じて欠損ファイルを削除する。reject は次回ポーリングでの再試行につながる
         let settled = false;
@@ -1195,7 +1254,7 @@ async function importRemoteEntry(meta, peer) {
   };
 
   if (meta.type === 'text') {
-    seenSyncIds.add(entry.id);
+    rememberSyncId(entry.id);
     if (!entry.text.trim()) return true;
     // ドラッグアウト用に snippet ファイルも裏生成しておく (失敗しても本文だけで取り込む)
     try {
@@ -1220,7 +1279,7 @@ async function importRemoteEntry(meta, peer) {
 
   if (meta.type === 'image' || meta.type === 'file') {
     if (!meta.hasFile) {
-      seenSyncIds.add(entry.id);
+      rememberSyncId(entry.id);
       return true;
     }
     try {
@@ -1229,7 +1288,7 @@ async function importRemoteEntry(meta, peer) {
       console.error('同期ファイルの転送に失敗 (次回ポーリングで再試行):', entry.name, err.message);
       return false;
     }
-    seenSyncIds.add(entry.id);
+    rememberSyncId(entry.id);
     pushSyncEntry(entry); // ローカルパス付きで台帳に載せ、さらに別のピアへも中継できるようにする
     if (meta.type === 'image') {
       sendClipboardItem({
@@ -1248,7 +1307,7 @@ async function importRemoteEntry(meta, peer) {
     return true;
   }
 
-  seenSyncIds.add(entry.id); // 未知の type は黙って読み飛ばす (将来の拡張との互換)
+  rememberSyncId(entry.id); // 未知の type は黙って読み飛ばす (将来の拡張との互換)
   return true;
 }
 
@@ -1484,6 +1543,10 @@ async function scanSubnetForPeers() {
         })
       );
     }
+  } catch (err) {
+    // ネットワークインターフェースの列挙失敗などでスキャンが落ちても、
+    // 未処理の Promise 拒否にせず次回の定期スキャンに委ねる
+    console.error('サブネットスキャンに失敗:', err);
   } finally {
     subnetScanRunning = false;
   }
@@ -1580,6 +1643,7 @@ ipcMain.on('sync-register-file', (_event, payload) => {
 });
 
 app.whenReady().then(() => {
+  if (!gotSingleInstanceLock) return; // 多重起動の第2インスタンスは何も起動せず quit を待つ
   createWindow();
   startClipboardWatcher();
   startEdgeRevealWatcher();
@@ -1587,7 +1651,9 @@ app.whenReady().then(() => {
 
   // Windows/Linux で bridge:// から直接起動された場合は argv に URL が入っている
   const initialUrl = process.argv.find((arg) => arg.startsWith('bridge://'));
-  if (initialUrl) handleBridgeUrl(initialUrl);
+  if (initialUrl) {
+    handleBridgeUrl(initialUrl).catch((err) => console.error('bridge:// の処理に失敗:', initialUrl, err));
+  }
 });
 
 app.on('activate', () => {

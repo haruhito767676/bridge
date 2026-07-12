@@ -22,12 +22,15 @@ const badgeRemove = document.getElementById('filter-badge-remove');
 // ---- 自分のデバイス情報 (出身デバイスバッジの「ローカル / 拠点名」判定に使う) ----
 
 let localDeviceName = '';
-window.bridge.getDeviceInfo().then((info) => {
-  if (info && info.device) {
-    localDeviceName = info.device;
-    render(); // 取得前に描画済みのバッジを正しい判定で描き直す
-  }
-});
+window.bridge
+  .getDeviceInfo()
+  .then((info) => {
+    if (info && info.device) {
+      localDeviceName = info.device;
+      render(); // 取得前に描画済みのバッジを正しい判定で描き直す
+    }
+  })
+  .catch(() => {}); // 取得に失敗してもバッジ判定が「すべて外部扱い」になるだけで動作は続く
 
 // ---- スマート検索 (フィルターバッジ + サジェスト + インクリメンタル絞り込み) ----
 
@@ -322,11 +325,14 @@ function bumpExistingItem(match, timestamp) {
 
 // Finder 純正の「種類」ラベル (例: 「PDF書類」「フォルダ」) を非同期取得してアイテムへ反映する
 function attachFileKind(item, filePath) {
-  window.bridge.getFileKind(filePath).then((kindLabel) => {
-    if (!kindLabel) return;
-    item.fileKind = kindLabel;
-    render();
-  });
+  window.bridge
+    .getFileKind(filePath)
+    .then((kindLabel) => {
+      if (!kindLabel) return;
+      item.fileKind = kindLabel;
+      render();
+    })
+    .catch(() => {}); // 取得失敗時は「ファイル」の暫定表示のまま
 }
 
 // ローカルファイルをリストへ追加する共通処理。
@@ -362,12 +368,15 @@ function addLocalFile(filePath, fileName, origin) {
 
   // 画像はファイル自体をサムネイル表示するのでアイコン取得は不要
   if (!item.isImage) {
-    window.bridge.getFileIcon(filePath).then((dataUrl) => {
-      if (dataUrl) {
-        item.icon = dataUrl;
-        render();
-      }
-    });
+    window.bridge
+      .getFileIcon(filePath)
+      .then((dataUrl) => {
+        if (dataUrl) {
+          item.icon = dataUrl;
+          render();
+        }
+      })
+      .catch(() => {}); // アイコン取得失敗はアイコンなし表示のまま続行
   }
   attachFileKind(item, filePath);
   render();
@@ -433,12 +442,15 @@ function addWebUrl(url) {
       item.isImage = isImagePath(path);
       window.bridge.registerSyncFile(path, name); // 実体が確定した時点で同期台帳へ登録
       if (!item.isImage) {
-        window.bridge.getFileIcon(path).then((dataUrl) => {
-          if (dataUrl) {
-            item.icon = dataUrl;
-            render();
-          }
-        });
+        window.bridge
+          .getFileIcon(path)
+          .then((dataUrl) => {
+            if (dataUrl) {
+              item.icon = dataUrl;
+              render();
+            }
+          })
+          .catch(() => {}); // アイコン取得失敗はアイコンなし表示のまま続行
       }
       attachFileKind(item, path);
       render();
@@ -482,12 +494,15 @@ function addTextSnippet(text) {
       item.name = path.split(/[\\/]/).pop();
       item.downloading = false;
       window.bridge.registerSyncFile(path, item.name); // 実体が確定した時点で同期台帳へ登録
-      window.bridge.getFileIcon(path).then((dataUrl) => {
-        if (dataUrl) {
-          item.icon = dataUrl;
-          render();
-        }
-      });
+      window.bridge
+        .getFileIcon(path)
+        .then((dataUrl) => {
+          if (dataUrl) {
+            item.icon = dataUrl;
+            render();
+          }
+        })
+        .catch(() => {}); // アイコン取得失敗はアイコンなし表示のまま続行
       attachFileKind(item, path);
       render();
     })
@@ -566,7 +581,11 @@ function trimClipHistory() {
 }
 
 window.bridge.onClipboardItem((data) => {
+  if (!data) return;
   const isImage = data.type === 'clipboard-image';
+  // 想定外のペイロード (画像なのに path が無い / テキストなのに本文が無い) は、
+  // サムネイル表示もドラッグアウトもできず後続処理で例外になるため読み飛ばす
+  if (isImage ? !data.path : typeof data.text !== 'string') return;
 
   // 重複コピー: 同じ内容 (テキストは全文一致、画像は同一ファイル名) の履歴が既にあれば
   // カードを増やさず、既存カードを最上位へ引き上げて時刻だけを最新に更新する
@@ -706,10 +725,13 @@ function onItemClick(e, item) {
     if (selectedItems.has(item)) selectedItems.delete(item);
     else selectedItems.add(item);
   } else if (e.shiftKey && lastSelectedIndex !== null) {
-    // Shift+クリックで範囲選択
+    // Shift+クリックで範囲選択。アイテム削除で lastSelectedIndex が現在のリスト長を
+    // 超えている場合があるため、範囲外の添字 (undefined) は選択に混ぜない
     const [start, end] = [lastSelectedIndex, index].sort((a, b) => a - b);
     selectedItems.clear();
-    for (let i = start; i <= end; i++) selectedItems.add(visibleItems[i]);
+    for (let i = start; i <= end; i++) {
+      if (visibleItems[i]) selectedItems.add(visibleItems[i]);
+    }
   } else {
     selectedItems.clear();
     selectedItems.add(item);
@@ -796,8 +818,24 @@ dropZone.addEventListener('mousedown', (e) => {
   e.preventDefault();
 });
 
+// 矩形選択の終了処理。mouseup と「ウインドウ外でボタンが離された」検知の両方から呼ぶ
+function endRectangleSelection() {
+  if (!dragStart) return;
+  dragStart = null;
+  dragBaseSelection = null;
+  if (selectionBox) selectionBox.hidden = true;
+  // ドラッグして選択した直後に発火する click イベントで選択が消えないようにする
+  if (dragMoved) suppressEmptyClick = true;
+}
+
 document.addEventListener('mousemove', (e) => {
   if (!dragStart) return;
+  // ウインドウの外でマウスボタンが離されると mouseup がこの document に届かないため、
+  // ボタンが離れた状態で戻ってきたらその場で終了する (選択枠が張り付いたままになる不具合の防止)
+  if (e.buttons === 0) {
+    endRectangleSelection();
+    return;
+  }
   dragMoved = true;
 
   const pointerRect = rectFromPoints(dragStart.x, dragStart.y, e.clientX, e.clientY);
@@ -823,14 +861,7 @@ document.addEventListener('mousemove', (e) => {
   render();
 });
 
-document.addEventListener('mouseup', () => {
-  if (!dragStart) return;
-  dragStart = null;
-  dragBaseSelection = null;
-  if (selectionBox) selectionBox.hidden = true;
-  // ドラッグして選択した直後に発火する click イベントで選択が消えないようにする
-  if (dragMoved) suppressEmptyClick = true;
-});
+document.addEventListener('mouseup', endRectangleSelection);
 
 // ---- 画面描画 ----
 
