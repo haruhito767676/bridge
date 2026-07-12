@@ -40,6 +40,15 @@ function currentDisplay() {
   return screen.getDisplayNearestPoint(cursor);
 }
 
+// ウインドウを表示 (show/focus) する直前に、カーソルのあるディスプレイの
+// workArea 基準で計算した右端座標へ setBounds で強制配置する。
+// OS の自動配置に任せると復元時にモニターを跨ぐことがあるため、
+// 表示前に必ずこの関数で座標を確定させること
+function placeOnCursorDisplay(shown) {
+  if (!win) return;
+  win.setBounds(dockedBoundsForDisplay(currentDisplay(), shown), false);
+}
+
 function applyDock(shown, display) {
   if (!win) return;
   // 第2引数 true で macOS ネイティブのスライドアニメーションがかかる
@@ -52,15 +61,18 @@ function expandShelter() {
     clearTimeout(collapseTimer);
     collapseTimer = null;
   }
-  if (expanded) return;
-  expanded = true;
 
   // マウスカーソルの座標から「今いるディスプレイ」を再取得する。
-  // 起動時に表示されていたディスプレイと異なる場合は、まずアニメーションなしで
-  // そのディスプレイの右端（隠れ位置）へ即座にワープしてから展開する。
+  // ウインドウが別のディスプレイに居る場合は、まずアニメーションなしで
+  // カーソルのあるディスプレイの右端（隠れ位置）へ即座にワープしてから展開する。
+  // 既に展開済みでも、カーソルが別ディスプレイの右端に来たときは開き直す
   const display = currentDisplay();
   const winDisplay = screen.getDisplayMatching(win.getBounds());
-  if (display.id !== winDisplay.id) {
+  const sameDisplay = display.id === winDisplay.id;
+  if (expanded && sameDisplay) return;
+  expanded = true;
+
+  if (!sameDisplay) {
     win.setBounds(dockedBoundsForDisplay(display, false), false);
   }
   applyDock(true, display);
@@ -80,6 +92,38 @@ function collapseShelter() {
   }, 220);
 }
 
+// ---- どのモニターでも右端ホバーで出現させるグローバル監視 ----
+// つまみ (BrowserWindow) は常に 1 枚しか存在せず、renderer の mouseenter は
+// ウインドウが居るディスプレイでしか発火しない。そのため Main 側でカーソル座標を
+// ポーリングし、「任意のディスプレイの右端つまみ相当ゾーン」への進入を検知して
+// そのディスプレイへワープ & 展開する
+
+const EDGE_POLL_MS = 100;
+let cursorWasInTabZone = false;
+
+// カーソルが指定ディスプレイの「つまみ相当ゾーン」(右端 TAB_WIDTH 幅 × つまみの縦帯) に居るか
+function cursorInTabZone(cursor, display) {
+  const tab = dockedBoundsForDisplay(display, false);
+  return cursor.x >= tab.x && cursor.y >= tab.y && cursor.y <= tab.y + tab.height;
+}
+
+function pollCursorForEdgeReveal() {
+  if (!win) return;
+  const cursor = screen.getCursorScreenPoint();
+  const inZone = cursorInTabZone(cursor, screen.getDisplayNearestPoint(cursor));
+  // 「ゾーン外 → ゾーン内」の進入エッジでのみ展開する。居続けで再展開しないため、
+  // クリップボード再利用直後の即時収納 (collapseShelterNow) と喧嘩しない
+  if (inZone && !cursorWasInTabZone) expandShelter();
+  cursorWasInTabZone = inZone;
+}
+
+function startEdgeRevealWatcher() {
+  // 起動時点で既にゾーン内に居た場合は「進入済み」として扱い、勝手に開かないようにする
+  const cursor = screen.getCursorScreenPoint();
+  cursorWasInTabZone = cursorInTabZone(cursor, screen.getDisplayNearestPoint(cursor));
+  setInterval(pollCursorForEdgeReveal, EDGE_POLL_MS);
+}
+
 // ---- 多重起動防止 ----
 // Windows/Linux では bridge:// が第2インスタンスの argv に届くため必須。
 if (!app.requestSingleInstanceLock()) {
@@ -96,8 +140,10 @@ if (process.defaultApp && process.argv.length >= 2) {
 }
 
 function createWindow() {
-  // 起動時は「つまみ」だけ見えている隠れ状態から始める。初期位置はメインディスプレイの右端中央に厳密固定する
-  const bounds = dockedBoundsForDisplay(screen.getPrimaryDisplay(), false);
+  // 起動時は「つまみ」だけ見えている隠れ状態から始める。
+  // 初期位置は「現在マウスカーソルがあるディスプレイ」の右端中央に厳密固定する
+  // (プライマリ固定にすると、別モニターで作業中の起動時に意図しない画面へ出るため)
+  const bounds = dockedBoundsForDisplay(currentDisplay(), false);
 
   win = new BrowserWindow({
     ...bounds,
@@ -220,6 +266,8 @@ ipcMain.handle('download-url', (_event, url) => downloadToLocal(url));
 function sendFileToRenderer(filePath) {
   if (win !== null && rendererReady) {
     if (win.isMinimized()) win.restore();
+    // show の前にカーソルのあるモニターへ強制配置し、OS の自動復元でモニターを跨ぐのを防ぐ
+    placeOnCursorDisplay(expanded);
     win.show();
     win.focus();
     expandShelter();
@@ -293,6 +341,8 @@ app.on('open-url', (event, url) => {
 app.on('second-instance', (_event, argv) => {
   if (win !== null) {
     if (win.isMinimized()) win.restore();
+    // show の前にカーソルのあるモニターへ強制配置し、OS の自動復元でモニターを跨ぐのを防ぐ
+    placeOnCursorDisplay(expanded);
     win.show();
     win.focus();
   }
@@ -637,6 +687,7 @@ app.on('will-quit', () => {
 app.whenReady().then(() => {
   createWindow();
   startClipboardWatcher();
+  startEdgeRevealWatcher();
 
   // Windows/Linux で bridge:// から直接起動された場合は argv に URL が入っている
   const initialUrl = process.argv.find((arg) => arg.startsWith('bridge://'));
