@@ -19,9 +19,17 @@ contextBridge.exposeInMainWorld('bridge', {
   // ドロップされたテキストを snippet_[タイムスタンプ].txt として保存する
   saveTextSnippet: (text) => ipcRenderer.invoke('save-text-snippet', text),
 
-  // bridge:// URL スキーム経由で届いたファイルを受け取る
+  // bridge:// URL スキーム・クリップボード監視・他拠点からの同期で届いたファイルを受け取る。
+  // payload は { path, name, fromDevice, fromPlatform } (旧形式のパス文字列にも Renderer 側で対応)
   onAddFile: (callback) =>
-    ipcRenderer.on('add-file', (_event, filePath) => callback(filePath)),
+    ipcRenderer.on('add-file', (_event, payload) => callback(payload)),
+
+  // 自分のデバイス名とプラットフォーム ({ device, platform })。出身デバイスバッジの判定に使う
+  getDeviceInfo: () => ipcRenderer.invoke('get-device-info'),
+
+  // ローカル生まれのファイルをマルチデバイス同期の台帳へ登録する (他拠点由来は登録しない)
+  registerSyncFile: (filePath, name) =>
+    ipcRenderer.send('sync-register-file', { path: filePath, name }),
 
   // Mac 純正クイックルックでプレビュー
   previewFile: (filePath, fileName) =>

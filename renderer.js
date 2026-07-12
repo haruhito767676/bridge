@@ -1,6 +1,8 @@
 // シェルフのアイテム (最新順)。kind: 'file' | 'clip-text' | 'clip-image'
-// { kind, path, name, text, icon, isImage, downloading, removing, timestamp, fileKind }
+// { kind, path, name, text, icon, isImage, downloading, removing, timestamp, fileKind, fromDevice, fromPlatform }
 // fileKind: kind === 'file' のアイテムに非同期で付与される Finder 純正の種類名 (例:「PDF書類」「フォルダ」)
+// fromDevice: 出身デバイス名。null / 自分のデバイス名なら「ローカル」、他拠点から同期されたものはその拠点名
+// fromPlatform: 出身デバイスの OS ('darwin' | 'win32' 等)。バッジの色分けに使う
 const items = [];
 const selectedItems = new Set();
 let lastSelectedIndex = null;
@@ -16,6 +18,16 @@ const suggestEl = document.getElementById('search-suggest');
 const badgeEl = document.getElementById('filter-badge');
 const badgeLabel = document.getElementById('filter-badge-label');
 const badgeRemove = document.getElementById('filter-badge-remove');
+
+// ---- 自分のデバイス情報 (出身デバイスバッジの「ローカル / 拠点名」判定に使う) ----
+
+let localDeviceName = '';
+window.bridge.getDeviceInfo().then((info) => {
+  if (info && info.device) {
+    localDeviceName = info.device;
+    render(); // 取得前に描画済みのバッジを正しい判定で描き直す
+  }
+});
 
 // ---- スマート検索 (フィルターバッジ + サジェスト + インクリメンタル絞り込み) ----
 
@@ -210,9 +222,15 @@ function isImagePath(filePath) {
   return match !== null && IMAGE_EXTS.includes(match[1].toLowerCase());
 }
 
-// 絶対パスを <img> の src に使える file:// URL に変換 (空白や日本語もエスケープ)
+// 絶対パスを <img> の src に使える file:// URL に変換 (空白や日本語もエスケープ)。
+// Windows のドライブレター (C:) と \ 区切りにも対応し、同期されてきたファイルも正しく表示する
 function toFileUrl(filePath) {
-  return 'file://' + filePath.split('/').map(encodeURIComponent).join('/');
+  const encoded = filePath
+    .replace(/\\/g, '/')
+    .split('/')
+    .map((seg, i) => (i === 0 && /^[A-Za-z]:$/.test(seg) ? seg : encodeURIComponent(seg)))
+    .join('/');
+  return (encoded.startsWith('/') ? 'file://' : 'file:///') + encoded;
 }
 
 // ---- 1. ファイルを受け取る（Finder → Bridge / Web → Bridge / bridge:// → Bridge）----
@@ -281,23 +299,29 @@ function attachFileKind(item, filePath) {
   });
 }
 
-// ローカルファイルをリストへ追加する共通処理
-function addLocalFile(filePath, fileName) {
+// ローカルファイルをリストへ追加する共通処理。
+// origin が渡された場合は他拠点から同期されてきたファイル ({ fromDevice, fromPlatform })
+function addLocalFile(filePath, fileName, origin) {
   if (!filePath) return;
   if (items.some((item) => item.path === filePath)) return; // 重複は追加しない
 
   const item = {
     kind: 'file',
     path: filePath,
-    name: fileName || filePath.split('/').pop(),
+    name: fileName || filePath.split(/[\\/]/).pop(), // Windows のパス区切り (\) にも対応
     text: null,
     icon: null,
     isImage: isImagePath(filePath),
     downloading: false,
     removing: false,
     timestamp: Date.now(),
+    fromDevice: origin ? origin.fromDevice : null,
+    fromPlatform: origin ? origin.fromPlatform : null,
   };
   items.unshift(item); // タイムライン表示のため最新を先頭へ
+
+  // 自分のデバイスで生まれたファイルだけを同期台帳へ登録する (他拠点由来の再登録ループを防ぐ)
+  if (!item.fromDevice) window.bridge.registerSyncFile(filePath, item.name);
 
   // 画像はファイル自体をサムネイル表示するのでアイコン取得は不要
   if (!item.isImage) {
@@ -351,6 +375,8 @@ function addWebUrl(url) {
     downloading: true,
     removing: false,
     timestamp: Date.now(),
+    fromDevice: null, // Web からのダウンロードは自分のデバイス生まれとして扱う
+    fromPlatform: null,
   };
   items.unshift(item);
   render();
@@ -367,6 +393,7 @@ function addWebUrl(url) {
       item.name = name;
       item.downloading = false;
       item.isImage = isImagePath(path);
+      window.bridge.registerSyncFile(path, name); // 実体が確定した時点で同期台帳へ登録
       if (!item.isImage) {
         window.bridge.getFileIcon(path).then((dataUrl) => {
           if (dataUrl) {
@@ -398,6 +425,8 @@ function addTextSnippet(text) {
     downloading: true,
     removing: false,
     timestamp: Date.now(),
+    fromDevice: null, // ドラッグされた選択テキストは自分のデバイス生まれとして扱う
+    fromPlatform: null,
   };
   items.unshift(item);
   render();
@@ -411,8 +440,9 @@ function addTextSnippet(text) {
         return;
       }
       item.path = path;
-      item.name = path.split('/').pop();
+      item.name = path.split(/[\\/]/).pop();
       item.downloading = false;
+      window.bridge.registerSyncFile(path, item.name); // 実体が確定した時点で同期台帳へ登録
       window.bridge.getFileIcon(path).then((dataUrl) => {
         if (dataUrl) {
           item.icon = dataUrl;
@@ -457,8 +487,16 @@ dropZone.addEventListener('drop', (e) => {
   }
 });
 
-// bridge:// URL スキーム経由 (Mac クイックアクション等) で届いたファイル
-window.bridge.onAddFile((filePath) => addLocalFile(filePath));
+// bridge:// URL スキーム経由 (Mac クイックアクション等)・クリップボード監視・
+// 他拠点からの同期で届いたファイル。payload は { path, name, fromDevice, fromPlatform }
+// (旧形式のパス文字列が届いた場合もローカルファイルとして扱う)
+window.bridge.onAddFile((payload) => {
+  if (payload && typeof payload === 'object') {
+    addLocalFile(payload.path, payload.name, payload.fromDevice ? payload : null);
+  } else {
+    addLocalFile(payload);
+  }
+});
 
 // ウインドウが展開されるたびに検索状態 (文字列・バッジ・サジェスト・選択) を完全リセットして
 // 最新の全リスト表示へ戻し、そのまま打ち始められるよう検索バーへ自動フォーカスする
@@ -496,13 +534,15 @@ window.bridge.onClipboardItem((data) => {
     text: isImage ? null : data.text,
     // テキストは冒頭プレビュー (改行や連続空白は 1 つに畳む)
     name: isImage
-      ? data.path.split('/').pop()
+      ? data.path.split(/[\\/]/).pop()
       : data.text.trim().replace(/\s+/g, ' ').slice(0, 200),
     icon: null,
     isImage,
     downloading: false,
     removing: false,
     timestamp: data.timestamp,
+    fromDevice: data.fromDevice || null,
+    fromPlatform: data.fromPlatform || null,
   };
   items.unshift(item);
   trimClipHistory();
@@ -846,6 +886,27 @@ function showTooltip(target, text) {
   tooltipEl.style.top = `${top}px`;
 }
 
+// ---- 出身デバイスバッジ (アイテムがどのデバイスで生まれたかを一目で示す) ----
+
+// fromDevice が空 (ローカル生成) または自分のデバイス名なら「ローカル」、
+// 他拠点から同期されたものはその拠点名 (例: "Win-PC", "MacBook") をそのまま表示する
+function createDeviceBadge(item) {
+  const badge = document.createElement('div');
+  badge.className = 'device-badge';
+  const isLocal = !item.fromDevice || item.fromDevice === localDeviceName;
+  if (isLocal) {
+    badge.textContent = 'ローカル';
+    badge.classList.add('device-local');
+  } else {
+    badge.textContent = item.fromDevice;
+    badge.classList.add('device-remote');
+    // 出身デバイスの OS で色味を変える (Windows は青みがかった背景)
+    if (item.fromPlatform === 'win32') badge.classList.add('device-win');
+    else if (item.fromPlatform === 'darwin') badge.classList.add('device-mac');
+  }
+  return badge;
+}
+
 function render() {
   // リストを作り直すと mouseleave が発火しないままホバー元の要素が消えるため、
   // 残骸ツールチップをここで必ず取り除く
@@ -925,7 +986,12 @@ function render() {
             ? '画像コピー'
             : item.fileKind || 'ファイル'; // Finder 純正の種類名 (取得前は「ファイル」で暫定表示)
       time.textContent = `${label} · ${formatTime(item.timestamp)}`;
+      // 時刻ラベルの隣に出身デバイスバッジを添える (タイトルの省略・ツールチップには一切影響しない)
+      time.appendChild(createDeviceBadge(item));
       lines.appendChild(time);
+    } else {
+      // 時刻が無いアイテムでも出身地は常に分かるようにする
+      lines.appendChild(createDeviceBadge(item));
     }
 
     // ホバー時に現れる「×」ボタン

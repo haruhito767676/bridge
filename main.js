@@ -2,6 +2,8 @@ const { app, BrowserWindow, ipcMain, net, screen, clipboard, nativeImage } = req
 const path = require('path');
 const fs = require('fs');
 const fsp = require('fs/promises');
+const os = require('os');
+const http = require('http');
 const crypto = require('crypto');
 const { pathToFileURL, fileURLToPath } = require('url');
 const { execFile } = require('child_process');
@@ -175,6 +177,10 @@ function createWindow() {
     while (pendingFiles.length > 0) {
       win.webContents.send('add-file', pendingFiles.shift());
     }
+    // Renderer の準備前に他拠点から同期されてきたクリップボード履歴も流し込む
+    while (pendingClipItems.length > 0) {
+      win.webContents.send('clipboard-item', pendingClipItems.shift());
+    }
   });
 
   win.on('closed', () => {
@@ -263,7 +269,19 @@ ipcMain.handle('download-url', (_event, url) => downloadToLocal(url));
 
 // ---- 3. bridge:// URL のパースとリストへの格納 ----
 
-function sendFileToRenderer(filePath) {
+// add-file の送信ペイロード。origin が無ければ自分のデバイスで生まれたファイル (fromDevice: null)、
+// あれば他拠点から同期されてきたファイルとして出身デバイス名とプラットフォームを添える
+function addFilePayload(filePath, origin) {
+  return {
+    path: filePath,
+    name: path.basename(filePath),
+    fromDevice: origin ? origin.fromDevice : null,
+    fromPlatform: origin ? origin.fromPlatform : null,
+  };
+}
+
+function sendFileToRenderer(filePath, origin) {
+  const payload = addFilePayload(filePath, origin);
   if (win !== null && rendererReady) {
     if (win.isMinimized()) win.restore();
     // show の前にカーソルのあるモニターへ強制配置し、OS の自動復元でモニターを跨ぐのを防ぐ
@@ -271,9 +289,9 @@ function sendFileToRenderer(filePath) {
     win.show();
     win.focus();
     expandShelter();
-    win.webContents.send('add-file', filePath);
+    win.webContents.send('add-file', payload);
   } else {
-    pendingFiles.push(filePath);
+    pendingFiles.push(payload);
   }
 }
 
@@ -467,16 +485,22 @@ async function saveClipboardImage(image) {
   return dest;
 }
 
+// Renderer の準備前に届いた同期クリップボード履歴を溜めるキュー (pendingFiles と同じ役割)
+const pendingClipItems = [];
+
 function sendClipboardItem(item) {
   if (win !== null && rendererReady) win.webContents.send('clipboard-item', item);
+  else pendingClipItems.push(item);
 }
 
-// Finder のファイルコピーで検知したパスを、ウインドウを奪わずに通常ドロップと同じ扱いでリストへ追加する
-function addFileQuietly(filePath) {
+// Finder のファイルコピーで検知したパスや他拠点から同期されたファイルを、
+// ウインドウを奪わずに通常ドロップと同じ扱いでリストへ追加する
+function addFileQuietly(filePath, origin) {
+  const payload = addFilePayload(filePath, origin);
   if (win !== null && rendererReady) {
-    win.webContents.send('add-file', filePath);
+    win.webContents.send('add-file', payload);
   } else {
-    pendingFiles.push(filePath);
+    pendingFiles.push(payload);
   }
 }
 
@@ -552,9 +576,18 @@ async function pollClipboard() {
         } catch (err) {
           console.error('スニペットファイルの生成に失敗 (生テキストのみで履歴に残す):', err);
         }
-        const entry = { type: 'clipboard-text', text, path: snippetPath, timestamp: Date.now() };
+        const entry = {
+          type: 'clipboard-text',
+          text,
+          path: snippetPath,
+          timestamp: Date.now(),
+          fromDevice: deviceName,
+          fromPlatform: process.platform,
+        };
         pushClipHistory(entry);
         sendClipboardItem(entry);
+        // 同期台帳へ登録し、オンラインの他拠点へ即時プッシュする
+        registerLocalSyncEntry({ type: 'text', text, path: snippetPath, timestamp: entry.timestamp });
       }
     }
 
@@ -567,9 +600,23 @@ async function pollClipboard() {
         if (key !== lastClipImageKey) {
           lastClipImageKey = key;
           const savedPath = await saveClipboardImage(image);
-          const entry = { type: 'clipboard-image', text: null, path: savedPath, timestamp: Date.now() };
+          const entry = {
+            type: 'clipboard-image',
+            text: null,
+            path: savedPath,
+            timestamp: Date.now(),
+            fromDevice: deviceName,
+            fromPlatform: process.platform,
+          };
           pushClipHistory(entry);
           sendClipboardItem(entry);
+          // 同期台帳へ登録し、オンラインの他拠点へ即時プッシュする (実体 PNG は /file で配信)
+          registerLocalSyncEntry({
+            type: 'image',
+            name: path.basename(savedPath),
+            path: savedPath,
+            timestamp: entry.timestamp,
+          });
         }
       }
     } else {
@@ -684,10 +731,515 @@ app.on('will-quit', () => {
   sessionTempFiles.clear();
 });
 
+// ---- マルチデバイス全自動同期 (軽量 HTTP サーバー + ピア発見 + 差分同期) ----
+//
+// 各デバイスは OS のコンピュータ名 (os.hostname()) を deviceName とし、
+// node:http の軽量サーバーをポート 9095 で常時起動する。
+//   GET  /ping            … Bridge であることの自己紹介 (スキャンによるピア発見用)
+//   GET  /items?since=T   … タイムスタンプ T より新しいアイテムのメタデータ一覧 (差分同期用)
+//   GET  /file?id=…       … アイテムの実体ファイル (画像・ファイルのバックグラウンド転送用)
+//   POST /push            … 新着アイテムのメタデータを受け取る (発生した瞬間の即時通知)
+//
+// ピアは userData/sync-config.json の静的リスト + 同一 /24 セグメントの簡易スキャンで発見し、
+// 新着は即時プッシュ、取りこぼしは定期ポーリングのタイムスタンプ比較で回収する。
+// 外出先から帰宅した場合など、ピアが再び到達可能になった時点で lastSyncedTs 以降の
+// 差分だけが自動でローカルの Bridge へ取り込まれる。
+
+const deviceName = os.hostname();
+
+const DEFAULT_SYNC_PORT = 9095;
+const SYNC_POLL_MS = 20 * 1000; // 既知ピアへの差分ポーリング間隔 (再接続の自動検知を兼ねる)
+const SUBNET_SCAN_MS = 5 * 60 * 1000; // 同一セグメントの再スキャン間隔 (Wi-Fi 切り替え等に追従)
+const PROBE_TIMEOUT_MS = 800;
+const SYNC_BODY_LIMIT = 10 * 1024 * 1024;
+const MAX_SYNC_STORE = 500;
+
+let syncConfig = { port: DEFAULT_SYNC_PORT, peers: [], autoScan: true };
+
+// 同期台帳: 自分が生成したアイテムと他拠点から受信したアイテムの両方を持ち、
+// 3 台以上のメッシュ構成でも任意の 2 台が到達可能でさえあれば全体が収束するよう中継役も担う。
+// { id, type: 'text' | 'image' | 'file', name, text, path, timestamp, fromDevice, fromPlatform }
+const syncStore = [];
+const seenSyncIds = new Set(); // id による重複同期・循環中継の防止
+const registeredSyncPaths = new Set(); // 同じローカルファイルの二重登録防止
+
+function syncConfigPath() {
+  return path.join(app.getPath('userData'), 'sync-config.json');
+}
+
+// 静的ピア指定用の設定ファイル。無ければデフォルトを書き出してユーザーが追記できるようにする
+// 例: { "port": 9095, "peers": ["192.168.1.23", "192.168.1.40:9095"], "autoScan": true }
+function loadSyncConfig() {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(syncConfigPath(), 'utf8'));
+    syncConfig = {
+      port: Number(parsed.port) || DEFAULT_SYNC_PORT,
+      peers: Array.isArray(parsed.peers) ? parsed.peers.filter((p) => typeof p === 'string') : [],
+      autoScan: parsed.autoScan !== false,
+    };
+  } catch {
+    try {
+      fs.writeFileSync(
+        syncConfigPath(),
+        JSON.stringify({ port: DEFAULT_SYNC_PORT, peers: [], autoScan: true }, null, 2)
+      );
+    } catch {
+      // 書き出せなくてもデフォルト設定のまま動作を続ける
+    }
+  }
+}
+
+function pushSyncEntry(entry) {
+  syncStore.push(entry);
+  if (syncStore.length > MAX_SYNC_STORE) syncStore.splice(0, syncStore.length - MAX_SYNC_STORE);
+}
+
+// ピアへ送るメタデータ (実体ファイルは含めず、hasFile なら /file?id= で別途転送する)
+function syncMetadata(entry) {
+  return {
+    id: entry.id,
+    type: entry.type,
+    name: entry.name,
+    text: entry.type === 'text' ? entry.text : null,
+    timestamp: entry.timestamp,
+    fromDevice: entry.fromDevice,
+    fromPlatform: entry.fromPlatform,
+    hasFile: entry.type !== 'text' && !!entry.path,
+  };
+}
+
+// 自分のデバイスで生まれたアイテムを台帳へ登録し、オンラインのピアへ即時プッシュする
+function registerLocalSyncEntry({ type, name, text, path: filePath, timestamp }) {
+  const entry = {
+    id: crypto.randomUUID(),
+    type,
+    name: name || null,
+    text: text || null,
+    path: filePath || null,
+    timestamp: timestamp || Date.now(),
+    fromDevice: deviceName,
+    fromPlatform: process.platform,
+  };
+  seenSyncIds.add(entry.id);
+  pushSyncEntry(entry);
+  pushEntriesToPeers([entry]);
+  return entry;
+}
+
+// ---- ピア管理 ----
+
+const knownPeers = new Map(); // "host:port" → { host, port, device, online, lastSyncedTs, syncing }
+
+function localAddresses() {
+  const addrs = new Set(['127.0.0.1']);
+  for (const list of Object.values(os.networkInterfaces() || {})) {
+    for (const a of list || []) {
+      if (a.family === 'IPv4') addrs.add(a.address);
+    }
+  }
+  return addrs;
+}
+
+function addPeer(host, port, device) {
+  const peerPort = Number(port) || syncConfig.port;
+  if (!host) return null;
+  if (localAddresses().has(host) && peerPort === syncConfig.port) return null; // 自分自身は除外
+  const key = `${host}:${peerPort}`;
+  let peer = knownPeers.get(key);
+  if (!peer) {
+    peer = { host, port: peerPort, device: device || null, online: false, lastSyncedTs: 0, syncing: false };
+    knownPeers.set(key, peer);
+    // 発見した瞬間に一度差分同期を走らせる (帰宅直後の取り込みを最速化)
+    pollPeer(peer);
+  } else if (device) {
+    peer.device = device;
+  }
+  return peer;
+}
+
+// ---- HTTP クライアントヘルパー (依存パッケージなし、node:http のみ) ----
+
+function httpGetJson(host, port, pathName, timeoutMs = PROBE_TIMEOUT_MS) {
+  return new Promise((resolve, reject) => {
+    const req = http.get({ host, port, path: pathName, timeout: timeoutMs }, (res) => {
+      let body = '';
+      res.setEncoding('utf8');
+      res.on('data', (c) => {
+        body += c;
+        if (body.length > SYNC_BODY_LIMIT) req.destroy(new Error('response too large'));
+      });
+      res.on('end', () => {
+        if (res.statusCode !== 200) return reject(new Error(`HTTP ${res.statusCode}`));
+        try {
+          resolve(JSON.parse(body));
+        } catch (err) {
+          reject(err);
+        }
+      });
+    });
+    req.on('timeout', () => req.destroy(new Error('timeout')));
+    req.on('error', reject);
+  });
+}
+
+function httpPostJson(host, port, pathName, payload, timeoutMs = 3000) {
+  return new Promise((resolve, reject) => {
+    const body = JSON.stringify(payload);
+    const req = http.request(
+      {
+        host,
+        port,
+        path: pathName,
+        method: 'POST',
+        timeout: timeoutMs,
+        headers: { 'Content-Type': 'application/json; charset=utf-8', 'Content-Length': Buffer.byteLength(body) },
+      },
+      (res) => {
+        res.resume(); // レスポンス本文は読み捨てる (ステータスだけ見る)
+        res.on('end', () => (res.statusCode === 200 ? resolve() : reject(new Error(`HTTP ${res.statusCode}`))));
+      }
+    );
+    req.on('timeout', () => req.destroy(new Error('timeout')));
+    req.on('error', reject);
+    req.end(body);
+  });
+}
+
+// 他拠点由来のファイル名は OS を跨ぐため、Windows で使えない文字を除去してから保存する
+function sanitizeSyncFileName(name) {
+  const cleaned = String(name || '').replace(/[/\\:*?"<>|]/g, '_').trim();
+  return cleaned || `synced-${Date.now()}`;
+}
+
+// ピアの /file?id= から実体ファイルをローカルの一時保存フォルダへバックグラウンド転送する
+function downloadEntryFile(peer, entry) {
+  return new Promise((resolve, reject) => {
+    const req = http.get(
+      { host: peer.host, port: peer.port, path: `/file?id=${encodeURIComponent(entry.id)}`, timeout: 15000 },
+      (res) => {
+        if (res.statusCode !== 200) {
+          res.resume();
+          return reject(new Error(`HTTP ${res.statusCode}`));
+        }
+        const dir = downloadDir();
+        fs.mkdirSync(dir, { recursive: true });
+        const dest = reserveDest(dir, sanitizeSyncFileName(entry.name));
+        const out = fs.createWriteStream(dest);
+        res.pipe(out);
+        out.on('finish', () => {
+          sessionTempFiles.add(dest); // 同期コピーも終了時クリーンアップの対象として追跡
+          resolve(dest);
+        });
+        out.on('error', (err) => {
+          fsp.unlink(dest).catch(() => {});
+          reject(err);
+        });
+        res.on('error', reject);
+      }
+    );
+    req.on('timeout', () => req.destroy(new Error('timeout')));
+    req.on('error', reject);
+  });
+}
+
+// ---- 受信アイテムの取り込み ----
+
+// 成功 (または取り込み不要) なら true。ファイル転送に失敗したときだけ false を返し、
+// seenSyncIds に入れずに次回の差分ポーリングで再試行できるようにする
+async function importRemoteEntry(meta, peer) {
+  if (!meta || typeof meta.id !== 'string') return true;
+  if (seenSyncIds.has(meta.id) || meta.fromDevice === deviceName) return true; // 重複・自分発は無視
+
+  const entry = {
+    id: meta.id,
+    type: meta.type,
+    name: meta.name || null,
+    text: meta.type === 'text' ? meta.text || '' : null,
+    path: null,
+    timestamp: Number(meta.timestamp) || Date.now(),
+    fromDevice: meta.fromDevice || peer.device || peer.host,
+    fromPlatform: meta.fromPlatform || null,
+  };
+
+  if (meta.type === 'text') {
+    seenSyncIds.add(entry.id);
+    if (!entry.text.trim()) return true;
+    // ドラッグアウト用に snippet ファイルも裏生成しておく (失敗しても本文だけで取り込む)
+    try {
+      entry.path = await saveSnippetAsFile(entry.text);
+    } catch {
+      entry.path = null;
+    }
+    pushSyncEntry(entry);
+    sendClipboardItem({
+      type: 'clipboard-text',
+      text: entry.text,
+      path: entry.path,
+      timestamp: entry.timestamp,
+      fromDevice: entry.fromDevice,
+      fromPlatform: entry.fromPlatform,
+    });
+    // 3 台以上の構成で、送信元と直接つながっていないピアにも届くよう中継プッシュする
+    // (受信側は id で重複を弾くため循環しない)
+    pushEntriesToPeers([entry]);
+    return true;
+  }
+
+  if (meta.type === 'image' || meta.type === 'file') {
+    if (!meta.hasFile) {
+      seenSyncIds.add(entry.id);
+      return true;
+    }
+    try {
+      entry.path = await downloadEntryFile(peer, entry);
+    } catch (err) {
+      console.error('同期ファイルの転送に失敗 (次回ポーリングで再試行):', entry.name, err.message);
+      return false;
+    }
+    seenSyncIds.add(entry.id);
+    pushSyncEntry(entry); // ローカルパス付きで台帳に載せ、さらに別のピアへも中継できるようにする
+    if (meta.type === 'image') {
+      sendClipboardItem({
+        type: 'clipboard-image',
+        text: null,
+        path: entry.path,
+        timestamp: entry.timestamp,
+        fromDevice: entry.fromDevice,
+        fromPlatform: entry.fromPlatform,
+      });
+    } else {
+      addFileQuietly(entry.path, entry);
+    }
+    // 3 台以上の構成で、送信元と直接つながっていないピアにも届くよう中継プッシュする
+    pushEntriesToPeers([entry]);
+    return true;
+  }
+
+  seenSyncIds.add(entry.id); // 未知の type は黙って読み飛ばす (将来の拡張との互換)
+  return true;
+}
+
+// ---- 差分ポーリング (タイムスタンプ比較) ----
+
+async function pollPeer(peer) {
+  if (peer.syncing) return; // 同じピアへのポーリングが重ならないようにする
+  peer.syncing = true;
+  try {
+    const data = await httpGetJson(peer.host, peer.port, `/items?since=${peer.lastSyncedTs}`, 5000);
+    if (!data || data.app !== 'bridge' || !Array.isArray(data.items)) return;
+    peer.online = true;
+    if (data.device) peer.device = data.device;
+    // lastSyncedTs は「ピア側の時計で付いたタイムスタンプ」の最大値なので、
+    // デバイス間の時計ズレがあっても差分の取りこぼしは起きない
+    const sorted = data.items.slice().sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+    for (const meta of sorted) {
+      const ok = await importRemoteEntry(meta, peer);
+      if (!ok) break; // 転送失敗地点で止め、タイムスタンプを進めず次回に再取得する
+      peer.lastSyncedTs = Math.max(peer.lastSyncedTs, Number(meta.timestamp) || 0);
+    }
+  } catch {
+    peer.online = false; // 外出中などで到達不能。lastSyncedTs は保持し、再接続時に差分だけ取り込む
+  } finally {
+    peer.syncing = false;
+  }
+}
+
+function pollAllPeers() {
+  for (const peer of knownPeers.values()) pollPeer(peer);
+}
+
+// 新着アイテムが発生した瞬間、オンラインの全ピアへメタデータを即時プッシュする
+function pushEntriesToPeers(entries) {
+  if (entries.length === 0 || knownPeers.size === 0) return;
+  const payload = {
+    app: 'bridge',
+    device: deviceName,
+    platform: process.platform,
+    port: syncConfig.port,
+    items: entries.map(syncMetadata),
+  };
+  for (const peer of knownPeers.values()) {
+    if (!peer.online) continue; // オフラインのピアへは再接続後の差分ポーリングで届く
+    httpPostJson(peer.host, peer.port, '/push', payload).catch(() => {
+      peer.online = false;
+    });
+  }
+}
+
+// ---- 同期サーバー (node:http、外部パッケージ不使用) ----
+
+function respondJson(res, obj) {
+  res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+  res.end(JSON.stringify(obj));
+}
+
+function startSyncServer() {
+  const server = http.createServer((req, res) => {
+    let url;
+    try {
+      url = new URL(req.url, 'http://localhost');
+    } catch {
+      res.writeHead(400);
+      res.end();
+      return;
+    }
+
+    try {
+      if (req.method === 'GET' && url.pathname === '/ping') {
+        respondJson(res, { app: 'bridge', device: deviceName, platform: process.platform, port: syncConfig.port });
+        return;
+      }
+
+      if (req.method === 'GET' && url.pathname === '/items') {
+        const since = Number(url.searchParams.get('since')) || 0;
+        const items = syncStore.filter((e) => e.timestamp > since).map(syncMetadata);
+        respondJson(res, { app: 'bridge', device: deviceName, platform: process.platform, items });
+        return;
+      }
+
+      if (req.method === 'GET' && url.pathname === '/file') {
+        const id = url.searchParams.get('id');
+        const entry = syncStore.find((e) => e.id === id);
+        if (!entry || !entry.path || !fs.existsSync(entry.path)) {
+          res.writeHead(404);
+          res.end();
+          return;
+        }
+        res.writeHead(200, { 'Content-Type': 'application/octet-stream' });
+        const stream = fs.createReadStream(entry.path);
+        stream.on('error', () => res.destroy());
+        stream.pipe(res);
+        return;
+      }
+
+      if (req.method === 'POST' && url.pathname === '/push') {
+        let body = '';
+        req.setEncoding('utf8');
+        req.on('data', (c) => {
+          body += c;
+          if (body.length > SYNC_BODY_LIMIT) req.destroy();
+        });
+        req.on('end', async () => {
+          try {
+            const payload = JSON.parse(body);
+            if (payload.app !== 'bridge' || !Array.isArray(payload.items)) {
+              res.writeHead(400);
+              res.end();
+              return;
+            }
+            // プッシュしてきた相手をピアとして記憶する (静的設定もスキャンも不要な自動ブートストラップ)
+            const host = (req.socket.remoteAddress || '').replace(/^::ffff:/, '');
+            const peer =
+              addPeer(host, payload.port, payload.device) || {
+                host,
+                port: Number(payload.port) || syncConfig.port,
+                device: payload.device || null,
+              };
+            peer.online = true;
+            const sorted = payload.items.slice().sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+            for (const meta of sorted) await importRemoteEntry(meta, peer);
+            respondJson(res, { ok: true });
+          } catch {
+            res.writeHead(400);
+            res.end();
+          }
+        });
+        return;
+      }
+
+      res.writeHead(404);
+      res.end();
+    } catch (err) {
+      console.error('同期サーバーのリクエスト処理に失敗:', err);
+      try {
+        res.writeHead(500);
+        res.end();
+      } catch {
+        // 応答済みなら無視
+      }
+    }
+  });
+
+  server.on('error', (err) => console.error('同期サーバーの起動に失敗:', err.message));
+  server.listen(syncConfig.port, '0.0.0.0');
+}
+
+// ---- 同一セグメントの簡易スキャン (静的設定なしでもピアを自動発見する) ----
+
+let subnetScanRunning = false;
+
+async function scanSubnetForPeers() {
+  if (!syncConfig.autoScan || subnetScanRunning) return;
+  subnetScanRunning = true;
+  try {
+    const self = localAddresses();
+    const targets = new Set();
+    for (const list of Object.values(os.networkInterfaces() || {})) {
+      for (const a of list || []) {
+        if (a.family !== 'IPv4' || a.internal) continue;
+        // 有線 LAN / Wi-Fi の両インターフェースを対象に、一般的な /24 の範囲を走査する
+        const base = a.address.split('.').slice(0, 3).join('.');
+        for (let i = 1; i <= 254; i++) {
+          const host = `${base}.${i}`;
+          if (!self.has(host)) targets.add(host);
+        }
+      }
+    }
+
+    const hosts = [...targets];
+    const CONCURRENCY = 32;
+    for (let i = 0; i < hosts.length; i += CONCURRENCY) {
+      await Promise.all(
+        hosts.slice(i, i + CONCURRENCY).map(async (host) => {
+          try {
+            const info = await httpGetJson(host, syncConfig.port, '/ping');
+            if (info && info.app === 'bridge') addPeer(host, info.port, info.device);
+          } catch {
+            // Bridge が居ないホスト・応答なしは無視
+          }
+        })
+      );
+    }
+  } finally {
+    subnetScanRunning = false;
+  }
+}
+
+function startDeviceSync() {
+  loadSyncConfig();
+  startSyncServer();
+  for (const raw of syncConfig.peers) {
+    const [host, port] = raw.split(':');
+    if (host && host.trim()) addPeer(host.trim(), port);
+  }
+  scanSubnetForPeers();
+  setInterval(pollAllPeers, SYNC_POLL_MS);
+  setInterval(scanSubnetForPeers, SUBNET_SCAN_MS);
+}
+
+// Renderer が「ローカル / 他拠点」バッジを出し分けるための自分自身の情報
+ipcMain.handle('get-device-info', () => ({ device: deviceName, platform: process.platform }));
+
+// Renderer で追加されたローカル生まれのファイル (D&D・Web ダウンロード・テキスト保存等) を
+// 同期台帳へ登録する。他拠点由来のアイテムは Renderer 側で登録をスキップするため循環しない
+ipcMain.on('sync-register-file', (_event, payload) => {
+  const filePath = payload && payload.path;
+  if (typeof filePath !== 'string' || registeredSyncPaths.has(filePath)) return;
+  if (!fs.existsSync(filePath)) return;
+  registeredSyncPaths.add(filePath);
+  registerLocalSyncEntry({
+    type: 'file',
+    name: (payload && payload.name) || path.basename(filePath),
+    path: filePath,
+    timestamp: Date.now(),
+  });
+});
+
 app.whenReady().then(() => {
   createWindow();
   startClipboardWatcher();
   startEdgeRevealWatcher();
+  startDeviceSync();
 
   // Windows/Linux で bridge:// から直接起動された場合は argv に URL が入っている
   const initialUrl = process.argv.find((arg) => arg.startsWith('bridge://'));

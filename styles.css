@@ -531,6 +531,70 @@ body.drag-mode #drop-zone.drag-over {
   color: var(--fg-dim);
 }
 
+/* ---- 出身デバイスバッジ (ローカル / 他拠点から同期されたアイテムの見分け) ----
+   時刻ラベルの隣に寄り添う小さなすりガラスチップ。カードの邪魔をしない最小サイズ */
+
+.device-badge {
+  display: inline-block;
+  vertical-align: middle;
+  margin-left: 6px;
+  padding: 2px 6px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  /* 長いコンピュータ名でもカードのレイアウトを崩さない */
+  max-width: 110px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* ライトテーマでは白ベースの地が沈むため、うっすら墨色に置き換えて可読性を保つ */
+@media (prefers-color-scheme: light) {
+  .device-badge {
+    background: rgba(0, 0, 0, 0.07);
+    color: rgba(60, 60, 67, 0.72);
+    border-color: rgba(0, 0, 0, 0.05);
+  }
+}
+
+/* Windows 由来のアイテムは少し青みがかった背景で視覚的に区別する */
+.device-badge.device-win {
+  background: rgba(10, 132, 255, 0.22);
+  border-color: rgba(10, 132, 255, 0.35);
+  color: #8ec4ff;
+}
+
+@media (prefers-color-scheme: light) {
+  .device-badge.device-win {
+    background: rgba(10, 132, 255, 0.13);
+    border-color: rgba(10, 132, 255, 0.3);
+    color: #0a6ddd;
+  }
+}
+
+/* Mac 由来のアイテムはシルバー寄りのニュートラルで上品に */
+.device-badge.device-mac {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.22);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+@media (prefers-color-scheme: light) {
+  .device-badge.device-mac {
+    background: rgba(120, 120, 128, 0.14);
+    border-color: rgba(120, 120, 128, 0.2);
+    color: rgba(60, 60, 67, 0.85);
+  }
+}
+
 /* ---- クリップボード履歴アイテム ---- */
 
 .clip-badge {
