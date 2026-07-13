@@ -22,7 +22,8 @@
       "preload.js",
       "renderer.js",
       "index.html",
-      "styles.css"
+      "styles.css",
+      "assets/**/*"
     ],
     "directories": {
       "output": "dist"

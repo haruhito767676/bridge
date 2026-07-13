@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, net, screen, clipboard, nativeImage } = require('electron');
+const { app, BrowserWindow, ipcMain, net, screen, clipboard, nativeImage, Tray } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const fsp = require('fs/promises');
@@ -206,6 +206,56 @@ if (process.defaultApp && process.argv.length >= 2) {
   app.setAsDefaultProtocolClient('bridge', process.execPath, [path.resolve(process.argv[1])]);
 } else {
   app.setAsDefaultProtocolClient('bridge');
+}
+
+// ---- メニューバー (StatusItem) アイコン ----
+// アセットは assets/tray/ 配下に事前生成済みの Template Image
+// (iconTemplate.png = 16x16 @1x, iconTemplate@2x.png = 32x32 @2x) を置いている。
+// ・線画のみを黒 + アルファで抽出済み (背景は完全透明) なので isTemplate 指定だけで
+//   ライト/ダーク/ハイライト時の配色を OS 側の自動着色に委ねられる
+// ・ファイル名を “Template” サフィックスにし、かつ setTemplateImage(true) も明示することで
+//   macOS の自動判定に依存し過ぎず確実にテンプレート扱いさせる
+let tray = null;
+
+// Apple HIG 上のメニューバーアイコン許容サイズ (16px 〜 22px)。
+// アセットが将来差し替わっても、ここで強制的にクランプしてから nativeImage に渡すことで
+// 「巨大化して隣のアイコンを圧迫する」「潰れて縦横比が崩れる」事故を防ぐ安全弁とする。
+const TRAY_ICON_MIN_SIZE = 16;
+const TRAY_ICON_MAX_SIZE = 22;
+
+// 縦横比を維持したまま [MIN, MAX] の正方形内に収まるようクランプする
+function clampTrayImage(image) {
+  if (image.isEmpty()) return image;
+  const { width, height } = image.getSize();
+  const longSide = Math.max(width, height);
+  if (longSide >= TRAY_ICON_MIN_SIZE && longSide <= TRAY_ICON_MAX_SIZE) return image;
+
+  const target = longSide < TRAY_ICON_MIN_SIZE ? TRAY_ICON_MIN_SIZE : TRAY_ICON_MAX_SIZE;
+  const scale = target / longSide;
+  return image.resize({
+    width: Math.round(width * scale),
+    height: Math.round(height * scale),
+    quality: 'best',
+  });
+}
+
+function createTray() {
+  const iconPath = path.join(__dirname, 'assets', 'tray', 'iconTemplate.png');
+  let image = nativeImage.createFromPath(iconPath);
+  image = clampTrayImage(image);
+  if (process.platform === 'darwin') image.setTemplateImage(true);
+
+  tray = new Tray(image);
+  tray.setToolTip('Bridge');
+  tray.on('click', () => {
+    if (!winAlive()) return;
+    if (expanded) {
+      collapseShelterNow();
+    } else {
+      win.setBounds(dockedBoundsForDisplay(currentDisplay(), false), false);
+      expandShelter();
+    }
+  });
 }
 
 function createWindow() {
@@ -1645,6 +1695,7 @@ ipcMain.on('sync-register-file', (_event, payload) => {
 app.whenReady().then(() => {
   if (!gotSingleInstanceLock) return; // 多重起動の第2インスタンスは何も起動せず quit を待つ
   createWindow();
+  createTray();
   startClipboardWatcher();
   startEdgeRevealWatcher();
   startDeviceSync();
