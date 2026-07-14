@@ -61,7 +61,7 @@ contextBridge.exposeInMainWorld('bridge', {
   // 終了時クリーンアップの判定用に、現在リストに保持しているパス一覧を Main へ共有する
   reportRetainedPaths: (paths) => ipcRenderer.send('report-retained-paths', paths),
 
-  // ---- リモート操作 HUD ----
+  // ---- マウス共有 HUD ----
 
   // HUD が開くたびに最新のデバイス一覧を受け取る ({ id, device, isSelf }[])
   onHudSetDevices: (callback) =>
@@ -86,7 +86,7 @@ contextBridge.exposeInMainWorld('bridge', {
   onControlConnectFailed: (callback) =>
     ipcRenderer.on('control-connect-failed', (_event, payload) => callback(payload)),
 
-  // ---- リモート操作 全画面キャプチャオーバーレイ ----
+  // ---- マウス共有 全画面キャプチャオーバーレイ ----
 
   // Main → Overlay: アクティブ化 (Pointer Lock 要求・バナー表示) / 非アクティブ化 (ロック解除)
   onOverlayActivate: (callback) =>
@@ -95,7 +95,7 @@ contextBridge.exposeInMainWorld('bridge', {
     ipcRenderer.on('overlay-deactivate', () => callback()),
 
   // Overlay → Main: 捕捉したマウス入力イベントをそのまま転送する (間引きなし)。
-  // キーボードは Main 側の before-input-event で横取りするため Renderer は関与しない
+  // Bridge はマウス共有のみを扱い、キーボードの転送・注入は行わない
   overlaySendMouseMove: (dx, dy) => ipcRenderer.send('overlay-mouse-move', { dx, dy }),
   overlaySendMouseButton: (button, action) => ipcRenderer.send('overlay-mouse-button', { button, action }),
   overlaySendWheel: (dx, dy) => ipcRenderer.send('overlay-wheel', { dx, dy }),

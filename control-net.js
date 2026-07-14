@@ -1,4 +1,4 @@
-// リモート操作のための TCP コントロールチャネル。
+// マウス共有のための TCP コントロールチャネル。
 //
 // WebSocket ではなく Node 標準の net モジュールによる生 TCP を採用する。通信相手は
 // 常に信頼済みの Bridge プロセス同士 (ブラウザから接続されることはない) なので、
@@ -96,7 +96,6 @@ class ControlSession extends EventEmitter {
       case 'mouse-move':
       case 'mouse-button':
       case 'wheel':
-      case 'key':
         this.emit('input', msg);
         break;
       default:

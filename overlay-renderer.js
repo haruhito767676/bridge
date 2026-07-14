@@ -16,10 +16,9 @@
 // 呼ばない)。mouseMode はあくまで「移動量の取得元」を切り替えるだけで、この遮断の
 // 仕組み自体には影響しない。
 //
-// キーボードは Renderer では扱わない: Main プロセスが overlay webContents の
-// before-input-event で横取りする (メニューアクセラレータの無効化と、フォーカス/
-// Pointer Lock の状態に依存しない確実な捕捉のため。main.js 参照、mouseMode の
-// 導入後も変更なし)。
+// Bridge はマウス共有専用であり、キーボードの転送・注入は一切行わない
+// (Shift+Alt+Space によるセッション終了 → HUD 復帰のみ、Main の
+// before-input-event で予約コンボとして検知する。main.js 参照)。
 //
 // 200Hz 級の高リフレッシュレート環境でも遅延を出さないため、mousemove は間引かずに
 // 生イベントをそのまま即座に IPC 送信する (pointer-lock モード時)。

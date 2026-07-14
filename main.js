@@ -1440,7 +1440,7 @@ function respondJson(res, obj) {
 }
 
 // リクエストヘッダーの secretToken を厳格に照合する。
-// 定数時間比較 (tokensMatch) はリモート操作の TCP コントロールチャネルとも共有する
+// 定数時間比較 (tokensMatch) はマウス共有の TCP コントロールチャネルとも共有する
 function isAuthorizedRequest(req) {
   return controlNet.tokensMatch(req.headers[SYNC_TOKEN_HEADER], syncConfig.secretToken);
 }
@@ -1723,7 +1723,7 @@ ipcMain.on('sync-register-file', (_event, payload) => {
   });
 });
 
-// ---- リモート操作 HUD ----
+// ---- マウス共有 HUD ----
 //
 // Tab で選択移動 → Enter で確定 → Esc でキャンセル、という一連の UI ロジックは
 // hud-renderer.js 側に閉じている。Main は「開く/閉じる/確定結果を受け取る」だけを担う。
@@ -1852,7 +1852,6 @@ function endControlSession(reason, skipSend) {
   if (!controlSession) return; // 冪等: 複数経路からの二重呼び出しに備える
   const session = controlSession;
   controlSession = null;
-  overlayHeldCodes.clear();
   if (session.mouseMode === 'native') mouseCapture.stopCapture();
   controlWindows.hideOverlay();
   if (!skipSend && session.state === 'hosting') {
@@ -1874,96 +1873,22 @@ ipcMain.on('overlay-mouse-button', (_event, { button, action }) => {
 ipcMain.on('overlay-wheel', (_event, { dx, dy }) => {
   if (controlSession?.state === 'hosting') controlSession.client.send({ type: 'wheel', dx, dy, ts: Date.now() });
 });
-// ---- ホスト側キー捕捉 (before-input-event) ----
+// ---- ホスト側の予約コンボ検知 (before-input-event) ----
 //
-// キーボードは Renderer の DOM keydown ではなく、オーバーレイ webContents の
-// before-input-event で Main プロセス側から横取りする。理由:
-// 1. event.preventDefault() でアプリケーションメニューのアクセラレータを無効化できる。
-//    これをしないと macOS ホストでは Cmd+Q が「Bridge 自身の終了」になり、
-//    Cmd+C/V/W 等のコンボもメニューに食われて target へ届かない
-// 2. フルスクリーン遷移や Pointer Lock の状態に依存せず、ウインドウがフォーカスを
-//    持ってさえいれば必ず発火するため、修飾キー単体の押下も確実に捕捉できる
-//
-// なお OS 自体が先に消費するショートカット (macOS の Cmd+Tab / Spotlight、
-// Windows の Win キー等) はアプリからは捕捉できない (既知の制約として SPEC.md に記載)
-
-// down 済みコードの追跡。Chromium は同一押下に対し rawKeyDown / keyDown の両方を
-// 発火させることがあるため、二重転送をここで抑止する (autorepeat は通す)
-const overlayHeldCodes = new Set();
-
-// KeyboardEvent.code → before-input-event が運ぶ修飾フラグ名の対応表
-const MODIFIER_FLAG_BY_CODE = {
-  ShiftLeft: 'shift', ShiftRight: 'shift',
-  ControlLeft: 'control', ControlRight: 'control',
-  AltLeft: 'alt', AltRight: 'alt',
-  MetaLeft: 'meta', MetaRight: 'meta',
-};
-
-// up の転送と追跡解除をワンセットで行う (合成 up と実 up の両方から使う)
-function sendOverlayKeyUp(code) {
-  overlayHeldCodes.delete(code);
-  controlSession.client.send({ type: 'key', code, action: 'up', ts: Date.now() });
-}
-
-// 修飾キーの keyUp はホスト側で取りこぼされることがある (Cmd+Tab / Win キー等の
-// OS ショートカットによる横取り、フォーカス喪失、macOS の keyUp 抑止仕様)。
-// 取りこぼすと target 側で Ctrl/Cmd が押しっぱなしになる最悪の事故につながるため、
-// 毎イベントに載ってくる「現在の修飾フラグ」と転送済みの down を突き合わせ、
-// 食い違っている修飾キーの up をここで合成して自己修復する
-function reconcileHeldModifiers(input) {
-  for (const code of [...overlayHeldCodes]) {
-    const flag = MODIFIER_FLAG_BY_CODE[code];
-    if (!flag || code === input.code) continue; // 非修飾キーと処理中のイベント自身は対象外
-    if (!input[flag]) sendOverlayKeyUp(code);
-  }
-}
-
+// Bridge は純粋なマウス共有機能であり、キーボードの転送・注入は一切行わない
+// (物理キーボードは各デバイスでそのまま使う運用を前提とする)。ただし
+// Shift+Alt+Space によるセッション終了 → HUD 復帰は、globalShortcut が
+// OS レベルでキーを消費してしまいこのコンボがオーバーレイまで届かないケースの
+// フォールバックとして、オーバーレイ webContents の before-input-event でも
+// 検知する (本命は toggleHud() 経由の globalShortcut 登録、§SPEC 12.3)
 function handleOverlayBeforeInput(event, input) {
   if (controlSession?.state !== 'hosting') return;
-  event.preventDefault(); // ページへの配送とメニューアクセラレータの両方を止める
-  const code = input.code;
-  if (!code) return;
-
-  reconcileHeldModifiers(input);
-
-  if (input.type === 'keyUp') {
-    // macOS は Cmd を押している間、他キーの keyUp をアプリへ届けない仕様のため
-    // (Cmd+C の C の up が来ない)、Cmd の up を境に「まだ down のままの非修飾キー」の
-    // up をまとめて合成し、target 側に文字キーが押しっぱなしで残るのを防ぐ
-    if (process.platform === 'darwin' && (code === 'MetaLeft' || code === 'MetaRight')) {
-      for (const held of [...overlayHeldCodes]) {
-        if (!MODIFIER_FLAG_BY_CODE[held]) sendOverlayKeyUp(held);
-      }
-    }
-    sendOverlayKeyUp(code);
-    return;
-  }
-  if (input.type !== 'keyDown' && input.type !== 'rawKeyDown') return; // 'char' は転送しない
-  if (overlayHeldCodes.has(code) && !input.isAutoRepeat) return; // rawKeyDown/keyDown の二重発火除去
-  overlayHeldCodes.add(code);
-
-  // 予約コンボ (Shift+Alt+Space): ワイヤーへ転送せずセッションを終えて HUD へ戻る
-  if (code === 'Space' && input.shift && input.alt) {
+  if (input.type !== 'keyDown' && input.type !== 'rawKeyDown') return;
+  if (input.code === 'Space' && input.shift && input.alt) {
+    event.preventDefault();
     endControlSession('user-confirmed');
     controlWindows.showHud(getKnownDevicesForHud());
-    return;
   }
-  controlSession.client.send({ type: 'key', code, action: 'down', ts: Date.now() });
-}
-
-// 操作元と操作先の OS が異なるセッションでは「主修飾キー」を読み替える。
-// mac の Cmd と Windows の Ctrl は役割 (コピー/ペースト等の標準ショートカット) が
-// 対応するため、mac→win では Cmd を Ctrl として、win→mac では Ctrl を Cmd として
-// 注入する。down/up が同じ規則で読み替わるため押しっぱなし追跡 (heldKeys) は破綻しない。
-// トレードオフ: mac target へ素の Ctrl を送る手段は失われる (mac 側の Ctrl 利用は稀と判断)
-const PRIMARY_MODIFIER_MAP = {
-  'darwin->win32': { MetaLeft: 'ControlLeft', MetaRight: 'ControlRight' },
-  'win32->darwin': { ControlLeft: 'MetaLeft', ControlRight: 'MetaRight' },
-};
-
-function translateKeyCode(code, fromPlatform) {
-  const map = PRIMARY_MODIFIER_MAP[`${fromPlatform}->${process.platform}`];
-  return (map && map[code]) || code;
 }
 
 // TCP コントロールチャネルのサーバー側 (target) は、同期 HTTP サーバーと同様に
@@ -2004,11 +1929,6 @@ function startControlSubsystem() {
           break;
         case 'wheel':
           controlInput.injectWheel(msg.dx, msg.dy).catch((err) => console.error('[control] injectWheel 失敗:', err));
-          break;
-        case 'key':
-          controlInput
-            .injectKey(translateKeyCode(msg.code, session.fromPlatform), msg.action)
-            .catch((err) => console.error('[control] injectKey 失敗:', err));
           break;
         default:
           break; // 前方互換: 未知の入力種別は無視

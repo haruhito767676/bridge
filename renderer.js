@@ -559,7 +559,7 @@ window.bridge.onShelterExpanded(() => {
   searchBar.focus();
 });
 
-// ---- リモート操作の短命な通知 (接続失敗 / Accessibility 権限案内) ----
+// ---- マウス共有の短命な通知 (接続失敗 / Accessibility 権限案内) ----
 
 const controlToast = document.getElementById('control-toast');
 let controlToastTimer = null;
@@ -580,7 +580,7 @@ window.bridge.onControlConnectFailed(({ device, reason }) => {
 });
 
 window.bridge.onAccessibilityPermissionNeeded(() => {
-  showControlToast('リモート操作には Accessibility 権限が必要です。システム設定で許可してください', 8000);
+  showControlToast('マウス共有には Accessibility 権限が必要です。システム設定で許可してください', 8000);
 });
 
 window.bridge.onInputMonitoringPermissionNeeded(() => {

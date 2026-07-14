@@ -1,4 +1,4 @@
-// リモート操作機能で使う補助ウインドウの生成・表示・破棄を担当する。
+// マウス共有機能で使う補助ウインドウの生成・表示・破棄を担当する。
 // main.js の win (シェルフ) と同じ「xAlive() / canSendToX()」パターンに揃え、
 // 破棄中の取りこぼしを防ぐ。
 
@@ -95,7 +95,7 @@ function isHudVisible() {
 
 // ---- 全画面キャプチャオーバーレイ ----
 //
-// HUD で確定した瞬間から、host 側のマウス/キーボード入力を「奪う」ための透過・
+// HUD で確定した瞬間から、host 側のマウス入力を「奪う」ための透過・
 // 最前面ウインドウ。v1 スコープはセッション開始時にカーソルがあったディスプレイの
 // みをカバーする (全ディスプレイ同時カバーは後続フェーズの改善項目)。
 //
@@ -180,7 +180,7 @@ function hideOverlay() {
   overlayWin.hide();
 }
 
-// main.js が before-input-event でキー入力を横取りするための webContents アクセサ
+// main.js が before-input-event で Shift+Alt+Space の予約コンボを検知するための webContents アクセサ
 function overlayWebContents() {
   return overlayAlive() ? overlayWin.webContents : null;
 }

@@ -20,12 +20,13 @@
 │  │  ├─ ピア発見 (静的設定 + /24 サブネットスキャン + 受信時自動登録)   │
 │  │  ├─ 即時プッシュ (POST /push) + 差分ポーリング (GET /items)       │
 │  │  └─ 実体ファイルのストリーム転送 (GET /file)                     │
-│  └─ リモート操作サブシステム (control-net.js / control-input.js /   │
+│  └─ マウス共有サブシステム (control-net.js / control-input.js /     │
 │     control-windows.js)                                          │
-│     ├─ グローバルショートカット (Shift+Alt+Space) → HUD 開閉         │
+│     ├─ グローバルショートカット (Shift+Alt+Space) → HUD 開閉/       │
+│     │  マウス共有セッションの開始・終了トグル                        │
 │     ├─ controlSession 状態機械 (idle/connecting/hosting)          │
 │     ├─ TCP コントロールチャネル (0.0.0.0:9096, 全デバイス常時 listen) │
-│     └─ nut-js による入力注入 (target 側のみ)                       │
+│     └─ nut-js によるマウス入力注入 (target 側のみ)                  │
 │                    ▲                                             │
 │                    │ IPC (ipcMain / ipcRenderer)                  │
 │                    ▼                                             │
@@ -44,14 +45,15 @@
 │  ├─ HUD (hud-renderer.js + hud.html + hud.css)                    │
 │  │  └─ デバイス一覧・Tab 選択移動・Enter 確定・Esc キャンセル         │
 │  └─ 全画面オーバーレイ (overlay-renderer.js + overlay.html/.css)    │
-│     └─ マウス捕捉: ネイティブグローバルフック (uiohook-napi) +       │
+│     └─ マウス捕捉のみ: ネイティブグローバルフック (uiohook-napi) +   │
 │        再センタリング (既定) / Pointer Lock + DOM イベント          │
-│        (フォールバック) / キー捕捉: Main の before-input-event      │
+│        (フォールバック)。キーボードは捕捉しない（予約コンボ           │
+│        Shift+Alt+Space の検知のみ Main の before-input-event で行う）│
 └──────────────────────────────────────────────────────────────────┘
 ```
 
-- 外部依存パッケージは原則なし。Main は Node 標準モジュール（`http`, `net`, `fs`, `crypto`, `os`, `child_process` 等）と Electron API のみ使用する。**例外はリモート操作関連の 2 箇所のみ**: (1) target 側の入力注入 (`@nut-tree-fork/nut-js`) — CGEventPost (macOS) / SendInput (Windows) を叩くにはネイティブコードが不可避、(2) host 側のマウス捕捉 (`uiohook-napi`, `mouse-capture.js`) — Pointer Lock 方式が抱える画面端クランプの劣化を解消するためのネイティブグローバルフック（listen-only、詳細は § 12.4/§12.6）。いずれも runtime dependency として導入している（詳細は § 12）。
-- **状態の分担**: 表示リストの真実は Renderer の `items` 配列が持つ。Main は同期台帳 (`syncStore`)・一時ファイル追跡 (`sessionTempFiles`)・クリップボード履歴の Main 側コピー (`clipHistory`)・リモート操作のセッション状態 (`controlSession`) を持つ。
+- 外部依存パッケージは原則なし。Main は Node 標準モジュール（`http`, `net`, `fs`, `crypto`, `os`, `child_process` 等）と Electron API のみ使用する。**例外はマウス共有関連の 2 箇所のみ**: (1) target 側のマウス入力注入 (`@nut-tree-fork/nut-js`) — CGEventPost (macOS) / SendInput (Windows) を叩くにはネイティブコードが不可避、(2) host 側のマウス捕捉 (`uiohook-napi`, `mouse-capture.js`) — Pointer Lock 方式が抱える画面端クランプの劣化を解消するためのネイティブグローバルフック（listen-only、詳細は § 12.4/§12.6）。いずれも runtime dependency として導入している（詳細は § 12）。キーボードの転送・注入は行わない（§ 12 参照）。
+- **状態の分担**: 表示リストの真実は Renderer の `items` 配列が持つ。Main は同期台帳 (`syncStore`)・一時ファイル追跡 (`sessionTempFiles`)・クリップボード履歴の Main 側コピー (`clipHistory`)・マウス共有のセッション状態 (`controlSession`) を持つ。
 
 ### 1.1 プロセス起動シーケンス
 
@@ -111,7 +113,7 @@
 
 ### 2.5 全画面キャプチャオーバーレイ
 
-同じく `control-windows.js` が管理する 3 つ目の `BrowserWindow`。HUD で確定した瞬間から host 側の入力を「奪う」ための透過・最前面ウインドウ。
+同じく `control-windows.js` が管理する 3 つ目の `BrowserWindow`。HUD で確定した瞬間から host 側のマウス入力を「奪う」ための透過・最前面ウインドウ。
 
 - `BrowserWindow` オプション: `frame: false` / `transparent: true` / `resizable: false` / `fullscreenable: false` / `skipTaskbar: true` / `hasShadow: false` / `roundedCorners: false`。`alwaysOnTop` はシェルフ・HUD とは逆に `'screen-saver'` レベルを採用する（このウインドウは「常に唯一の最前面レイヤーである」こと自体が目的であり、シェルフが `'screen-saver'` を避ける理由 = OS のドラッグ中アイコン描画との競合は、ここでは問題にならない）
 - **OS ネイティブのフルスクリーン (`setFullScreen`) は使わない**: macOS では透過ウインドウとネイティブフルスクリーンが非互換で真っ黒な画面になり、さらに `setVisibleOnAllWorkspaces` とも競合してしばらく後に OS からフルスクリーンを強制解除される（= オーバーレイが勝手に消える）。代わりにディスプレイの `bounds` 全体を `setBounds` で覆う「キオスク風」方式を採り、`'screen-saver'` レベルの最前面指定でメニューバー/Dock/タスクバーの上にも被せる
@@ -204,7 +206,7 @@
 | `overlaySendMouseButton(button, action)` | `overlay-mouse-button` | send | `button: 'left'\|'right'\|'middle'`, `action: 'down'\|'up'` |
 | `overlaySendWheel(dx, dy)` | `overlay-wheel` | send | ホイール/トラックパッドの delta |
 
-キーボードは Renderer 経由の IPC を使わない。Main プロセスがオーバーレイ `webContents` の `before-input-event` で直接捕捉する（§ 12.4）。
+Bridge はマウス共有専用であり、キーボードの転送・注入は行わない。Main プロセスはオーバーレイ `webContents` の `before-input-event` を `Shift+Alt+Space`（マウス共有の終了 → HUD 復帰）の予約コンボ検知にのみ使う（§ 12.3）。
 
 ### Main → Renderer
 
@@ -407,7 +409,7 @@ Main 側履歴 (`clipHistory`) の上限はテキスト 100 / 画像 30。**Main
 | `MAX_SEEN_SYNC_IDS` | 5,000 | 既読 id の FIFO 上限 |
 | スキャン並列度 | 32 | サブネットスキャンの同時プローブ数 |
 | `HUD_SHORTCUT` | `Shift+Alt+Space` | デバイス切り替え HUD を開閉するグローバルショートカット |
-| `CONTROL_PORT` | 9096 | リモート操作 TCP コントロールチャネルのポート |
+| `CONTROL_PORT` | 9096 | マウス共有 TCP コントロールチャネルのポート |
 | `HELLO_TIMEOUT_MS` | 3,000ms | hello ハンドシェイクのタイムアウト |
 | `HEARTBEAT_MS` | 2,000ms | コントロールチャネルのハートビート送信間隔 |
 | `SESSION_TIMEOUT_MS` | 6,000ms | 無通信でセッションを死んだと判断するまでの時間 |
@@ -417,13 +419,13 @@ Main 側履歴 (`clipHistory`) の上限はテキスト 100 / 画像 30。**Main
 ## 11. 既知の制約・非目標
 
 1. **Windows の複数ファイルコピー検知は先頭 1 件のみ**: エクスプローラーの Ctrl+C は実体パスを `CF_FILENAMEW`（1 件のみ保持）にしか載せず、Electron から `CF_HDROP` を読む手段がないため（実機検証済み。`text/uri-list` 等は列挙されるが読むと空になる）
-2. **同期・リモート操作チャネルとも平文**: トークン認証はあるが暗号化はない。信頼できる LAN 内での利用が前提。インターネット越しの利用は非目標
+2. **同期・マウス共有チャネルとも平文**: トークン認証はあるが暗号化はない。信頼できる LAN 内での利用が前提。インターネット越しの利用は非目標
 3. **クイックルック・`mdls` は macOS 専用**: 他 OS は拡張子ベース表示にフォールバック
 4. **履歴は永続化されない**: リスト・履歴はメモリ上のみで、再起動で消える（裏生成ファイルは終了時に掃除される）。永続化は現時点で非目標
 5. **サブネットスキャンは /24 固定**: それより広いネットワークのピアは `peers` への静的登録が必要
 6. `secretToken` の共有は手動運用（設定ファイルの値を各デバイスで揃える）
-7. **リモート操作は v1 時点で単一ディスプレイのみカバー**: セッション開始時にカーソルがあったディスプレイのみを全画面オーバーレイで覆う。複数ディスプレイの同時カバーは非対応
-8. **OS 予約ショートカットは捕捉不可能**: `Cmd+Tab` / Spotlight (`Cmd+Space`) / `Alt+Tab` / `Win` キー / `Ctrl+Alt+Del` 等、OS がアプリより先に消費するショートカットはユーザー空間のアプリからは原理的に捕捉できない（host 側で効いてしまう）。それ以外の修飾キーコンボは `before-input-event` + `preventDefault` により捕捉する（§ 12.4）
+7. **マウス共有は v1 時点で単一ディスプレイのみカバー**: セッション開始時にカーソルがあったディスプレイのみを全画面オーバーレイで覆う。複数ディスプレイの同時カバーは非対応
+8. **キーボードの転送・注入は行わない（意図的な非対応）**: 各デバイスに接続された物理キーボードをそのまま使う 2 台運用を前提とし、Bridge はキーボードイベントを一切ワイヤーへ乗せない。唯一の例外はマウス共有の開始/終了トグルである `Shift+Alt+Space` で、`globalShortcut`（OS レベルのグローバルホットキー登録）で検知する。`globalShortcut` の登録に失敗した環境向けに、オーバーレイ `webContents` の `before-input-event` でも同じコンボをフォールバック検知する（§ 12.3）
 9. **Pointer Lock の画面端劣化は `mouseMode: 'pointer-lock'`（フォールバック時）にのみ適用される**: マウス移動の取得は既定で `uiohook-napi` によるネイティブグローバルフック + 再センタリング方式（§12.4/§12.6）を使うため、通常はこの劣化は発生しない。ネイティブフックが使えない環境（モジュール未ロード・macOS Input Monitoring 権限未許可）でのみ、従来通り Pointer Lock 方式にフォールバックし、その間はロック要求が失敗しうる（フォーカス遷移中等、250ms 間隔でリトライ）。ロック未確立の間も `mousemove` の `movementX/Y` は転送されるため操作は可能だが、カーソルが画面端に達すると movement が 0 になる劣化がある
 10. **双方向同時セッションはフィードバックループの危険がある**: A が B を操作しながら同時に B も A を操作するような双方向同時セッションは、注入された入力を自分自身のオーバーレイが再捕捉して送り返す無限フィードバックループを起こしうる（自己ループバックでの検証時に実際に確認済み）。通常の HUD 操作では自分自身は選択対象から除外されるため単純な自己ループは起きないが、双方向同時利用は現時点で非推奨・非対応とする
 11. **開発用（未署名）バイナリでの Accessibility 権限はキャッシュ不整合を起こしうる**: 署名が不安定な生の Electron dev バイナリでは、`systemPreferences.isTrustedAccessibilityClient()` が `true` を返しても実際の注入 API（特に `mouse.setPosition` による絶対座標移動）が無反応になることが実機検証で確認された。ビルド・署名済みの配布用 `Bridge.app` では発生しない見込み
@@ -433,16 +435,16 @@ Main 側履歴 (`clipHistory`) の上限はテキスト 100 / 画像 30。**Main
 
 ---
 
-## 12. リモートコントロールプロトコル
+## 12. マルチデバイス・マウス共有プロトコル
 
-ある 1 台に接続されたマウス/キーボードで、他の接続デバイス（Mac 含む）をリアルタイムに遠隔操作する機能。Synergy/Barrier 的な KVM 機能の簡易版で、常時シームレスな端検知ではなく、グローバルショートカットで明示的に HUD を出して操作対象を切り替える方式を採る。
+ある 1 台に接続されたマウスで、他の接続デバイス（Mac 含む）のカーソルをリアルタイムに遠隔操作する機能。Synergy/Barrier 的な KVM 機能のマウス専用・簡易版で、常時シームレスな端検知ではなく、グローバルショートカットで明示的に HUD を出して操作対象を切り替える方式を採る。**キーボードは各デバイスの物理キーボードをそのまま使う運用を前提とし、Bridge はキーボードの転送・注入を一切行わない**（物理キーボード 2 台運用の方が快適という判断による意図的な設計。§11-8）。
 
 ### 12.1 トランスポートと認証
 
 - WebSocket ではなく Node 標準の `net` モジュールによる**生 TCP** を採用する（`control-net.js`）。通信相手は常に信頼済みの Bridge プロセス同士でブラウザから接続されることがないため、WebSocket のハンドシェイク/フレーミングのオーバーヘッドは不要と判断した
 - **ポート**: `CONTROL_PORT`（既定 9096）。全デバイスが起動時から常時 `0.0.0.0` で listen する（同期 HTTP サーバーと同様、どのデバイスもいつでも target になりうる）
 - **フレーミング**: 改行区切り JSON (NDJSON)。`JSON.stringify(msg) + '\n'`。ペイロードは常に小さく（ファイル転送は既存の同期 HTTP 経路のまま）、length-prefix より単純なこの方式で十分
-- **超低遅延方針（200Hz 級高リフレッシュレート環境向け）**: 接続確立直後に必ず `socket.setNoDelay(true)` を呼び Nagle アルゴリズムを無効化する。加えて target 側の nut-js 初期化時に `mouse.config.autoDelayMs = 0` / `keyboard.config.autoDelayMs = 0` を設定し、ライブラリ内部のディレイを排除する。host 側のマウス捕捉も `requestAnimationFrame` 等による間引きを行わず、生イベントをそのまま即座に IPC 送信する
+- **超低遅延方針（200Hz 級高リフレッシュレート環境向け）**: 接続確立直後に必ず `socket.setNoDelay(true)` を呼び Nagle アルゴリズムを無効化する。加えて target 側の nut-js 初期化時に `mouse.config.autoDelayMs = 0` を設定し、ライブラリ内部のディレイを排除する。host 側のマウス捕捉も `requestAnimationFrame` 等による間引きを行わず、生イベントをそのまま即座に IPC 送信する
 - **認証ハンドシェイク**: 既存の `secretToken` / `x-bridge-token` の仕組みを再利用する
   1. controller → target: `{ type: 'hello', protocolVersion: 1, token, device, platform }`
   2. target は `tokensMatch()`（`crypto.timingSafeEqual` による定数時間比較。同期 HTTP サーバーの `isAuthorizedRequest` とロジックを共有）で照合
@@ -461,8 +463,9 @@ Main 側履歴 (`clipHistory`) の上限はテキスト 100 / 画像 30。**Main
 { type: 'mouse-move',           dx, dy, ts }    // mousemove の movementX/Y 相対値
 { type: 'mouse-button',         button, action, ts }  // button: 'left'|'right'|'middle', action: 'down'|'up'
 { type: 'wheel',                dx, dy, ts }
-{ type: 'key',                  code, action, ts }     // code = KeyboardEvent.code、action: 'down'|'up'
 ```
+
+キーボードイベントに対応する `type` は存在しない（プロトコルとして意図的に持たない。§ 12 冒頭）。
 
 ### 12.3 セッションのライフサイクル（controller 側）
 
@@ -470,9 +473,9 @@ Main 側履歴 (`clipHistory`) の上限はテキスト 100 / 画像 30。**Main
 
 1. HUD の `Enter` 確定 (`hud-confirm`) → `startControlSession(targetId)`。`targetId` は `knownPeers` のキー形式 (`host:port`、同期ポート基準) で、既存の同期ピア発見機構をそのまま再利用する（専用のピア発見機構は持たない）。`controlNet.connectToPeer(peer.host, CONTROL_PORT, ...)` で接続
 2. `hello-ack` 受信 → `control-start` を送信し `state: 'hosting'` へ遷移 → `controlWindows.showOverlay(display, targetDevice)`
-3. `overlay-mouse-move` / `-mouse-button` / `-wheel` の各 IPC と、Main 側 `before-input-event` で捕捉したキーイベントは、`controlSession.state === 'hosting'` の間だけ `controlSession.client.send(...)` へ素通しする
+3. `overlay-mouse-move` / `-mouse-button` / `-wheel` の各 IPC で捕捉したマウスイベントは、`controlSession.state === 'hosting'` の間だけ `controlSession.client.send(...)` へ素通しする（キーボードイベントはそもそも捕捉・送信しない。§ 12 冒頭）
 4. 終了は `endControlSession(reason, skipSend)` の一本道。`skipSend` は「相手が既にいなくなっている」経路（異常切断・エラー・拒否）で二重に `control-end` を送らないためのフラグ。`controlSession = null` を先に行うことで、複数経路（release コンボ・`close` イベント・タイムアウト）からの競合呼び出しに対して冪等
-5. 離脱経路: `globalShortcut` (`Shift+Alt+Space`) が本命。`globalShortcut` は OS レベル (RegisterHotKey / RegisterEventHotKey) でキーを消費するため、実際にはオーバーレイの `before-input-event` にはこのコンボはほぼ届かない。そのため `toggleHud()` がセッション中は `endControlSession('user-confirmed')` → HUD 再表示として振る舞う（終了せずに HUD だけ出すと、オーバーレイの blur 時フォーカス奪還と競合して HUD が操作不能になる）。`before-input-event` 側の予約コンボ検知（ワイヤーへ転送せず終了）は、`globalShortcut` の登録に失敗した環境向けのフォールバックとして併存させる
+5. 離脱経路: `globalShortcut` (`Shift+Alt+Space`) が本命。`globalShortcut` は OS レベル (RegisterHotKey / RegisterEventHotKey) でキーを消費するため、実際にはオーバーレイの `before-input-event` にはこのコンボはほぼ届かない。そのため `toggleHud()` がセッション中は `endControlSession('user-confirmed')` → HUD 再表示として振る舞う（終了せずに HUD だけ出すと、オーバーレイの blur 時フォーカス奪還と競合して HUD が操作不能になる）。オーバーレイの `before-input-event`（`handleOverlayBeforeInput`、`main.js`）は `globalShortcut` の登録に失敗した環境向けのフォールバックとして同じコンボのみを検知する。それ以外のキーイベントは一切処理しない（このハンドラが Bridge のキーボード関与の全てであり、一般的なキー転送は行わない）
 
 ### 12.4 host 側の入力捕捉
 
@@ -494,23 +497,14 @@ Main 側履歴 (`clipHistory`) の上限はテキスト 100 / 画像 30。**Main
 - `requestPointerLock()` は失敗しうる（フォーカス遷移中の `pointerlockerror` 等）ため、失敗時は 120ms 間隔で再試行する。`window` の `focus` と `mousedown`（ユーザージェスチャ）でも再取得を試みる。なお Chromium は `Esc` 押下でロックを強制解除し（target へ `Esc` を転送しただけでもホスト側のロックが外れる）、直後の再取得は内部クールダウンでしばらく失敗し続けるため、この再試行が「カーソルが画面端から出ない」時間の長さを直接決める
 - **Pointer Lock の仕様上の注意**: ロックは `Esc` 押下以外の理由（フォーカス喪失等）でも解除されうるため、`pointerlockchange` で解除を検知した際に「`Esc` が押された」と決め打ちして実キーを合成送信することはしない（target への誤ったキー注入を避けるため）。ロックだけを即座に再要求し、操作の継続性を保つ
 
-**キーボード** (`main.js` の `before-input-event`):
-
-- Renderer の DOM `keydown` ではなく、Main プロセスがオーバーレイ `webContents` の `before-input-event` で捕捉し、`event.preventDefault()` してから `{ type: 'key', code, action }` を送出する（`input.code` = `KeyboardEvent.code` 相当、レイアウト非依存）
-- `preventDefault()` により**アプリケーションメニューのアクセラレータを無効化**する。これをしないと macOS ホストでは `Cmd+Q` が Bridge 自身の終了になり、`Cmd+C/V/W` 等のコンボもメニューに食われて target へ届かない
-- Chromium は同一押下に対し `rawKeyDown` / `keyDown` の両方を発火させることがあるため、down 済みコードの `Set`（`overlayHeldCodes`）で二重転送を抑止する（autorepeat は通す）。`'char'` タイプは転送しない
-- **修飾キー up 取りこぼしの自己修復（スタックキー防止のホスト側の第一防衛線）**: 修飾キーの `keyUp` は OS ショートカット（`Cmd+Tab` / `Win` キー等）による横取りやフォーカス喪失で届かないことがあり、届かないと target 側で Ctrl/Cmd が押しっぱなしになる。`before-input-event` は毎イベントに現在の修飾フラグ（`input.control/shift/alt/meta`）を運んでくるため、転送済み down とフラグが食い違う修飾キーの up をその場で合成送出して自己修復する（`reconcileHeldModifiers`）
-- **macOS の keyUp 抑止仕様への対策**: macOS は Cmd を押している間、他キーの `keyUp` をアプリへ届けない（`Cmd+C` の C の up が来ない）。darwin ホストでは Cmd（`MetaLeft/Right`）の `keyUp` を境に、まだ down のままの非修飾キーの up をまとめて合成する
+**キーボード**: 捕捉・転送しない。Main プロセスはオーバーレイ `webContents` の `before-input-event` を `Shift+Alt+Space`（マウス共有の終了 → HUD 復帰）の予約コンボ検知にのみ使い（`handleOverlayBeforeInput`、§ 12.3 の離脱経路）、それ以外のキーイベントには `event.preventDefault()` も送出も一切行わない。したがって Bridge のオーバーレイ表示中もアプリケーションメニューのアクセラレータや target 側 OS のショートカットには影響しない（キーボードは host 機のフォーカス先にそのまま作用する）
 
 ### 12.5 target 側の入力注入 (`control-input.js`)
 
-- `@nut-tree-fork/nut-js` の薄いラッパー。**この機能に限り「外部依存パッケージはゼロ」の原則の例外**として導入した（macOS: CGEventPost / Windows: SendInput を叩くにはネイティブコードが不可避なため）
+- `@nut-tree-fork/nut-js` の薄いラッパー。**この機能に限り「外部依存パッケージはゼロ」の原則の例外**として導入した（macOS: CGEventPost / Windows: SendInput を叩くにはネイティブコードが不可避なため）。マウス専用ラッパーであり、キーボード注入は実装しない
 - **座標**: `dx`/`dy` を受けるたびに `mouse.getPosition()`（物理ピクセル）へ加算して `mouse.setPosition()` する。**Electron の `screen` API を座標の起点に使ってはいけない**: Electron は DIP 座標、nut-js (SendInput/GetCursorPos) は物理ピクセル座標のため、Windows の表示スケーリングが 100% 以外だと両者が食い違いカーソルが飛ぶ。毎回 OS から現在位置を読み直せば座標系は常に一貫し、画面外への移動も OS が自動クランプするので手製の境界計算は不要。200Hz 級で届くデルタを get→set の非同期ペアで並行処理すると加算が失われるため、ペンディングデルタに累積して単一のフラッシュループで直列注入する。相対デルタ方式のため host/target の解像度差はスケーリング計算なしで吸収できる。**同じ DIP/物理ピクセルの罠と get→set の直列化パターンは host 側 `mouse-capture.js`（§12.4 の `'native'` モード）にも同様に適用される**（あちらは「set→get 差分」という逆方向のループ）
 - **ホイール**: `mouse.scrollDown/Up/Left/Right` へマッピング。トラックパッド/物理ホイールでデルタの粒度が大きく異なるため、スケール係数は実運用での調整が必要な想定（現状は 1 ステップ = 1 delta の単純換算）
-- **キーマップ**: DOM `KeyboardEvent.code`（レイアウト非依存）→ nut-js `Key` enum への静的テーブル（`control-input.js` 内 `KEY_MAP`）。文字/数字/テンキー/モディファイア（左右別）/ファンクションキー/矢印/記号/ロックキーを網羅。未対応の `code` はログして無視する（JIS 固有キー: `IntlYen` / `IntlRo` / 変換 / 無変換 / かな は nut-js の `Key` enum 自体に存在せず注入不可能 = 既知の制約）
-- **主修飾キーの OS 跨ぎ読み替え** (`main.js` の `translateKeyCode`): 操作元と操作先の OS が異なるセッションでは、mac→win で `Meta`（Cmd）を `Control` に、win→mac で `Control` を `Meta`（Cmd）に読み替えてから注入する。これにより host 側の筋肉記憶どおりにコピー/ペースト等の標準ショートカットが効く。down/up が同じ規則で読み替わるため `heldKeys` 追跡は破綻しない。トレードオフとして mac target へ素の Ctrl（win target へ素の Win キー）を送る手段は失われる
-- **修飾キーコンボの OS 差分**: macOS の CGEvent は「イベントごとに修飾フラグを持つ」モデルのため、修飾キーを単独の down イベントとして注入しただけでは後続キーに Cmd/Ctrl/Opt が乗らない（Ctrl+C を送っても素の C が届く）。darwin では非修飾キーの down/up のたびに、押下中の修飾キーを nut-js の可変長引数（先頭に修飾キー、末尾に主キー）で添えて注入し、libnut に主キーイベントへ修飾フラグを焼き込ませる。Windows は SendInput が OS 側でグローバルなキー押下状態を保持するモデルなので単独注入のままでよい（実機で `GetAsyncKeyState` により Ctrl/Win の押下状態が正しく立つことを検証済み）
-- **⚠️ スタックキー防止（最重要の安全設計）**: `heldButtons` / `heldKeys` の `Set` で押しっぱなし状態を追跡する。異常切断・タイムアウト・明示的 `control-end` の**いずれの経路でも必ず** `releaseAllHeld()` を呼び、押しっぱなしのボタン/キーを target の OS 上に残さない。1 キーの解放失敗で後続の解放が止まらないよう各解放は個別に握りつぶして完走させ、さらに**追跡に残っていない全修飾キー（8 キー）も無条件で解放する**（ホスト側の up 取りこぼしで追跡が実状態とズレていても、セッション終了後に Ctrl/Cmd が残る事故を確実に断ち切る。未押下キーへの up 注入は無害）
+- **⚠️ スタックボタン防止（最重要の安全設計）**: `heldButtons` の `Set` で押しっぱなしのマウスボタン状態を追跡する。異常切断・タイムアウト・明示的 `control-end` の**いずれの経路でも必ず** `releaseAllHeld()` を呼び、押しっぱなしのボタンを target の OS 上に残さない。1 ボタンの解放失敗で後続の解放が止まらないよう各解放は個別に握りつぶして完走させる
 - **Accessibility 権限（macOS のみ）**: 注入 (target) 側にのみ必要。チェックは起動時ではなく、実際に `control-start` を受信した瞬間に遅延実行する: `systemPreferences.isTrustedAccessibilityClient(false)` で非プロンプト確認 → 未許可なら `control-start-reject` を返しつつ、target 側で `isTrustedAccessibilityClient(true)` により OS 標準の許可ダイアログ（システム設定への誘導）を表示。同時にシェルフ UI へ `accessibility-permission-needed` IPC でバナー通知する。**host 側のネイティブマウス捕捉に必要な Input Monitoring 権限は別物**（§12.6）
 
 ### 12.6 macOS Input Monitoring 権限（host 側ネイティブマウス捕捉）
