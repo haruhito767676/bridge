@@ -60,4 +60,40 @@ contextBridge.exposeInMainWorld('bridge', {
 
   // 終了時クリーンアップの判定用に、現在リストに保持しているパス一覧を Main へ共有する
   reportRetainedPaths: (paths) => ipcRenderer.send('report-retained-paths', paths),
+
+  // ---- リモート操作 HUD ----
+
+  // HUD が開くたびに最新のデバイス一覧を受け取る ({ id, device, isSelf }[])
+  onHudSetDevices: (callback) =>
+    ipcRenderer.on('hud-set-devices', (_event, devices) => callback(devices)),
+
+  // Enter で選択デバイスへの操作引き継ぎを確定 / Esc でキャンセル
+  hudConfirm: (deviceId) => ipcRenderer.send('hud-confirm', deviceId),
+  hudCancel: () => ipcRenderer.send('hud-cancel'),
+
+  // target 側で Accessibility 権限が未許可のまま control-start を受けた際の通知
+  // (システム設定への誘導バナーをシェルフ UI に表示するために使う)
+  onAccessibilityPermissionNeeded: (callback) =>
+    ipcRenderer.on('accessibility-permission-needed', () => callback()),
+
+  // controller 側で接続確立・ハンドシェイクに失敗した際の通知
+  onControlConnectFailed: (callback) =>
+    ipcRenderer.on('control-connect-failed', (_event, payload) => callback(payload)),
+
+  // ---- リモート操作 全画面キャプチャオーバーレイ ----
+
+  // Main → Overlay: アクティブ化 (Pointer Lock 要求・バナー表示) / 非アクティブ化 (ロック解除)
+  onOverlayActivate: (callback) =>
+    ipcRenderer.on('overlay-activate', (_event, payload) => callback(payload)),
+  onOverlayDeactivate: (callback) =>
+    ipcRenderer.on('overlay-deactivate', () => callback()),
+
+  // Overlay → Main: 捕捉した入力イベントをそのまま転送する (間引きなし)
+  overlaySendMouseMove: (dx, dy) => ipcRenderer.send('overlay-mouse-move', { dx, dy }),
+  overlaySendMouseButton: (button, action) => ipcRenderer.send('overlay-mouse-button', { button, action }),
+  overlaySendWheel: (dx, dy) => ipcRenderer.send('overlay-wheel', { dx, dy }),
+  overlaySendKey: (code, action) => ipcRenderer.send('overlay-key', { code, action }),
+
+  // 予約コンボ (Shift+Alt+Space) をオーバーレイ自身が検知した際の離脱経路
+  overlayReopenHud: () => ipcRenderer.send('overlay-reopen-hud'),
 });

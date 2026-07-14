@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, net, screen, clipboard, nativeImage, Tray } = require('electron');
+const { app, BrowserWindow, ipcMain, net, screen, clipboard, nativeImage, Tray, globalShortcut } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const fsp = require('fs/promises');
@@ -9,6 +9,9 @@ const { pathToFileURL, fileURLToPath } = require('url');
 const { execFile } = require('child_process');
 const { promisify } = require('util');
 const execFileAsync = promisify(execFile);
+const controlWindows = require('./control-windows');
+const controlNet = require('./control-net');
+const controlInput = require('./control-input');
 
 let win = null;
 let rendererReady = false;
@@ -980,6 +983,7 @@ app.on('will-quit', () => {
     }
   }
   sessionTempFiles.clear();
+  globalShortcut.unregisterAll();
 });
 
 // ---- マルチデバイス全自動同期 (軽量 HTTP サーバー + ピア発見 + 差分同期) ----
@@ -1416,15 +1420,9 @@ function respondJson(res, obj) {
 }
 
 // リクエストヘッダーの secretToken を厳格に照合する。
-// 文字列比較のタイミング差からトークンを推測されないよう timingSafeEqual で比較する
+// 定数時間比較 (tokensMatch) はリモート操作の TCP コントロールチャネルとも共有する
 function isAuthorizedRequest(req) {
-  const provided = Buffer.from(String(req.headers[SYNC_TOKEN_HEADER] || ''), 'utf8');
-  const expected = Buffer.from(syncConfig.secretToken || '', 'utf8');
-  return (
-    expected.length > 0 &&
-    provided.length === expected.length &&
-    crypto.timingSafeEqual(provided, expected)
-  );
+  return controlNet.tokensMatch(req.headers[SYNC_TOKEN_HEADER], syncConfig.secretToken);
 }
 
 function startSyncServer() {
@@ -1692,10 +1690,202 @@ ipcMain.on('sync-register-file', (_event, payload) => {
   });
 });
 
+// ---- リモート操作 HUD ----
+//
+// Tab で選択移動 → Enter で確定 → Esc でキャンセル、という一連の UI ロジックは
+// hud-renderer.js 側に閉じている。Main は「開く/閉じる/確定結果を受け取る」だけを担う。
+// デバイス一覧は既存のマルチデバイス同期の knownPeers Map をそのまま再利用する
+// (同期用ピア発見の仕組みに相乗りし、別建ての発見機構は持たない)。
+
+const HUD_SHORTCUT = 'Shift+Alt+Space';
+
+// knownPeers のうちオンライン (直近の /ping 応答・差分同期に成功) なピアだけを対象にする。
+// 先頭に自分自身 ("この端末") を常に含め、操作を自分へ戻す選択肢として使えるようにする
+function getKnownDevicesForHud() {
+  const peers = [...knownPeers.values()]
+    .filter((peer) => peer.online)
+    .map((peer) => ({
+      id: `${peer.host}:${peer.port}`,
+      device: peer.device || peer.host,
+      isSelf: false,
+    }));
+  return [{ id: 'self', device: deviceName, isSelf: true }, ...peers];
+}
+
+function toggleHud() {
+  if (controlWindows.isHudVisible()) {
+    controlWindows.hideHud();
+  } else {
+    controlWindows.showHud(getKnownDevicesForHud());
+  }
+}
+
+// ---- controller (操作元) 側のセッション状態機械 ----
+//
+// null (待機中) | { role: 'controller', state: 'connecting' | 'hosting', targetId,
+//                   targetDevice, sessionId, client, display }
+// 複数経路 (release コンボ・異常切断・接続エラー) から endControlSession が
+// 競合して呼ばれうるため、null 化を先に行うことで冪等性を保証する
+let controlSession = null;
+
+function startControlSession(targetId) {
+  const peer = knownPeers.get(targetId);
+  if (!peer) return;
+  const targetDevice = peer.device || peer.host;
+  const sessionId = crypto.randomUUID();
+  const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+
+  const client = controlNet.connectToPeer(peer.host, controlNet.CONTROL_PORT, {
+    getToken: () => syncConfig.secretToken,
+    getDeviceName: () => deviceName,
+  });
+  controlSession = { role: 'controller', state: 'connecting', targetId, targetDevice, sessionId, client, display };
+
+  // 差し替え・終了済みの古い接続からの遅延イベントを無視するためのガード
+  const isCurrent = () => controlSession && controlSession.sessionId === sessionId;
+
+  client.on('ready', () => {
+    if (!isCurrent()) return;
+    client.send({ type: 'control-start', id: sessionId, fromDevice: deviceName, timestamp: Date.now() });
+    controlSession.state = 'hosting';
+    controlWindows.showOverlay(display, targetDevice);
+  });
+
+  client.on('message', (msg) => {
+    if (!isCurrent() || msg.type !== 'control-start-reject') return;
+    if (canSendToRenderer()) win.webContents.send('control-connect-failed', { device: targetDevice, reason: msg.reason });
+    endControlSession('reject', true);
+  });
+
+  client.on('reject', (reason) => {
+    if (!isCurrent()) return;
+    if (canSendToRenderer()) win.webContents.send('control-connect-failed', { device: targetDevice, reason });
+    controlSession = null;
+  });
+
+  client.on('error', () => {
+    if (!isCurrent()) return;
+    if (canSendToRenderer()) win.webContents.send('control-connect-failed', { device: targetDevice, reason: 'error' });
+    endControlSession('error', true);
+  });
+
+  client.on('close', () => {
+    if (!isCurrent()) return;
+    endControlSession('peer-disconnected', true);
+  });
+}
+
+// セッション終了の唯一の入口。skipSend は「相手が既にいなくなっている」経路
+// (異常切断・エラー・拒否) で二重に control-end を送らないためのフラグ
+function endControlSession(reason, skipSend) {
+  if (!controlSession) return; // 冪等: 複数経路からの二重呼び出しに備える
+  const session = controlSession;
+  controlSession = null;
+  controlWindows.hideOverlay();
+  if (!skipSend && session.state === 'hosting') {
+    session.client.send({ type: 'control-end', id: session.sessionId, reason });
+  }
+  session.client.close();
+}
+
+// ---- 全画面キャプチャオーバーレイの IPC 配線 ----
+//
+// 捕捉した入力イベントは間引かずそのまま TCP コントロールチャネルへ送出する
+
+ipcMain.on('overlay-mouse-move', (_event, { dx, dy }) => {
+  if (controlSession?.state === 'hosting') controlSession.client.send({ type: 'mouse-move', dx, dy, ts: Date.now() });
+});
+ipcMain.on('overlay-mouse-button', (_event, { button, action }) => {
+  if (controlSession?.state === 'hosting') controlSession.client.send({ type: 'mouse-button', button, action, ts: Date.now() });
+});
+ipcMain.on('overlay-wheel', (_event, { dx, dy }) => {
+  if (controlSession?.state === 'hosting') controlSession.client.send({ type: 'wheel', dx, dy, ts: Date.now() });
+});
+ipcMain.on('overlay-key', (_event, { code, action }) => {
+  if (controlSession?.state === 'hosting') controlSession.client.send({ type: 'key', code, action, ts: Date.now() });
+});
+ipcMain.on('overlay-reopen-hud', () => {
+  endControlSession('user-confirmed');
+  controlWindows.showHud(getKnownDevicesForHud());
+});
+
+// TCP コントロールチャネルのサーバー側 (target) は、同期 HTTP サーバーと同様に
+// 全デバイスが起動時から常時listenする (どのデバイスもいつでも target になりうる)。
+// 実際の入力注入は nut-js ラッパー (control-input.js) の各 inject*() へ配線する。
+function startControlSubsystem() {
+  const server = controlNet.startControlServer({
+    getToken: () => syncConfig.secretToken,
+    getDeviceName: () => deviceName,
+  });
+  server.on('session', (session) => {
+    console.log('[control] session opened from', session.fromDevice, session.fromPlatform);
+
+    // 異常切断・タイムアウト・明示的 control-end のいずれでも必ず一度だけ呼ばれる。
+    // 押しっぱなしのキー/ボタンを target 側に残さないための最重要の安全弁
+    session.on('close', () => {
+      controlInput.releaseAllHeld().catch((err) => console.error('[control] releaseAllHeld 失敗:', err));
+    });
+
+    session.on('control-start', (msg) => {
+      console.log('[control] control-start id=%s from=%s', msg.id, msg.fromDevice);
+      if (!controlInput.hasAccessibilityPermission()) {
+        session.send({ type: 'control-start-reject', reason: 'accessibility-permission-required' });
+        controlInput.requestAccessibilityPermission();
+        if (canSendToRenderer()) win.webContents.send('accessibility-permission-needed');
+        session.close('accessibility-permission-required');
+        return;
+      }
+      controlInput.seedCursorFromCurrentPosition();
+    });
+
+    session.on('input', (msg) => {
+      switch (msg.type) {
+        case 'mouse-move':
+          controlInput.injectMouseMove(msg.dx, msg.dy).catch((err) => console.error('[control] injectMouseMove 失敗:', err));
+          break;
+        case 'mouse-button':
+          controlInput.injectMouseButton(msg.button, msg.action).catch((err) => console.error('[control] injectMouseButton 失敗:', err));
+          break;
+        case 'wheel':
+          controlInput.injectWheel(msg.dx, msg.dy).catch((err) => console.error('[control] injectWheel 失敗:', err));
+          break;
+        case 'key':
+          controlInput.injectKey(msg.code, msg.action).catch((err) => console.error('[control] injectKey 失敗:', err));
+          break;
+        default:
+          break; // 前方互換: 未知の入力種別は無視
+      }
+    });
+
+    session.on('control-end', (msg) => {
+      console.log('[control] control-end reason=%s', msg.reason);
+    });
+  });
+  return server;
+}
+
+ipcMain.on('hud-confirm', (_event, deviceId) => {
+  controlWindows.hideHud();
+  if (deviceId === 'self') {
+    endControlSession('user-confirmed'); // 操作中でなければ何もしない (endControlSession は冪等)
+    return;
+  }
+  if (controlSession) endControlSession('user-confirmed'); // 既存セッションがあれば先に畳んでから乗り換える
+  startControlSession(deviceId);
+});
+
+ipcMain.on('hud-cancel', () => {
+  controlWindows.hideHud();
+});
+
 app.whenReady().then(() => {
   if (!gotSingleInstanceLock) return; // 多重起動の第2インスタンスは何も起動せず quit を待つ
   createWindow();
   createTray();
+  controlWindows.createHudWindow();
+  controlWindows.createOverlayWindow();
+  globalShortcut.register(HUD_SHORTCUT, toggleHud);
+  startControlSubsystem();
   startClipboardWatcher();
   startEdgeRevealWatcher();
   startDeviceSync();

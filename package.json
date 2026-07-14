@@ -23,14 +23,28 @@
       "renderer.js",
       "index.html",
       "styles.css",
+      "control-windows.js",
+      "control-net.js",
+      "control-input.js",
+      "hud.html",
+      "hud.css",
+      "hud-renderer.js",
+      "overlay.html",
+      "overlay.css",
+      "overlay-renderer.js",
       "assets/**/*"
     ],
     "directories": {
       "output": "dist"
     },
+    "asarUnpack": [
+      "node_modules/@nut-tree-fork/**"
+    ],
     "protocols": {
       "name": "Bridge URL Scheme",
-      "schemes": ["bridge"]
+      "schemes": [
+        "bridge"
+      ]
     },
     "mac": {
       "category": "public.app-category.utilities",
@@ -42,5 +56,8 @@
     "linux": {
       "target": "AppImage"
     }
+  },
+  "dependencies": {
+    "@nut-tree-fork/nut-js": "^4.2.6"
   }
 }

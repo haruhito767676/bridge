@@ -702,3 +702,30 @@ body.drag-mode #drop-zone.drag-over {
   border-color: var(--accent);
   color: var(--accent);
 }
+
+/* ---- リモート操作の短命な通知 (接続失敗 / Accessibility 権限案内) ---- */
+
+#control-toast {
+  position: absolute;
+  left: 50%;
+  bottom: 54px;
+  transform: translateX(-50%);
+  max-width: 280px;
+  padding: 8px 14px;
+  border-radius: 9px;
+  background: rgba(0, 0, 0, 0.78);
+  color: #fff;
+  font-size: 12px;
+  text-align: center;
+  line-height: 1.4;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+  z-index: 10;
+}
+
+#control-toast.visible {
+  opacity: 1;
+  pointer-events: auto;
+  cursor: pointer;
+}

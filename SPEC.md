@@ -15,34 +15,48 @@
 │  ├─ クリップボード監視 (テキスト / 画像 / ファイルコピー, 500ms)      │
 │  ├─ 一時ファイル管理 (生成・追跡・自動削除)                          │
 │  ├─ bridge:// URL スキームハンドラ                                 │
-│  └─ 同期サブシステム                                               │
-│     ├─ HTTP サーバー (node:http, 0.0.0.0:9095)                    │
-│     ├─ ピア発見 (静的設定 + /24 サブネットスキャン + 受信時自動登録)   │
-│     ├─ 即時プッシュ (POST /push) + 差分ポーリング (GET /items)       │
-│     └─ 実体ファイルのストリーム転送 (GET /file)                     │
+│  ├─ 同期サブシステム                                               │
+│  │  ├─ HTTP サーバー (node:http, 0.0.0.0:9095)                    │
+│  │  ├─ ピア発見 (静的設定 + /24 サブネットスキャン + 受信時自動登録)   │
+│  │  ├─ 即時プッシュ (POST /push) + 差分ポーリング (GET /items)       │
+│  │  └─ 実体ファイルのストリーム転送 (GET /file)                     │
+│  └─ リモート操作サブシステム (control-net.js / control-input.js /   │
+│     control-windows.js)                                          │
+│     ├─ グローバルショートカット (Shift+Alt+Space) → HUD 開閉         │
+│     ├─ controlSession 状態機械 (idle/connecting/hosting)          │
+│     ├─ TCP コントロールチャネル (0.0.0.0:9096, 全デバイス常時 listen) │
+│     └─ nut-js による入力注入 (target 側のみ)                       │
 │                    ▲                                             │
 │                    │ IPC (ipcMain / ipcRenderer)                  │
 │                    ▼                                             │
 │  preload.js — contextBridge で window.bridge.* を公開             │
 │  (contextIsolation: true / nodeIntegration: false)               │
+│  3 つの BrowserWindow (シェルフ / HUD / 全画面オーバーレイ) が       │
+│  すべて同一の preload.js を共有する                                 │
 │                    ▲                                             │
 │                    ▼                                             │
-│  Renderer プロセス (renderer.js + index.html + styles.css)        │
-│  ├─ アイテムリスト (表示の唯一の真実 / 最新順)                       │
-│  ├─ スマート検索 (フィルターバッジ + サジェスト)                     │
-│  ├─ 選択 (クリック / Shift / ⌘ / 矩形選択 / ⌘A)                    │
-│  └─ D&D (受け入れ / OS ネイティブドラッグアウト)                     │
+│  Renderer プロセス群                                               │
+│  ├─ シェルフ (renderer.js + index.html + styles.css)              │
+│  │  ├─ アイテムリスト (表示の唯一の真実 / 最新順)                    │
+│  │  ├─ スマート検索 (フィルターバッジ + サジェスト)                  │
+│  │  ├─ 選択 (クリック / Shift / ⌘ / 矩形選択 / ⌘A)                 │
+│  │  └─ D&D (受け入れ / OS ネイティブドラッグアウト)                  │
+│  ├─ HUD (hud-renderer.js + hud.html + hud.css)                    │
+│  │  └─ デバイス一覧・Tab 選択移動・Enter 確定・Esc キャンセル         │
+│  └─ 全画面オーバーレイ (overlay-renderer.js + overlay.html/.css)    │
+│     └─ Pointer Lock + DOM イベントによる入力捕捉 (ネイティブ         │
+│        グローバルフック不使用)                                     │
 └──────────────────────────────────────────────────────────────────┘
 ```
 
-- 外部依存パッケージなし。Main は Node 標準モジュール（`http`, `fs`, `crypto`, `os`, `child_process` 等）と Electron API のみ使用する。
-- **状態の分担**: 表示リストの真実は Renderer の `items` 配列が持つ。Main は同期台帳 (`syncStore`)・一時ファイル追跡 (`sessionTempFiles`)・クリップボード履歴の Main 側コピー (`clipHistory`) を持つ。
+- 外部依存パッケージは原則なし。Main は Node 標準モジュール（`http`, `net`, `fs`, `crypto`, `os`, `child_process` 等）と Electron API のみ使用する。**唯一の例外はリモート操作の入力注入 (`@nut-tree-fork/nut-js`)** — CGEventPost (macOS) / SendInput (Windows) を叩くにはネイティブコードが不可避なため、この 1 箇所に限り runtime dependency として導入している（詳細は § 12）。
+- **状態の分担**: 表示リストの真実は Renderer の `items` 配列が持つ。Main は同期台帳 (`syncStore`)・一時ファイル追跡 (`sessionTempFiles`)・クリップボード履歴の Main 側コピー (`clipHistory`)・リモート操作のセッション状態 (`controlSession`) を持つ。
 
 ### 1.1 プロセス起動シーケンス
 
 1. シングルインスタンスロック取得（失敗時は何も起動せず `app.quit()`。第 2 インスタンスがウォッチャーや同期サーバーを一瞬でも起動しないようフラグでガード）
 2. `bridge://` プロトコルのデフォルトクライアント登録（開発時は `process.execPath` + エントリパス付き）
-3. `app.whenReady()` 後: `createWindow()` → `startClipboardWatcher()` → `startEdgeRevealWatcher()` → `startDeviceSync()`
+3. `app.whenReady()` 後: `createWindow()` → `createTray()` → `controlWindows.createHudWindow()` → `controlWindows.createOverlayWindow()` → `globalShortcut.register()` → `startControlSubsystem()` → `startClipboardWatcher()` → `startEdgeRevealWatcher()` → `startDeviceSync()`
 4. Windows/Linux で `bridge://` から直接起動された場合は `process.argv` の URL を処理
 
 ---
@@ -81,6 +95,27 @@
 ### 2.3 耐障害性
 
 - `render-process-gone`（`clean-exit` 以外）: `rendererReady` を落として自動リロード。復帰までの IPC はキューへ退避
+
+### 2.4 HUD ウインドウ（デバイス切り替え）
+
+`control-windows.js` が管理する 2 つ目の `BrowserWindow`。`hudAlive()` / `canSendToHud()` はシェルフの `winAlive()` / `canSendToRenderer()` と同じガードパターンを踏襲する。
+
+- `app.whenReady()` 時に `show: false` で事前生成し、以後は `show()` / `hide()` のみで即応性を確保する（Spotlight 的な挙動。毎回 `BrowserWindow` を作り直さない）
+- `BrowserWindow` オプション: `frame: false` / `transparent: true` / `resizable: false` / `alwaysOnTop: true`（`'floating'` レベル、シェルフと同じ理由で `'screen-saver'` は避ける）/ `fullscreenable: false` / `skipTaskbar: true` / `vibrancy: 'hud'`（macOS）
+- 位置: `showHud()` のたびに `screen.getCursorScreenPoint()` → `getDisplayNearestPoint()` でカーソルのあるディスプレイを再判定し、その `workArea` 中央に配置（幅 280px 固定、高さはデバイス数に応じて可変・上限 420px）
+- キーボード操作（`Tab` / `Enter` / `Esc`）は `hud-renderer.js` 側の通常 DOM `keydown` リスナーで処理する（HUD は表示中は通常のフォーカスウインドウであり、`before-input-event` は不要）
+- グローバルショートカット `Shift+Alt+Space`（`globalShortcut.register`）で `toggleHud()` を呼ぶ。`will-quit` で `globalShortcut.unregisterAll()`
+- デバイス一覧は既存の同期ピア発見 (`knownPeers`) をそのまま再利用する。専用の発見機構は持たない（§ 12.3）
+
+### 2.5 全画面キャプチャオーバーレイ
+
+同じく `control-windows.js` が管理する 3 つ目の `BrowserWindow`。HUD で確定した瞬間から host 側の入力を「奪う」ための透過・最前面ウインドウ。
+
+- `BrowserWindow` オプション: `frame: false` / `transparent: true` / `resizable: false` / `fullscreenable: true` / `skipTaskbar: true`。`alwaysOnTop` はシェルフ・HUD とは逆に `'screen-saver'` レベルを採用する（このウインドウは「常に唯一の最前面レイヤーである」こと自体が目的であり、シェルフが `'screen-saver'` を避ける理由 = OS のドラッグ中アイコン描画との競合は、ここでは問題にならない）
+- `showOverlay(display, deviceLabel)`: セッション開始時にカーソルがあったディスプレイの `bounds`（`workArea` ではなくメニューバー/Dock を含む画面全体）へ `setBounds` → `show()` → `setFullScreen(true)` → `focus()`。v1 スコープはこの単一ディスプレイのみをカバーし、全ディスプレイ同時カバーは非対応（§ 11）
+- `hideOverlay()`: フルスクリーン中は `setFullScreen(false)` を呼び、`'leave-full-screen'` イベントで実際に `hide()` する（フルスクリーン解除アニメーションの完了を待つ必要があるため）
+- **`setIgnoreMouseEvents` は絶対に呼ばない**: 呼ぶとクリックスルーしてしまい、入力を奪うというこのウインドウの目的そのものが破綻する
+- 入力捕捉の詳細は § 12.4 を参照
 - Renderer 準備前に届いたアイテムは `pendingFiles` / `pendingClipItems` にキューイングし、`did-finish-load` で一括送出。キュー上限は各 200 件（FIFO で最古から破棄）
 - ウインドウ破棄中の IPC 送信は `canSendToRenderer()`（win 生存 + rendererReady + webContents 生存）でガード
 
@@ -159,6 +194,13 @@
 | `dragClipboardText({ text, path })` | `drag-clipboard-text` | send | 生成済み snippet でドラッグアウト（無ければその場で生成） |
 | `deleteTempFile(path)` | `delete-temp-file` | send | 裏生成ファイルの実体削除。**`sessionTempFiles` に含まれるパスのみ削除**（ユーザー実ファイル保護）。同期台帳の該当 path も null 化 |
 | `reportRetainedPaths(paths)` | `report-retained-paths` | send | 現在リスト保持中のパス一覧（終了時クリーンアップの除外判定用、render のたびに送信） |
+| `hudConfirm(deviceId)` | `hud-confirm` | send | HUD で `Enter` 確定。`deviceId` は `knownPeers` のキー形式 (`host:port`) または `'self'` |
+| `hudCancel()` | `hud-cancel` | send | HUD で `Esc` キャンセル |
+| `overlaySendMouseMove(dx, dy)` | `overlay-mouse-move` | send | Pointer Lock の相対デルタをそのまま転送（間引きなし） |
+| `overlaySendMouseButton(button, action)` | `overlay-mouse-button` | send | `button: 'left'\|'right'\|'middle'`, `action: 'down'\|'up'` |
+| `overlaySendWheel(dx, dy)` | `overlay-wheel` | send | ホイール/トラックパッドの delta |
+| `overlaySendKey(code, action)` | `overlay-key` | send | `code` は `KeyboardEvent.code`（レイアウト非依存） |
+| `overlayReopenHud()` | `overlay-reopen-hud` | send | 予約コンボ (`Shift+Alt+Space`) をオーバーレイ自身が検知した際の離脱経路 |
 
 ### Main → Renderer
 
@@ -167,6 +209,11 @@
 | `onAddFile(cb)` | `add-file` | ファイル追加。payload: `{ path, name, fromDevice, fromPlatform }`（旧形式のパス文字列にも Renderer 側で後方互換対応） |
 | `onClipboardItem(cb)` | `clipboard-item` | クリップボード履歴。`{ type: 'clipboard-text'|'clipboard-image', text, path, timestamp, fromDevice, fromPlatform }` |
 | `onShelterExpanded(cb)` | `shelter-expanded` | 展開通知（検索リセット + 自動フォーカス） |
+| `onControlConnectFailed(cb)` | `control-connect-failed` | controller 側で接続/ハンドシェイクに失敗。`{ device, reason }` をシェルフのトーストで表示 |
+| `onAccessibilityPermissionNeeded(cb)` | `accessibility-permission-needed` | target 側で Accessibility 権限未許可のまま `control-start` を受けた通知 |
+| `onHudSetDevices(cb)` | `hud-set-devices` | (HUD ウインドウ専用) HUD が開くたびに送られる最新デバイス一覧 `{ id, device, isSelf }[]` |
+| `onOverlayActivate(cb)` | `overlay-activate` | (オーバーレイ専用) アクティブ化。`{ device }` を受けて Pointer Lock 要求・バナー表示 |
+| `onOverlayDeactivate(cb)` | `overlay-deactivate` | (オーバーレイ専用) 非アクティブ化。Pointer Lock 解除 |
 
 ---
 
@@ -354,14 +401,86 @@ Main 側履歴 (`clipHistory`) の上限はテキスト 100 / 画像 30。**Main
 | `MAX_SYNC_STORE` | 500 | 同期台帳の保持件数 |
 | `MAX_SEEN_SYNC_IDS` | 5,000 | 既読 id の FIFO 上限 |
 | スキャン並列度 | 32 | サブネットスキャンの同時プローブ数 |
+| `HUD_SHORTCUT` | `Shift+Alt+Space` | デバイス切り替え HUD を開閉するグローバルショートカット |
+| `CONTROL_PORT` | 9096 | リモート操作 TCP コントロールチャネルのポート |
+| `HELLO_TIMEOUT_MS` | 3,000ms | hello ハンドシェイクのタイムアウト |
+| `HEARTBEAT_MS` | 2,000ms | コントロールチャネルのハートビート送信間隔 |
+| `SESSION_TIMEOUT_MS` | 6,000ms | 無通信でセッションを死んだと判断するまでの時間 |
 
 ---
 
 ## 11. 既知の制約・非目標
 
 1. **Windows の複数ファイルコピー検知は先頭 1 件のみ**: エクスプローラーの Ctrl+C は実体パスを `CF_FILENAMEW`（1 件のみ保持）にしか載せず、Electron から `CF_HDROP` を読む手段がないため（実機検証済み。`text/uri-list` 等は列挙されるが読むと空になる）
-2. **同期は平文 HTTP**: トークン認証はあるが暗号化はない。信頼できる LAN 内での利用が前提。インターネット越し同期は非目標
+2. **同期・リモート操作チャネルとも平文**: トークン認証はあるが暗号化はない。信頼できる LAN 内での利用が前提。インターネット越しの利用は非目標
 3. **クイックルック・`mdls` は macOS 専用**: 他 OS は拡張子ベース表示にフォールバック
 4. **履歴は永続化されない**: リスト・履歴はメモリ上のみで、再起動で消える（裏生成ファイルは終了時に掃除される）。永続化は現時点で非目標
 5. **サブネットスキャンは /24 固定**: それより広いネットワークのピアは `peers` への静的登録が必要
 6. `secretToken` の共有は手動運用（設定ファイルの値を各デバイスで揃える）
+7. **リモート操作は v1 時点で単一ディスプレイのみカバー**: セッション開始時にカーソルがあったディスプレイのみを全画面オーバーレイで覆う。複数ディスプレイの同時カバーは非対応
+8. **OS 予約ショートカットは捕捉不可能**: `Cmd+Tab` / `Alt+Tab` / `Ctrl+Alt+Del` 等はユーザー空間のアプリからは原理的に捕捉できない
+9. **Pointer Lock の `Esc` は実キーとして転送不可**: 仕様上 `Esc` によるロック解除はブラウザ内部処理のため、ページの `keydown` に配送されない。ロックだけは即座に再要求して操作継続性を保つが、`Esc` キー自体の押下は target 側へ届かない
+10. **双方向同時セッションはフィードバックループの危険がある**: A が B を操作しながら同時に B も A を操作するような双方向同時セッションは、注入された入力を自分自身のオーバーレイが再捕捉して送り返す無限フィードバックループを起こしうる（自己ループバックでの検証時に実際に確認済み）。通常の HUD 操作では自分自身は選択対象から除外されるため単純な自己ループは起きないが、双方向同時利用は現時点で非推奨・非対応とする
+11. **開発用（未署名）バイナリでの Accessibility 権限はキャッシュ不整合を起こしうる**: 署名が不安定な生の Electron dev バイナリでは、`systemPreferences.isTrustedAccessibilityClient()` が `true` を返しても実際の注入 API（特に `mouse.setPosition` による絶対座標移動）が無反応になることが実機検証で確認された。ビルド・署名済みの配布用 `Bridge.app` では発生しない見込み
+
+---
+
+## 12. リモートコントロールプロトコル
+
+ある 1 台に接続されたマウス/キーボードで、他の接続デバイス（Mac 含む）をリアルタイムに遠隔操作する機能。Synergy/Barrier 的な KVM 機能の簡易版で、常時シームレスな端検知ではなく、グローバルショートカットで明示的に HUD を出して操作対象を切り替える方式を採る。
+
+### 12.1 トランスポートと認証
+
+- WebSocket ではなく Node 標準の `net` モジュールによる**生 TCP** を採用する（`control-net.js`）。通信相手は常に信頼済みの Bridge プロセス同士でブラウザから接続されることがないため、WebSocket のハンドシェイク/フレーミングのオーバーヘッドは不要と判断した
+- **ポート**: `CONTROL_PORT`（既定 9096）。全デバイスが起動時から常時 `0.0.0.0` で listen する（同期 HTTP サーバーと同様、どのデバイスもいつでも target になりうる）
+- **フレーミング**: 改行区切り JSON (NDJSON)。`JSON.stringify(msg) + '\n'`。ペイロードは常に小さく（ファイル転送は既存の同期 HTTP 経路のまま）、length-prefix より単純なこの方式で十分
+- **超低遅延方針（200Hz 級高リフレッシュレート環境向け）**: 接続確立直後に必ず `socket.setNoDelay(true)` を呼び Nagle アルゴリズムを無効化する。加えて target 側の nut-js 初期化時に `mouse.config.autoDelayMs = 0` / `keyboard.config.autoDelayMs = 0` を設定し、ライブラリ内部のディレイを排除する。host 側のマウス捕捉も `requestAnimationFrame` 等による間引きを行わず、生イベントをそのまま即座に IPC 送信する
+- **認証ハンドシェイク**: 既存の `secretToken` / `x-bridge-token` の仕組みを再利用する
+  1. controller → target: `{ type: 'hello', protocolVersion: 1, token, device, platform }`
+  2. target は `tokensMatch()`（`crypto.timingSafeEqual` による定数時間比較。同期 HTTP サーバーの `isAuthorizedRequest` とロジックを共有）で照合
+  3. 成功: `{ type: 'hello-ack', device, platform }` / 失敗: `{ type: 'hello-reject', reason }` を送って socket を破棄。`HELLO_TIMEOUT_MS`（既定 3,000ms）でタイムアウト
+- **生存監視**: controller は `heartbeat` を `HEARTBEAT_MS`（既定 2,000ms）間隔で自動送信する（`ControlClient` が接続中ずっと内部タイマーで送出、呼び出し側は意識不要）。加えて双方で `socket.setKeepAlive(true, 1000)`。target は `SESSION_TIMEOUT_MS`（既定 6,000ms）無通信でセッションを死んだと判断する
+
+### 12.2 メッセージ種別
+
+既存の同期エントリと同じ「`type` フィールドによる前方互換設計」を踏襲する。未知の `type` は黙って無視する。
+
+```
+{ type: 'control-start',        id, fromDevice, timestamp }
+{ type: 'control-end',          id, reason }   // 'user-confirmed' | 'peer-disconnected' | 'timeout' | 'error' | 'reject' | 'accessibility-permission-required'
+{ type: 'control-start-reject', reason }        // 'accessibility-permission-required' 等
+{ type: 'heartbeat',            ts }
+{ type: 'mouse-move',           dx, dy, ts }    // Pointer Lock の movementX/Y 相対値
+{ type: 'mouse-button',         button, action, ts }  // button: 'left'|'right'|'middle', action: 'down'|'up'
+{ type: 'wheel',                dx, dy, ts }
+{ type: 'key',                  code, action, ts }     // code = KeyboardEvent.code、action: 'down'|'up'
+```
+
+### 12.3 セッションのライフサイクル（controller 側）
+
+`main.js` が保持する `controlSession` 状態機械（`null` | `{ role: 'controller', state: 'connecting'|'hosting', targetId, targetDevice, sessionId, client, display }`）が唯一の真実を持つ。
+
+1. HUD の `Enter` 確定 (`hud-confirm`) → `startControlSession(targetId)`。`targetId` は `knownPeers` のキー形式 (`host:port`、同期ポート基準) で、既存の同期ピア発見機構をそのまま再利用する（専用のピア発見機構は持たない）。`controlNet.connectToPeer(peer.host, CONTROL_PORT, ...)` で接続
+2. `hello-ack` 受信 → `control-start` を送信し `state: 'hosting'` へ遷移 → `controlWindows.showOverlay(display, targetDevice)`
+3. `overlay-mouse-move` / `-mouse-button` / `-wheel` / `-key` の各 IPC は、`controlSession.state === 'hosting'` の間だけ `controlSession.client.send(...)` へ素通しする
+4. 終了は `endControlSession(reason, skipSend)` の一本道。`skipSend` は「相手が既にいなくなっている」経路（異常切断・エラー・拒否）で二重に `control-end` を送らないためのフラグ。`controlSession = null` を先に行うことで、複数経路（release コンボ・`close` イベント・タイムアウト）からの競合呼び出しに対して冪等
+5. 離脱経路: オーバーレイ自身のローカル `keydown` リスナーが予約コンボ (`Shift+Alt+Space` の同時押下) を検知したら **ワイヤーへ転送せず** `overlay-reopen-hud` IPC を送る。`globalShortcut` がフォーカスを持つオーバーレイウインドウ上でも発火するかは OS 依存で不確実なため、この自己完結的な経路を正とし、`globalShortcut` は idle 状態向けの冗長経路として併存させる
+
+### 12.4 host 側の入力捕捉（ネイティブフック不使用）
+
+`overlay-renderer.js` が全画面オーバーレイ内で以下を行う。**グローバル入力フック（uiohook-napi 等）は使用しない** — 全画面・最前面・フォーカス保持のオーバーレイウインドウであること自体が、下のアプリへ入力が漏れないことを保証する設計:
+
+- `requestPointerLock()` による相対マウスデルタ (`movementX`/`movementY`) の取得。`document.pointerLockElement === root` の間だけ転送し、ロック外の `mousemove` は無視する
+- `mousedown` / `mouseup` / `wheel` / `contextmenu`（`preventDefault`）の通常 DOM イベント
+- `keydown` / `keyup` は `KeyboardEvent.code`（レイアウト非依存）を使用
+- **Pointer Lock の仕様上の注意**: ロックは `Esc` 押下以外の理由（フォーカス喪失等）でも解除されうるため、`pointerlockchange` で解除を検知した際に「`Esc` が押された」と決め打ちして実キーを合成送信することはしない（target への誤ったキー注入を避けるため）。ロックだけを即座に再要求し、操作の継続性を保つ
+- `setIgnoreMouseEvents` は絶対に呼ばない
+
+### 12.5 target 側の入力注入 (`control-input.js`)
+
+- `@nut-tree-fork/nut-js` の薄いラッパー。**この機能に限り「外部依存パッケージはゼロ」の原則の例外**として導入した（macOS: CGEventPost / Windows: SendInput を叩くにはネイティブコードが不可避なため）
+- **座標**: セッション開始時に `screen.getCursorScreenPoint()` で実際のカーソル位置から絶対座標の起点をシードし（ジャンプ防止）、以後 `dx`/`dy` を累積。`screen.getAllDisplays()` から算出した仮想デスクトップ全体の矩形にクランプしてから `mouse.setPosition()`。相対デルタ方式のため host/target の解像度差はスケーリング計算なしで吸収できる
+- **ホイール**: `mouse.scrollDown/Up/Left/Right` へマッピング。トラックパッド/物理ホイールでデルタの粒度が大きく異なるため、スケール係数は実運用での調整が必要な想定（現状は 1 ステップ = 1 delta の単純換算）
+- **キーマップ**: DOM `KeyboardEvent.code`（レイアウト非依存）→ nut-js `Key` enum への静的テーブル（`control-input.js` 内 `KEY_MAP`）。文字/数字/テンキー/モディファイア（左右別）/ファンクションキー/矢印/記号/ロックキーを網羅。nut-js の `Key` enum 自体がクロスプラットフォーム抽象化されているため OS 分岐は不要。未対応の `code` はログして無視する
+- **⚠️ スタックキー防止（最重要の安全設計）**: `heldButtons` / `heldKeys` の `Set` で押しっぱなし状態を追跡する。異常切断・タイムアウト・明示的 `control-end` の**いずれの経路でも必ず** `releaseAllHeld()` を呼び、押しっぱなしのボタン/キーを target の OS 上に残さない。`releaseAllHeld()` はスタブ化した単体テストで冪等性（既に空の状態で呼んでも何もしない）・部分解放（一部だけ手動で up 済みの場合は残りだけ解放する）を検証済み
+- **Accessibility 権限（macOS のみ）**: 注入 (target) 側にのみ必要。捕捉 (host) 側は Pointer Lock + DOM イベントのみで OS フックを使わないため権限不要。チェックは起動時ではなく、実際に `control-start` を受信した瞬間に遅延実行する: `systemPreferences.isTrustedAccessibilityClient(false)` で非プロンプト確認 → 未許可なら `control-start-reject` を返しつつ、target 側で `isTrustedAccessibilityClient(true)` により OS 標準の許可ダイアログ（システム設定への誘導）を表示。同時にシェルフ UI へ `accessibility-permission-needed` IPC でバナー通知する

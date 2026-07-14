@@ -559,6 +559,30 @@ window.bridge.onShelterExpanded(() => {
   searchBar.focus();
 });
 
+// ---- リモート操作の短命な通知 (接続失敗 / Accessibility 権限案内) ----
+
+const controlToast = document.getElementById('control-toast');
+let controlToastTimer = null;
+
+function showControlToast(message, durationMs = 4000) {
+  controlToast.textContent = message;
+  controlToast.hidden = false;
+  controlToast.classList.add('visible');
+  if (controlToastTimer) clearTimeout(controlToastTimer);
+  controlToastTimer = setTimeout(() => {
+    controlToast.classList.remove('visible');
+    controlToastTimer = null;
+  }, durationMs);
+}
+
+window.bridge.onControlConnectFailed(({ device, reason }) => {
+  showControlToast(`${device || '相手デバイス'} への接続に失敗しました`);
+});
+
+window.bridge.onAccessibilityPermissionNeeded(() => {
+  showControlToast('リモート操作には Accessibility 権限が必要です。システム設定で許可してください', 8000);
+});
+
 // ---- クリップボード履歴（Main の監視から届いた新規コピーをタイムライン先頭へ）----
 
 // ハイブリッド上限: テキスト履歴は検索資産として 100 件まで保持し、
