@@ -10,8 +10,6 @@
   --accent: #0a84ff;
   --card-bg: rgba(255, 255, 255, 0.07);
   --card-border: rgba(255, 255, 255, 0.12);
-  --icon-bg: rgba(255, 255, 255, 0.06);
-  --icon-border: rgba(255, 255, 255, 0.16);
 }
 
 html,
@@ -54,42 +52,34 @@ body {
   border-radius: 22px;
   background: var(--card-bg);
   border: 1px solid var(--card-border);
-  box-shadow: 0 0 0 0 rgba(10, 132, 255, 0);
-  /* フォーカスリングが隣のカードへ吸い付くように移動するアニメーション */
-  transition: all 0.2s cubic-bezier(0.25, 1, 0.5, 1);
+  box-shadow: 0 0 0 0 rgba(255, 255, 255, 0);
+  /* Cmd+Tab 風に、背景の明るさとグローが滑らかに切り替わるアニメーション */
+  transition: background-color 0.25s ease, box-shadow 0.25s ease, transform 0.25s cubic-bezier(0.25, 1, 0.5, 1);
 }
 
-/* Tab で選択中のカードだけに効く、ネオンブルーのフォーカスリング */
+/* Tab で選択中のカードだけに効く、控えめな背景ハイライト + ソフトグロー */
 .hud-device-card.selected {
-  background: rgba(10, 132, 255, 0.12);
-  border-color: rgba(10, 132, 255, 0.9);
-  box-shadow:
-    0 0 0 3px rgba(10, 132, 255, 0.6),
-    0 0 26px 6px rgba(10, 132, 255, 0.45);
+  background: rgba(255, 255, 255, 0.16);
+  box-shadow: 0 0 34px 10px rgba(255, 255, 255, 0.12);
   transform: translateY(-3px);
 }
 
 .hud-device-icon {
-  width: 120px;
-  height: 120px;
+  width: 140px;
+  height: 140px;
   display: flex;
   align-items: center;
   justify-content: center;
   margin-bottom: 16px;
-  border-radius: 18px;
-  /* 実アイコン画像が未配置でもレイアウトが崩れないプレースホルダー枠 */
-  background: var(--icon-bg);
-  border: 1px solid var(--icon-border);
-  overflow: hidden;
 }
 
 .hud-device-icon img {
-  width: 120px;
-  height: 120px;
+  width: 140px;
+  height: 140px;
   object-fit: contain;
 }
 
-/* 画像の読み込みに失敗した場合は隠し、プレースホルダー枠だけを残す */
+/* 画像の読み込みに失敗した場合は隠す */
 .hud-device-icon img.hud-icon-missing {
   display: none;
 }
