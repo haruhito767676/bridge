@@ -583,6 +583,10 @@ window.bridge.onAccessibilityPermissionNeeded(() => {
   showControlToast('リモート操作には Accessibility 権限が必要です。システム設定で許可してください', 8000);
 });
 
+window.bridge.onInputMonitoringPermissionNeeded(() => {
+  showControlToast('この端末でのマウス操作には「入力監視」権限が必要です。システム設定で許可してください（今回はフォールバック方式で操作を継続します）', 8000);
+});
+
 // ---- クリップボード履歴（Main の監視から届いた新規コピーをタイムライン先頭へ）----
 
 // ハイブリッド上限: テキスト履歴は検索資産として 100 件まで保持し、

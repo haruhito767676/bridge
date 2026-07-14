@@ -1,20 +1,34 @@
 // 全画面キャプチャオーバーレイの入力捕捉ロジック (マウス系のみ)。
 //
-// ネイティブなグローバル入力フックは使わず、Pointer Lock API + 通常の DOM イベントだけで
-// host 側のマウスを「奪う」。このウインドウが画面全体を覆い・最前面・フォーカス保持で
-// あること自体が、下のアプリへ入力が漏れないことを保証する。
+// マウスの移動量取得元は mouseMode によって切り替わる:
+// - 'native' (既定): Main プロセスが mouse-capture.js (uiohook-napi + 再センタリング)
+//   で直接捕捉し、TCP へ送出する。Renderer はこの経路には一切関与しない
+//   (mousemove リスナーは native モードでは overlaySendMouseMove を呼ばない)。
+// - 'pointer-lock' (フォールバック): ネイティブフックが使えない環境
+//   (モジュール未ロード / macOS Input Monitoring 権限未許可) 向けの既存方式。
+//   Pointer Lock API + 通常の DOM mousemove イベントで取得する
+//
+// ボタン down/up・ホイールは mouseMode に関係なく常に DOM イベントのまま (Pointer Lock
+// 非依存で既に安定動作しており、置き換える理由がない)。
+//
+// いずれのモードでも、host 自身の他アプリへの入力漏れは「このウインドウが画面全体を
+// 覆い・最前面・フォーカス保持である」こと自体で防いでいる (setIgnoreMouseEvents は
+// 呼ばない)。mouseMode はあくまで「移動量の取得元」を切り替えるだけで、この遮断の
+// 仕組み自体には影響しない。
 //
 // キーボードは Renderer では扱わない: Main プロセスが overlay webContents の
 // before-input-event で横取りする (メニューアクセラレータの無効化と、フォーカス/
-// Pointer Lock の状態に依存しない確実な捕捉のため。main.js 参照)。
+// Pointer Lock の状態に依存しない確実な捕捉のため。main.js 参照、mouseMode の
+// 導入後も変更なし)。
 //
 // 200Hz 級の高リフレッシュレート環境でも遅延を出さないため、mousemove は間引かずに
-// 生イベントをそのまま即座に IPC 送信する。
+// 生イベントをそのまま即座に IPC 送信する (pointer-lock モード時)。
 
 const root = document.getElementById('overlay-root');
 const bannerDevice = document.getElementById('overlay-banner-device');
 
 let active = false; // overlay-activate 〜 overlay-deactivate の間だけ true
+let mouseMode = 'pointer-lock'; // overlay-activate で毎回上書きされる
 let intentionalUnlock = false; // exitPointerLock を自分で呼んだ直後かどうか
 let lockRetryTimer = null;
 
@@ -41,7 +55,7 @@ function cancelLockRetry() {
 }
 
 function requestLock() {
-  if (!active || document.pointerLockElement === root) return;
+  if (!active || mouseMode !== 'pointer-lock' || document.pointerLockElement === root) return;
   try {
     // Chromium の requestPointerLock は Promise を返す (拒否は pointerlockerror と等価)
     const result = root.requestPointerLock();
@@ -60,11 +74,12 @@ window.addEventListener('focus', () => {
   if (active) requestLock();
 });
 
-window.bridge.onOverlayActivate(({ device }) => {
+window.bridge.onOverlayActivate(({ device, mouseMode: mode }) => {
   active = true;
+  mouseMode = mode === 'native' ? 'native' : 'pointer-lock';
   bannerDevice.textContent = device || '';
   root.focus();
-  requestLock();
+  requestLock(); // native モードでは内部ガードにより no-op
 });
 
 window.bridge.onOverlayDeactivate(() => {
@@ -88,11 +103,13 @@ document.addEventListener('pointerlockchange', () => {
   requestLock();
 });
 
-// ロックが未確立でも movementX/Y は通常の mousemove に載って届くため転送する。
+// native モードでは Main プロセスが mouse-capture.js で直接捕捉して送出するため、
+// ここでの DOM mousemove は無視する (二重送信防止)。pointer-lock モード (フォールバック)
+// でのみ、ロックが未確立でも movementX/Y は通常の mousemove に載って届くため転送する
 // (未確立の間はカーソルが画面端に達すると movement が 0 になるという劣化はあるが、
 // 「まったく動かない」よりはるかによい。ロック自体は上のリトライで回復を図る)
 document.addEventListener('mousemove', (e) => {
-  if (!active) return;
+  if (!active || mouseMode !== 'pointer-lock') return;
   if (e.movementX === 0 && e.movementY === 0) return;
   window.bridge.overlaySendMouseMove(e.movementX, e.movementY);
 });

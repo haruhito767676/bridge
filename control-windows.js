@@ -164,12 +164,14 @@ function createOverlayWindow() {
 
 // セッション開始時にカーソルがあったディスプレイの全体 (workArea ではなく bounds:
 // メニューバー/Dock も含めて画面全体を覆う) を setBounds でカバーする
-function showOverlay(display, deviceLabel) {
+function showOverlay(display, deviceLabel, mouseMode) {
   if (!overlayAlive()) return;
   overlayWin.setBounds(display.bounds, false);
   overlayWin.show();
   overlayWin.focus();
-  if (canSendToOverlay()) overlayWin.webContents.send('overlay-activate', { device: deviceLabel });
+  if (canSendToOverlay()) {
+    overlayWin.webContents.send('overlay-activate', { device: deviceLabel, mouseMode });
+  }
 }
 
 function hideOverlay() {

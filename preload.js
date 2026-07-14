@@ -76,6 +76,12 @@ contextBridge.exposeInMainWorld('bridge', {
   onAccessibilityPermissionNeeded: (callback) =>
     ipcRenderer.on('accessibility-permission-needed', () => callback()),
 
+  // controller 側 (host) で macOS の Input Monitoring 権限が未許可のままネイティブ
+  // マウス捕捉を試みた際の通知。target 側の Accessibility 未許可とは異なりセッション
+  // は拒否されず Pointer Lock 方式へフォールバックして継続する
+  onInputMonitoringPermissionNeeded: (callback) =>
+    ipcRenderer.on('input-monitoring-permission-needed', () => callback()),
+
   // controller 側で接続確立・ハンドシェイクに失敗した際の通知
   onControlConnectFailed: (callback) =>
     ipcRenderer.on('control-connect-failed', (_event, payload) => callback(payload)),

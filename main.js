@@ -12,6 +12,7 @@ const execFileAsync = promisify(execFile);
 const controlWindows = require('./control-windows');
 const controlNet = require('./control-net');
 const controlInput = require('./control-input');
+const mouseCapture = require('./mouse-capture');
 
 let win = null;
 let rendererReady = false;
@@ -1787,11 +1788,38 @@ function startControlSession(targetId) {
   // 差し替え・終了済みの古い接続からの遅延イベントを無視するためのガード
   const isCurrent = () => controlSession && controlSession.sessionId === sessionId;
 
-  client.on('ready', () => {
+  client.on('ready', async () => {
     if (!isCurrent()) return;
     client.send({ type: 'control-start', id: sessionId, fromDevice: deviceName, timestamp: Date.now() });
     controlSession.state = 'hosting';
-    controlWindows.showOverlay(display, targetDevice);
+
+    // マウス捕捉方式の決定: ネイティブグローバルフックが使える環境では
+    // uiohook-napi + 再センタリング方式 (mouse-capture.js) を使い、モジュール
+    // 未ロード (未署名バイナリブロック等) や macOS の Input Monitoring 権限
+    // 未許可の場合は既存の Pointer Lock 方式へフォールバックする。
+    // Accessibility (target 側) と異なり、権限不足でもセッション自体は拒否せず
+    // 劣化した形で継続させる (§12.6)
+    let mouseMode = 'pointer-lock';
+    if (mouseCapture.isModuleAvailable()) {
+      const available = await mouseCapture.probeNativeCapture();
+      if (available) mouseMode = 'native';
+      else if (process.platform === 'darwin' && canSendToRenderer()) {
+        win.webContents.send('input-monitoring-permission-needed');
+      }
+    }
+    if (!isCurrent()) return; // プローブ待ちの間にセッションが差し替え/終了した場合のガード
+
+    controlSession.mouseMode = mouseMode;
+    if (mouseMode === 'native') {
+      mouseCapture.startCapture({
+        onDelta: (dx, dy) => {
+          if (controlSession?.state === 'hosting') {
+            controlSession.client.send({ type: 'mouse-move', dx, dy, ts: Date.now() });
+          }
+        },
+      });
+    }
+    controlWindows.showOverlay(display, targetDevice, mouseMode);
   });
 
   client.on('message', (msg) => {
@@ -1825,6 +1853,7 @@ function endControlSession(reason, skipSend) {
   const session = controlSession;
   controlSession = null;
   overlayHeldCodes.clear();
+  if (session.mouseMode === 'native') mouseCapture.stopCapture();
   controlWindows.hideOverlay();
   if (!skipSend && session.state === 'hosting') {
     session.client.send({ type: 'control-end', id: session.sessionId, reason });

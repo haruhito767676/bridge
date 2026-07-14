@@ -44,12 +44,13 @@
 │  ├─ HUD (hud-renderer.js + hud.html + hud.css)                    │
 │  │  └─ デバイス一覧・Tab 選択移動・Enter 確定・Esc キャンセル         │
 │  └─ 全画面オーバーレイ (overlay-renderer.js + overlay.html/.css)    │
-│     └─ マウス捕捉: Pointer Lock + DOM イベント / キー捕捉: Main の   │
-│        before-input-event (ネイティブグローバルフック不使用)         │
+│     └─ マウス捕捉: ネイティブグローバルフック (uiohook-napi) +       │
+│        再センタリング (既定) / Pointer Lock + DOM イベント          │
+│        (フォールバック) / キー捕捉: Main の before-input-event      │
 └──────────────────────────────────────────────────────────────────┘
 ```
 
-- 外部依存パッケージは原則なし。Main は Node 標準モジュール（`http`, `net`, `fs`, `crypto`, `os`, `child_process` 等）と Electron API のみ使用する。**唯一の例外はリモート操作の入力注入 (`@nut-tree-fork/nut-js`)** — CGEventPost (macOS) / SendInput (Windows) を叩くにはネイティブコードが不可避なため、この 1 箇所に限り runtime dependency として導入している（詳細は § 12）。
+- 外部依存パッケージは原則なし。Main は Node 標準モジュール（`http`, `net`, `fs`, `crypto`, `os`, `child_process` 等）と Electron API のみ使用する。**例外はリモート操作関連の 2 箇所のみ**: (1) target 側の入力注入 (`@nut-tree-fork/nut-js`) — CGEventPost (macOS) / SendInput (Windows) を叩くにはネイティブコードが不可避、(2) host 側のマウス捕捉 (`uiohook-napi`, `mouse-capture.js`) — Pointer Lock 方式が抱える画面端クランプの劣化を解消するためのネイティブグローバルフック（listen-only、詳細は § 12.4/§12.6）。いずれも runtime dependency として導入している（詳細は § 12）。
 - **状態の分担**: 表示リストの真実は Renderer の `items` 配列が持つ。Main は同期台帳 (`syncStore`)・一時ファイル追跡 (`sessionTempFiles`)・クリップボード履歴の Main 側コピー (`clipHistory`)・リモート操作のセッション状態 (`controlSession`) を持つ。
 
 ### 1.1 プロセス起動シーケンス
@@ -118,7 +119,7 @@
 - `hideOverlay()`: `overlay-deactivate` を送ってから `hide()` するだけ
 - 表示中に `'blur'` したら即座に `focus()` し返し、入力捕捉の前提であるフォーカス保持を維持する
 - **`setIgnoreMouseEvents` は絶対に呼ばない**: 呼ぶとクリックスルーしてしまい、入力を奪うというこのウインドウの目的そのものが破綻する
-- 入力捕捉の詳細は § 12.4 を参照
+- 入力捕捉の詳細は § 12.4 を参照。**このウインドウの最前面・フォーカス保持は「host の他アプリへ入力が漏れないこと」を保証する独立した仕組みであり、マウス移動量の取得元(§12.4 の `mouseMode`: ネイティブフックか Pointer Lock か)が何であっても変わらない**
 - Renderer 準備前に届いたアイテムは `pendingFiles` / `pendingClipItems` にキューイングし、`did-finish-load` で一括送出。キュー上限は各 200 件（FIFO で最古から破棄）
 - ウインドウ破棄中の IPC 送信は `canSendToRenderer()`（win 生存 + rendererReady + webContents 生存）でガード
 
@@ -199,7 +200,7 @@
 | `reportRetainedPaths(paths)` | `report-retained-paths` | send | 現在リスト保持中のパス一覧（終了時クリーンアップの除外判定用、render のたびに送信） |
 | `hudConfirm(deviceId)` | `hud-confirm` | send | HUD で `Enter` 確定。`deviceId` は `knownPeers` のキー形式 (`host:port`) または `'self'` |
 | `hudCancel()` | `hud-cancel` | send | HUD で `Esc` キャンセル |
-| `overlaySendMouseMove(dx, dy)` | `overlay-mouse-move` | send | `mousemove` の相対デルタ (`movementX/Y`) をそのまま転送（間引きなし） |
+| `overlaySendMouseMove(dx, dy)` | `overlay-mouse-move` | send | `mousemove` の相対デルタ (`movementX/Y`) をそのまま転送（間引きなし）。**`mouseMode: 'pointer-lock'`（フォールバック時）のみ実際に呼ばれる**。`'native'` モードでは Main が `mouse-capture.js` から直接 TCP へ送出するためこの経路は使われない（§12.4/§12.6） |
 | `overlaySendMouseButton(button, action)` | `overlay-mouse-button` | send | `button: 'left'\|'right'\|'middle'`, `action: 'down'\|'up'` |
 | `overlaySendWheel(dx, dy)` | `overlay-wheel` | send | ホイール/トラックパッドの delta |
 
@@ -213,9 +214,10 @@
 | `onClipboardItem(cb)` | `clipboard-item` | クリップボード履歴。`{ type: 'clipboard-text'|'clipboard-image', text, path, timestamp, fromDevice, fromPlatform }` |
 | `onShelterExpanded(cb)` | `shelter-expanded` | 展開通知（検索リセット + 自動フォーカス） |
 | `onControlConnectFailed(cb)` | `control-connect-failed` | controller 側で接続/ハンドシェイクに失敗。`{ device, reason }` をシェルフのトーストで表示 |
-| `onAccessibilityPermissionNeeded(cb)` | `accessibility-permission-needed` | target 側で Accessibility 権限未許可のまま `control-start` を受けた通知 |
+| `onAccessibilityPermissionNeeded(cb)` | `accessibility-permission-needed` | target 側で Accessibility 権限未許可のまま `control-start` を受けた通知。セッション自体は拒否される |
+| `onInputMonitoringPermissionNeeded(cb)` | `input-monitoring-permission-needed` | host (controller) 側で macOS の Input Monitoring 権限が未許可のままネイティブマウス捕捉を試みた通知。**Accessibility と異なりセッションは拒否されず `pointer-lock` へフォールバックして継続**する（§12.6） |
 | `onHudSetDevices(cb)` | `hud-set-devices` | (HUD ウインドウ専用) HUD が開くたびに送られる最新デバイス一覧 `{ id, device, iconType, isSelf }[]` |
-| `onOverlayActivate(cb)` | `overlay-activate` | (オーバーレイ専用) アクティブ化。`{ device }` を受けて Pointer Lock 要求・バナー表示 |
+| `onOverlayActivate(cb)` | `overlay-activate` | (オーバーレイ専用) アクティブ化。`{ device, mouseMode }` を受ける。`mouseMode: 'native'` ならネイティブ捕捉モードとして DOM mousemove を無視、`'pointer-lock'` なら従来通り Pointer Lock 要求・バナー表示 |
 | `onOverlayDeactivate(cb)` | `overlay-deactivate` | (オーバーレイ専用) 非アクティブ化。Pointer Lock 解除 |
 
 ---
@@ -422,9 +424,12 @@ Main 側履歴 (`clipHistory`) の上限はテキスト 100 / 画像 30。**Main
 6. `secretToken` の共有は手動運用（設定ファイルの値を各デバイスで揃える）
 7. **リモート操作は v1 時点で単一ディスプレイのみカバー**: セッション開始時にカーソルがあったディスプレイのみを全画面オーバーレイで覆う。複数ディスプレイの同時カバーは非対応
 8. **OS 予約ショートカットは捕捉不可能**: `Cmd+Tab` / Spotlight (`Cmd+Space`) / `Alt+Tab` / `Win` キー / `Ctrl+Alt+Del` 等、OS がアプリより先に消費するショートカットはユーザー空間のアプリからは原理的に捕捉できない（host 側で効いてしまう）。それ以外の修飾キーコンボは `before-input-event` + `preventDefault` により捕捉する（§ 12.4）
-9. **Pointer Lock は失敗しうるがマウス転送は継続する**: ロック要求はウインドウのフォーカス遷移中などに失敗しうるため、失敗時は 250ms 間隔でリトライする。ロック未確立の間も `mousemove` の `movementX/Y` は転送されるため操作は可能だが、カーソルが画面端に達すると movement が 0 になる劣化がある
+9. **Pointer Lock の画面端劣化は `mouseMode: 'pointer-lock'`（フォールバック時）にのみ適用される**: マウス移動の取得は既定で `uiohook-napi` によるネイティブグローバルフック + 再センタリング方式（§12.4/§12.6）を使うため、通常はこの劣化は発生しない。ネイティブフックが使えない環境（モジュール未ロード・macOS Input Monitoring 権限未許可）でのみ、従来通り Pointer Lock 方式にフォールバックし、その間はロック要求が失敗しうる（フォーカス遷移中等、250ms 間隔でリトライ）。ロック未確立の間も `mousemove` の `movementX/Y` は転送されるため操作は可能だが、カーソルが画面端に達すると movement が 0 になる劣化がある
 10. **双方向同時セッションはフィードバックループの危険がある**: A が B を操作しながら同時に B も A を操作するような双方向同時セッションは、注入された入力を自分自身のオーバーレイが再捕捉して送り返す無限フィードバックループを起こしうる（自己ループバックでの検証時に実際に確認済み）。通常の HUD 操作では自分自身は選択対象から除外されるため単純な自己ループは起きないが、双方向同時利用は現時点で非推奨・非対応とする
 11. **開発用（未署名）バイナリでの Accessibility 権限はキャッシュ不整合を起こしうる**: 署名が不安定な生の Electron dev バイナリでは、`systemPreferences.isTrustedAccessibilityClient()` が `true` を返しても実際の注入 API（特に `mouse.setPosition` による絶対座標移動）が無反応になることが実機検証で確認された。ビルド・署名済みの配布用 `Bridge.app` では発生しない見込み
+12. **macOS では全デバイスに Accessibility と Input Monitoring の両方の権限が必要になりうる**: 本アプリはどのデバイスも host（マウス捕捉）にも target（入力注入）にもなりうる設計のため、target 側のみに必要だった Accessibility 権限に加え、host 側のネイティブマウス捕捉に Input Monitoring 権限が新たに要る。片方だけ許可された状態では機能の一部がフォールバック/拒否される（§12.6）
+13. **Input Monitoring には公式の同期チェック API が存在しない**: Accessibility の `systemPreferences.isTrustedAccessibilityClient()` に相当する確実な判定手段がないため、`mouse-capture.js` の `probeNativeCapture()` は「実際にカーソルを動かして uiohook が検知できるか」を見る経験的プローブでしか判定できない。ごく稀なタイミング要因による誤判定の可能性はゼロではない（§12.6）
+14. **host 実カーソルの完全な視覚的非表示は非対応**: ネイティブマウス捕捉モードでは、再センタリング（§12.4）によりカーソルの視認可能な移動範囲は開始地点付近の狭い範囲に抑えられるが、完全に静止・非表示にはしない。真の非表示（`ShowCursor`/`CGDisplayHideCursor` 相当）には OS API の直接呼び出し（FFI）が必要で、現状は軽量実装の方針から意図的にスコープ外としている
 
 ---
 
@@ -469,17 +474,25 @@ Main 側履歴 (`clipHistory`) の上限はテキスト 100 / 画像 30。**Main
 4. 終了は `endControlSession(reason, skipSend)` の一本道。`skipSend` は「相手が既にいなくなっている」経路（異常切断・エラー・拒否）で二重に `control-end` を送らないためのフラグ。`controlSession = null` を先に行うことで、複数経路（release コンボ・`close` イベント・タイムアウト）からの競合呼び出しに対して冪等
 5. 離脱経路: `globalShortcut` (`Shift+Alt+Space`) が本命。`globalShortcut` は OS レベル (RegisterHotKey / RegisterEventHotKey) でキーを消費するため、実際にはオーバーレイの `before-input-event` にはこのコンボはほぼ届かない。そのため `toggleHud()` がセッション中は `endControlSession('user-confirmed')` → HUD 再表示として振る舞う（終了せずに HUD だけ出すと、オーバーレイの blur 時フォーカス奪還と競合して HUD が操作不能になる）。`before-input-event` 側の予約コンボ検知（ワイヤーへ転送せず終了）は、`globalShortcut` の登録に失敗した環境向けのフォールバックとして併存させる
 
-### 12.4 host 側の入力捕捉（ネイティブフック不使用）
+### 12.4 host 側の入力捕捉
 
-**グローバル入力フック（uiohook-napi 等）は使用しない** — 画面全体を覆う・最前面・フォーカス保持のオーバーレイウインドウであること自体が、下のアプリへ入力が漏れないことを保証する設計。
+**マウス**: `mouseMode`（`controlSession.mouseMode`、`hosting` 遷移時に一度だけ確定）によって取得元が切り替わる。いずれのモードでも、画面全体を覆う・最前面・フォーカス保持のオーバーレイウインドウであること自体が、下のアプリへ入力が漏れないことを保証する（§2.5）。ボタン down/up・ホイールはモードに関係なく常に `overlay-renderer.js` の通常 DOM イベント（`mousedown` / `mouseup` / `wheel` / `contextmenu`(`preventDefault`)）のまま。`setIgnoreMouseEvents` は絶対に呼ばない。
 
-**マウス** (`overlay-renderer.js`):
+**`'native'`（既定）— ネイティブグローバルフック + 再センタリング (`mouse-capture.js`)**:
+
+- `uiohook-napi`（listen-only のグローバルマウスフック）で `mousemove` を捕捉する。**このイベントが運ぶ `x, y` は `movementX/Y` のような相対デルタではなく、OS が既にクランプ済みの絶対スクリーン座標**（Windows `WH_MOUSE_LL` / macOS `CGEventTap` のどちらも同じ制約）。素朴に前回座標との差分を取るだけでは Pointer Lock 方式と同じ画面端クランプ劣化を再現するだけなので、代わりに以下の**再センタリング方式**を採る
+- `hosting` 遷移時に `mouse.getPosition()`（nut-js、target 側と共有の依存）で現在位置を **anchor** として記録する。以後 `mousemove` が届くたびに前回位置との差分を `dx`/`dy` として即座に TCP へ送出し、`lastKnown` を更新する
+- `lastKnown` が anchor から一定距離（既定 40px）以上離れたら `mouse.setPosition(anchor)` で anchor へ**再センタリング (warp)** する。warp 発行と同時に `lastKnown` を anchor へ楽観的に更新しておくことで、warp 自体が発生させる合成 `mousemove` の delta が自然に 0 になり、特別なフィルタリングなしに無視される（target 側 `injectMouseMove`、§12.5 の get→set 加算ループと対になる「set→get 差分」ループ）
+- anchor は Electron の `screen` API（DIP 座標）ではなく nut-js から読んだ実際の物理ピクセル位置を使うため、§12.5 が警告する DIP/物理ピクセルの座標系ミスマッチが生じない
+- 副次効果として host 実カーソルの視覚的な動きも anchor 付近の狭い範囲に抑えられる（§11-14 の通り完全な非表示ではない）
+- **delta の転送は Main プロセス内で完結し、`overlay-mouse-move` IPC を経由しない**（Renderer は関与しない。`overlay-renderer.js` の `mousemove` リスナーは `mouseMode: 'native'` の間は何もしない）
+- macOS では Input Monitoring 権限が必要（§12.6）。モジュール未ロードや権限未許可の場合は `'pointer-lock'` へフォールバックする
+
+**`'pointer-lock'`（フォールバック）— 従来方式 (`overlay-renderer.js`)**:
 
 - `mousemove` の相対デルタ (`movementX`/`movementY`) を `active` の間は常に転送する。Pointer Lock はカーソルを画面端で止めない・誤操作を防ぐための強化であり、転送の前提条件にはしない（ロック未確立でも操作可能に保つ）
 - `requestPointerLock()` は失敗しうる（フォーカス遷移中の `pointerlockerror` 等）ため、失敗時は 120ms 間隔で再試行する。`window` の `focus` と `mousedown`（ユーザージェスチャ）でも再取得を試みる。なお Chromium は `Esc` 押下でロックを強制解除し（target へ `Esc` を転送しただけでもホスト側のロックが外れる）、直後の再取得は内部クールダウンでしばらく失敗し続けるため、この再試行が「カーソルが画面端から出ない」時間の長さを直接決める
-- `mousedown` / `mouseup` / `wheel` / `contextmenu`（`preventDefault`）の通常 DOM イベント
 - **Pointer Lock の仕様上の注意**: ロックは `Esc` 押下以外の理由（フォーカス喪失等）でも解除されうるため、`pointerlockchange` で解除を検知した際に「`Esc` が押された」と決め打ちして実キーを合成送信することはしない（target への誤ったキー注入を避けるため）。ロックだけを即座に再要求し、操作の継続性を保つ
-- `setIgnoreMouseEvents` は絶対に呼ばない
 
 **キーボード** (`main.js` の `before-input-event`):
 
@@ -492,10 +505,25 @@ Main 側履歴 (`clipHistory`) の上限はテキスト 100 / 画像 30。**Main
 ### 12.5 target 側の入力注入 (`control-input.js`)
 
 - `@nut-tree-fork/nut-js` の薄いラッパー。**この機能に限り「外部依存パッケージはゼロ」の原則の例外**として導入した（macOS: CGEventPost / Windows: SendInput を叩くにはネイティブコードが不可避なため）
-- **座標**: `dx`/`dy` を受けるたびに `mouse.getPosition()`（物理ピクセル）へ加算して `mouse.setPosition()` する。**Electron の `screen` API を座標の起点に使ってはいけない**: Electron は DIP 座標、nut-js (SendInput/GetCursorPos) は物理ピクセル座標のため、Windows の表示スケーリングが 100% 以外だと両者が食い違いカーソルが飛ぶ。毎回 OS から現在位置を読み直せば座標系は常に一貫し、画面外への移動も OS が自動クランプするので手製の境界計算は不要。200Hz 級で届くデルタを get→set の非同期ペアで並行処理すると加算が失われるため、ペンディングデルタに累積して単一のフラッシュループで直列注入する。相対デルタ方式のため host/target の解像度差はスケーリング計算なしで吸収できる
+- **座標**: `dx`/`dy` を受けるたびに `mouse.getPosition()`（物理ピクセル）へ加算して `mouse.setPosition()` する。**Electron の `screen` API を座標の起点に使ってはいけない**: Electron は DIP 座標、nut-js (SendInput/GetCursorPos) は物理ピクセル座標のため、Windows の表示スケーリングが 100% 以外だと両者が食い違いカーソルが飛ぶ。毎回 OS から現在位置を読み直せば座標系は常に一貫し、画面外への移動も OS が自動クランプするので手製の境界計算は不要。200Hz 級で届くデルタを get→set の非同期ペアで並行処理すると加算が失われるため、ペンディングデルタに累積して単一のフラッシュループで直列注入する。相対デルタ方式のため host/target の解像度差はスケーリング計算なしで吸収できる。**同じ DIP/物理ピクセルの罠と get→set の直列化パターンは host 側 `mouse-capture.js`（§12.4 の `'native'` モード）にも同様に適用される**（あちらは「set→get 差分」という逆方向のループ）
 - **ホイール**: `mouse.scrollDown/Up/Left/Right` へマッピング。トラックパッド/物理ホイールでデルタの粒度が大きく異なるため、スケール係数は実運用での調整が必要な想定（現状は 1 ステップ = 1 delta の単純換算）
 - **キーマップ**: DOM `KeyboardEvent.code`（レイアウト非依存）→ nut-js `Key` enum への静的テーブル（`control-input.js` 内 `KEY_MAP`）。文字/数字/テンキー/モディファイア（左右別）/ファンクションキー/矢印/記号/ロックキーを網羅。未対応の `code` はログして無視する（JIS 固有キー: `IntlYen` / `IntlRo` / 変換 / 無変換 / かな は nut-js の `Key` enum 自体に存在せず注入不可能 = 既知の制約）
 - **主修飾キーの OS 跨ぎ読み替え** (`main.js` の `translateKeyCode`): 操作元と操作先の OS が異なるセッションでは、mac→win で `Meta`（Cmd）を `Control` に、win→mac で `Control` を `Meta`（Cmd）に読み替えてから注入する。これにより host 側の筋肉記憶どおりにコピー/ペースト等の標準ショートカットが効く。down/up が同じ規則で読み替わるため `heldKeys` 追跡は破綻しない。トレードオフとして mac target へ素の Ctrl（win target へ素の Win キー）を送る手段は失われる
 - **修飾キーコンボの OS 差分**: macOS の CGEvent は「イベントごとに修飾フラグを持つ」モデルのため、修飾キーを単独の down イベントとして注入しただけでは後続キーに Cmd/Ctrl/Opt が乗らない（Ctrl+C を送っても素の C が届く）。darwin では非修飾キーの down/up のたびに、押下中の修飾キーを nut-js の可変長引数（先頭に修飾キー、末尾に主キー）で添えて注入し、libnut に主キーイベントへ修飾フラグを焼き込ませる。Windows は SendInput が OS 側でグローバルなキー押下状態を保持するモデルなので単独注入のままでよい（実機で `GetAsyncKeyState` により Ctrl/Win の押下状態が正しく立つことを検証済み）
 - **⚠️ スタックキー防止（最重要の安全設計）**: `heldButtons` / `heldKeys` の `Set` で押しっぱなし状態を追跡する。異常切断・タイムアウト・明示的 `control-end` の**いずれの経路でも必ず** `releaseAllHeld()` を呼び、押しっぱなしのボタン/キーを target の OS 上に残さない。1 キーの解放失敗で後続の解放が止まらないよう各解放は個別に握りつぶして完走させ、さらに**追跡に残っていない全修飾キー（8 キー）も無条件で解放する**（ホスト側の up 取りこぼしで追跡が実状態とズレていても、セッション終了後に Ctrl/Cmd が残る事故を確実に断ち切る。未押下キーへの up 注入は無害）
-- **Accessibility 権限（macOS のみ）**: 注入 (target) 側にのみ必要。捕捉 (host) 側は Pointer Lock + DOM イベントのみで OS フックを使わないため権限不要。チェックは起動時ではなく、実際に `control-start` を受信した瞬間に遅延実行する: `systemPreferences.isTrustedAccessibilityClient(false)` で非プロンプト確認 → 未許可なら `control-start-reject` を返しつつ、target 側で `isTrustedAccessibilityClient(true)` により OS 標準の許可ダイアログ（システム設定への誘導）を表示。同時にシェルフ UI へ `accessibility-permission-needed` IPC でバナー通知する
+- **Accessibility 権限（macOS のみ）**: 注入 (target) 側にのみ必要。チェックは起動時ではなく、実際に `control-start` を受信した瞬間に遅延実行する: `systemPreferences.isTrustedAccessibilityClient(false)` で非プロンプト確認 → 未許可なら `control-start-reject` を返しつつ、target 側で `isTrustedAccessibilityClient(true)` により OS 標準の許可ダイアログ（システム設定への誘導）を表示。同時にシェルフ UI へ `accessibility-permission-needed` IPC でバナー通知する。**host 側のネイティブマウス捕捉に必要な Input Monitoring 権限は別物**（§12.6）
+
+### 12.6 macOS Input Monitoring 権限（host 側ネイティブマウス捕捉）
+
+host（controller）側で `mouseMode: 'native'` を使うには、macOS では Accessibility とは別に **Input Monitoring** 権限が必要になる。本アプリはどのデバイスも host にも target にもなりうる設計のため、実質的に全デバイスへ両方の権限要求が増えることになる。§12.5 の Accessibility フローとの対比:
+
+| | Accessibility（target 側、既存） | Input Monitoring（host 側、新規） |
+|---|---|---|
+| チェック方法 | `systemPreferences.isTrustedAccessibilityClient(false)`（Electron 公式 API、同期・確実） | 公式チェック API が存在しない。`mouse-capture.js` の `probeNativeCapture()` による**自己移動プローブ**（`mouse.setPosition` で 1px 動かし、`uiohook-napi` がそれを検知できるかを最大 400ms でタイムアウト判定する経験的手法） |
+| 要求方法 | `isTrustedAccessibilityClient(true)` で明示的に OS ダイアログを要求できる | 公式な要求 API が存在しない。プローブ内の `uIOhook.start()` 呼び出し自体が初回に OS のダイアログをトリガーする可能性がある（確実ではない） |
+| チェックタイミング | `control-start` 受信時（target 側） | `hosting` 遷移時（host 側、`startControlSession` の `ready` ハンドラ内）。「セッション開始時に遅延実行」という方針は Accessibility と共通 |
+| 未許可時の挙動 | `control-start-reject` で**セッション自体を拒否** | セッションは継続し、`mouseMode: 'pointer-lock'` へ**フォールバック** |
+| 通知 | `accessibility-permission-needed` → トースト | `input-monitoring-permission-needed` → トースト（フォールバックで継続中である旨を明記） |
+| キャッシュ | 毎回フレッシュにチェック | 毎回フレッシュにプローブ（キャッシュしない） |
+
+win32 には低レベルグローバルフックに OS レベルの許可要求という概念自体が存在しないため、`probeNativeCapture()` は `process.platform !== 'darwin'` を先頭で早期リターンし、モジュールがロードできていれば即座に `'native'` モードを確定する（§11-12, §11-13）。
