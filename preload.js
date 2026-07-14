@@ -63,9 +63,16 @@ contextBridge.exposeInMainWorld('bridge', {
 
   // ---- マウス共有 HUD ----
 
-  // HUD が開くたびに最新のデバイス一覧を受け取る ({ id, device, isSelf }[])
+  // HUD が開くたびに最新のデバイス一覧 + 現在のセッション状態を受け取る:
+  // { devices: { id, device, iconType, isSelf, isOnline }[],
+  //   session: { status: 'idle'|'host'|'client', targetDevice: string|null } }
   onHudSetDevices: (callback) =>
-    ipcRenderer.on('hud-set-devices', (_event, devices) => callback(devices)),
+    ipcRenderer.on('hud-set-devices', (_event, payload) => callback(payload)),
+
+  // HUD が開いている間にセッション状態だけがリアルタイムに変わった際の差分通知
+  // ({ status: 'idle'|'host'|'client', targetDevice: string|null })
+  onHudSessionStatus: (callback) =>
+    ipcRenderer.on('hud-session-status', (_event, session) => callback(session)),
 
   // Enter で選択デバイスへの操作引き継ぎを確定 / Esc でキャンセル
   hudConfirm: (deviceId) => ipcRenderer.send('hud-confirm', deviceId),

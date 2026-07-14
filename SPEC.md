@@ -105,11 +105,25 @@
 
 - `app.whenReady()` 時に `show: false` で事前生成し、以後は `show()` / `hide()` のみで即応性を確保する（Spotlight 的な挙動。毎回 `BrowserWindow` を作り直さない）
 - `BrowserWindow` オプション: `frame: false` / `transparent: true` / `resizable: false` / `alwaysOnTop: true`（`'floating'` レベル、シェルフと同じ理由で `'screen-saver'` は避ける）/ `fullscreenable: false` / `skipTaskbar: true` / `vibrancy: 'hud'`（macOS）
-- 位置: `showHud()` のたびに `screen.getCursorScreenPoint()` → `getDisplayNearestPoint()` でカーソルのあるディスプレイを再判定し、その `workArea` 中央に配置（幅 280px 固定、高さはデバイス数に応じて可変・上限 420px）
+- 位置: `showHud()` のたびに `screen.getCursorScreenPoint()` → `getDisplayNearestPoint()` でカーソルのあるディスプレイを再判定し、その `workArea` 中央に配置（幅はデバイス数に応じて可変、高さはカード高さ + 最上部ステータスタブ用の固定領域 34px を加えたもの。いずれもディスプレイの `workArea` を超えないようクランプされる）
 - キーボード操作（`Tab` / `Enter` / `Esc`）は `hud-renderer.js` 側の通常 DOM `keydown` リスナーで処理する（HUD は表示中は通常のフォーカスウインドウであり、`before-input-event` は不要）
 - マウス操作も等価にサポートする: カードのホバーで選択移動、クリックで確定、カード外（パネル余白）の `mousedown` でキャンセル。さらに HUD が `blur` したら自動で閉じる（表示直後 300ms は Windows の show 直後の一瞬の blur を無視する猶予を置く）
 - グローバルショートカット `Shift+Alt+Space`（`globalShortcut.register`）で `toggleHud()` を呼ぶ。**操作セッション中は `toggleHud()` が「セッション終了 → HUD 再表示」として振る舞う**（§ 12.3 の離脱経路）。`will-quit` で `globalShortcut.unregisterAll()`
 - デバイス一覧は既存の同期ピア発見 (`knownPeers`) をそのまま再利用する。専用の発見機構は持たない（§ 12.3）
+
+#### 2.4.1 セッション状態タブ（[Host] / [Client]）
+
+カード一覧の上部に、現在のマウス共有セッション状態を示すバッジを表示する。状態の真実は `main.js` の `controlSession`（controller 側）と `activeTargetSession`（target 側、§ 12.3/12.5 の TCP セッションから `control-start` 受理時にのみ張られる）の 2 変数が持ち、`getHudSessionStatus()` が単一の `{ status: 'idle' | 'host' | 'client', targetDevice: string | null }` へ集約する。
+
+| status | 意味 | 表示 |
+|---|---|---|
+| `idle` | どちらの変数も空。操作もされていなければ操作もしていない | タブは空（レイアウト崩れ防止のため領域だけは常に確保） |
+| `host` | `controlSession` が非 null（`connecting` / `hosting` いずれも含む）。このデバイスが操作元 | `[Host]` バッジ（ブルー系） + `targetDevice` |
+| `client` | `activeTargetSession` が非 null。このデバイスが他デバイスからの操作を受け入れ中 | `[Client]` バッジ（グレー・白系） + `fromDevice` |
+
+`controlSession` と `activeTargetSession` は同時に埋まらない想定（§ 11-10 の双方向同時セッション非対応）だが、`getHudSessionStatus()` は念のため `controlSession` を優先する。状態が変わるたびに `controlWindows.setSessionStatus()` が HUD ウインドウへ `hud-session-status` を push する（HUD が非表示でも送信自体は行われ、次に開いた際の初期値としても `showHud()` の `hud-set-devices` 経由で渡る）。
+
+なお現行の `toggleHud()` はセッション中に呼ばれると必ず先に `endControlSession()` する設計（§ 2.4 上記）のため、controller 自身が `[Host]` バッジを目にする窓は実質的に存在しない。主な表示対象は「ローカルの物理キーボードで HUD ショートカットを押した target 側デバイスが、他デバイスから操作を受け入れている最中に自分の HUD を開いた」ケース（`[Client]`）である。
 
 ### 2.5 全画面キャプチャオーバーレイ
 
@@ -218,7 +232,8 @@ Bridge はマウス共有専用であり、キーボードの転送・注入は�
 | `onControlConnectFailed(cb)` | `control-connect-failed` | controller 側で接続/ハンドシェイクに失敗。`{ device, reason }` をシェルフのトーストで表示 |
 | `onAccessibilityPermissionNeeded(cb)` | `accessibility-permission-needed` | target 側で Accessibility 権限未許可のまま `control-start` を受けた通知。セッション自体は拒否される |
 | `onInputMonitoringPermissionNeeded(cb)` | `input-monitoring-permission-needed` | host (controller) 側で macOS の Input Monitoring 権限が未許可のままネイティブマウス捕捉を試みた通知。**Accessibility と異なりセッションは拒否されず `pointer-lock` へフォールバックして継続**する（§12.6） |
-| `onHudSetDevices(cb)` | `hud-set-devices` | (HUD ウインドウ専用) HUD が開くたびに送られる最新デバイス一覧 `{ id, device, iconType, isSelf }[]` |
+| `onHudSetDevices(cb)` | `hud-set-devices` | (HUD ウインドウ専用) HUD が開くたびに送られる `{ devices, session }`。`devices: { id, device, iconType, isSelf, isOnline }[]` — オフライン (`isOnline: false`) のピアも一覧には含まれ、グレーアウト表示のうえ Warp 実行のみブロックされる。`session: { status: 'idle'\|'host'\|'client', targetDevice: string\|null }` — 送信時点のマウス共有セッション状態（§ 9.6） |
+| `onHudSessionStatus(cb)` | `hud-session-status` | (HUD ウインドウ専用) HUD が開いたまま裏でセッション状態が変わった際の差分通知。ペイロード形式は `session` と同一。デバイス一覧の再送は伴わない |
 | `onOverlayActivate(cb)` | `overlay-activate` | (オーバーレイ専用) アクティブ化。`{ device, mouseMode }` を受ける。`mouseMode: 'native'` ならネイティブ捕捉モードとして DOM mousemove を無視、`'pointer-lock'` なら従来通り Pointer Lock 要求・バナー表示 |
 | `onOverlayDeactivate(cb)` | `overlay-deactivate` | (オーバーレイ専用) 非アクティブ化。Pointer Lock 解除 |
 
@@ -409,6 +424,7 @@ Main 側履歴 (`clipHistory`) の上限はテキスト 100 / 画像 30。**Main
 | `MAX_SEEN_SYNC_IDS` | 5,000 | 既読 id の FIFO 上限 |
 | スキャン並列度 | 32 | サブネットスキャンの同時プローブ数 |
 | `HUD_SHORTCUT` | `Shift+Alt+Space` | デバイス切り替え HUD を開閉するグローバルショートカット |
+| `HUD_STATUS_HEIGHT` | 34px | HUD 最上部の [Host]/[Client] ステータスタブ用に常時確保するウインドウ高さ（§ 2.4.1） |
 | `CONTROL_PORT` | 9096 | マウス共有 TCP コントロールチャネルのポート |
 | `HELLO_TIMEOUT_MS` | 3,000ms | hello ハンドシェイクのタイムアウト |
 | `HEARTBEAT_MS` | 2,000ms | コントロールチャネルのハートビート送信間隔 |

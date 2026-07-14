@@ -1732,18 +1732,29 @@ ipcMain.on('sync-register-file', (_event, payload) => {
 
 const HUD_SHORTCUT = 'Shift+Alt+Space';
 
-// knownPeers のうちオンライン (直近の /ping 応答・差分同期に成功) なピアだけを対象にする。
+// knownPeers を丸ごと HUD へ渡す (オフラインのピアもグレーアウト表示のため含める)。
+// isOnline は直近の /ping 応答・差分同期の成否を反映する。
 // 先頭に自分自身 ("この端末") を常に含め、操作を自分へ戻す選択肢として使えるようにする
 function getKnownDevicesForHud() {
-  const peers = [...knownPeers.values()]
-    .filter((peer) => peer.online)
-    .map((peer) => ({
-      id: `${peer.host}:${peer.port}`,
-      device: peer.device || peer.host,
-      iconType: peer.iconType || null,
-      isSelf: false,
-    }));
-  return [{ id: 'self', device: deviceName, iconType: myIconType, isSelf: true }, ...peers];
+  const peers = [...knownPeers.values()].map((peer) => ({
+    id: `${peer.host}:${peer.port}`,
+    device: peer.device || peer.host,
+    iconType: peer.iconType || null,
+    isSelf: false,
+    isOnline: !!peer.online,
+  }));
+  return [{ id: 'self', device: deviceName, iconType: myIconType, isSelf: true, isOnline: true }, ...peers];
+}
+
+// HUD 最上部のセッション状態タブ用。controller として他デバイスへマウスを転送中なら
+// 'host'、target として他デバイスから操作を受け入れ中なら 'client'、どちらでもなければ
+// 'idle'。controlSession (controller 側) と activeTargetSession (target 側) は排他的に
+// しか埋まらない想定 (§SPEC 11-10 の通り双方向同時セッションは非対応) だが、念のため
+// controlSession を優先する
+function getHudSessionStatus() {
+  if (controlSession) return { status: 'host', targetDevice: controlSession.targetDevice };
+  if (activeTargetSession) return { status: 'client', targetDevice: activeTargetSession.fromDevice };
+  return { status: 'idle', targetDevice: null };
 }
 
 function toggleHud() {
@@ -1754,13 +1765,13 @@ function toggleHud() {
   // オーバーレイとフォーカスを奪い合って HUD が操作不能になる
   if (controlSession) {
     endControlSession('user-confirmed');
-    controlWindows.showHud(getKnownDevicesForHud());
+    controlWindows.showHud(getKnownDevicesForHud(), getHudSessionStatus());
     return;
   }
   if (controlWindows.isHudVisible()) {
     controlWindows.hideHud();
   } else {
-    controlWindows.showHud(getKnownDevicesForHud());
+    controlWindows.showHud(getKnownDevicesForHud(), getHudSessionStatus());
   }
 }
 
@@ -1772,9 +1783,17 @@ function toggleHud() {
 // 競合して呼ばれうるため、null 化を先に行うことで冪等性を保証する
 let controlSession = null;
 
+// ---- target (操作先) 側のセッション状態 ----
+//
+// null (待機中) | { fromDevice, session } — 他デバイスから control-start を受理し、
+// 現在このデバイスへマウス入力が注入されている間だけ埋まる。HUD 最上部の [Client]
+// ステータスタブ表示にのみ使う (実際の入力注入自体は startControlSubsystem の
+// session.on('input', ...) がセッションの生死に関係なく処理する)
+let activeTargetSession = null;
+
 function startControlSession(targetId) {
   const peer = knownPeers.get(targetId);
-  if (!peer) return;
+  if (!peer || !peer.online) return; // オフラインのピアへは HUD 側で操作をブロックしているが、念のため二重に防ぐ
   const targetDevice = peer.device || peer.host;
   const sessionId = crypto.randomUUID();
   const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
@@ -1784,6 +1803,7 @@ function startControlSession(targetId) {
     getDeviceName: () => deviceName,
   });
   controlSession = { role: 'controller', state: 'connecting', targetId, targetDevice, sessionId, client, display };
+  controlWindows.setSessionStatus(getHudSessionStatus());
 
   // 差し替え・終了済みの古い接続からの遅延イベントを無視するためのガード
   const isCurrent = () => controlSession && controlSession.sessionId === sessionId;
@@ -1792,6 +1812,7 @@ function startControlSession(targetId) {
     if (!isCurrent()) return;
     client.send({ type: 'control-start', id: sessionId, fromDevice: deviceName, timestamp: Date.now() });
     controlSession.state = 'hosting';
+    controlWindows.setSessionStatus(getHudSessionStatus());
 
     // マウス捕捉方式の決定: ネイティブグローバルフックが使える環境では
     // uiohook-napi + 再センタリング方式 (mouse-capture.js) を使い、モジュール
@@ -1832,6 +1853,7 @@ function startControlSession(targetId) {
     if (!isCurrent()) return;
     if (canSendToRenderer()) win.webContents.send('control-connect-failed', { device: targetDevice, reason });
     controlSession = null;
+    controlWindows.setSessionStatus(getHudSessionStatus());
   });
 
   client.on('error', () => {
@@ -1852,6 +1874,7 @@ function endControlSession(reason, skipSend) {
   if (!controlSession) return; // 冪等: 複数経路からの二重呼び出しに備える
   const session = controlSession;
   controlSession = null;
+  controlWindows.setSessionStatus(getHudSessionStatus());
   if (session.mouseMode === 'native') mouseCapture.stopCapture();
   controlWindows.hideOverlay();
   if (!skipSend && session.state === 'hosting') {
@@ -1887,7 +1910,7 @@ function handleOverlayBeforeInput(event, input) {
   if (input.code === 'Space' && input.shift && input.alt) {
     event.preventDefault();
     endControlSession('user-confirmed');
-    controlWindows.showHud(getKnownDevicesForHud());
+    controlWindows.showHud(getKnownDevicesForHud(), getHudSessionStatus());
   }
 }
 
@@ -1906,6 +1929,12 @@ function startControlSubsystem() {
     // 押しっぱなしのキー/ボタンを target 側に残さないための最重要の安全弁
     session.on('close', () => {
       controlInput.releaseAllHeld().catch((err) => console.error('[control] releaseAllHeld 失敗:', err));
+      // このセッションが HUD の [Client] ステータスタブの表示元だった場合のみクリアする
+      // (差し替え済みの古いセッションの close で最新セッションを誤って消さないためのガード)
+      if (activeTargetSession && activeTargetSession.session === session) {
+        activeTargetSession = null;
+        controlWindows.setSessionStatus(getHudSessionStatus());
+      }
     });
 
     session.on('control-start', (msg) => {
@@ -1917,6 +1946,9 @@ function startControlSubsystem() {
         session.close('accessibility-permission-required');
         return;
       }
+      // このデバイスが target として他デバイスから操作を受け入れ中であることを HUD へ反映する
+      activeTargetSession = { fromDevice: msg.fromDevice, session };
+      controlWindows.setSessionStatus(getHudSessionStatus());
     });
 
     session.on('input', (msg) => {

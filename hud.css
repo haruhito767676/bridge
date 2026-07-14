@@ -28,6 +28,59 @@ body {
   color: var(--fg);
   user-select: none;
   -webkit-user-select: none;
+  display: flex;
+  flex-direction: column;
+}
+
+/* HUD 最上部のセッション状態タブ (Idle 時は空だが、高さは常に確保して
+   Host/Client への切り替わり時にウインドウ内でレイアウトが跳ねないようにする) */
+.hud-status-tab {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 34px;
+}
+
+/* セッション状態バッジ本体。Idle 時は hud-renderer.js が中身を空にするため何も描画されない */
+.hud-status-badge {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 14px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  animation: hud-status-in 0.2s ease;
+}
+
+@keyframes hud-status-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.hud-status-badge-target {
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+  opacity: 0.85;
+}
+
+/* [Host]: 他デバイスへマウスを転送中 (このデバイスが操作元) - ブルー系 */
+.hud-status-tab.is-host .hud-status-badge {
+  color: #ffffff;
+  background: rgba(10, 132, 255, 0.28);
+  border: 1px solid rgba(10, 132, 255, 0.6);
+  box-shadow: 0 0 14px rgba(10, 132, 255, 0.3);
+}
+
+/* [Client]: 他デバイスから操作を受け入れ中 (このデバイスが操作先) - グレー/白系 */
+.hud-status-tab.is-client .hud-status-badge {
+  color: rgba(245, 245, 247, 0.92);
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.28);
 }
 
 #hud-device-list {
@@ -36,26 +89,46 @@ body {
   align-items: center;
   justify-content: center;
   gap: 28px;
-  height: 100%;
+  flex: 1 1 auto;
   padding: 20px;
 }
 
 .hud-device-card {
   cursor: pointer; /* クリック/ホバーでも選択できることを示す */
+  position: relative; /* 右上のオンラインバッジ・下部の Connect ヒントの基準位置 */
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
   flex: 0 0 auto;
   width: 180px;
-  height: 220px;
+  height: 240px;
   padding: 22px 14px;
   border-radius: 22px;
   background: var(--card-bg);
   border: 1px solid var(--card-border);
   box-shadow: 0 0 0 0 rgba(255, 255, 255, 0);
   /* Cmd+Tab 風に、背景の明るさとグローが滑らかに切り替わるアニメーション */
-  transition: background-color 0.25s ease, box-shadow 0.25s ease, transform 0.25s cubic-bezier(0.25, 1, 0.5, 1);
+  transition: background-color 0.25s ease, box-shadow 0.25s ease, transform 0.25s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.3s ease;
+}
+
+/* オフライン端末はカード全体を薄く沈める。Tab/マウスでの選択自体は妨げない
+   (Enter/クリックでの Warp 実行だけを hud-renderer.js 側でブロックする) */
+.hud-device-card.is-offline {
+  opacity: 0.35;
+}
+
+/* オフラインカードを確定操作した際の視覚的な拒否フィードバック */
+.hud-device-card.shake {
+  animation: hud-shake 0.32s ease;
+}
+
+@keyframes hud-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(5px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(3px); }
 }
 
 /* Tab で選択中のカードだけに効く、控えめな背景ハイライト + ソフトグロー */
@@ -71,7 +144,16 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 16px;
+  margin-bottom: 10px; /* デバイス名 (+ 下の Connect ヒント) の余白を確保するため、既存より詰める */
+}
+
+/* デバイス名 + Connect ヒントの縦積みブロック。二つは常に独立した DOM 要素のまま、
+   ここでは間隔の管理だけを担う (名前側の表示/非表示には一切関与しない) */
+.hud-device-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
 }
 
 .hud-device-icon img {
@@ -85,6 +167,20 @@ body {
   display: none;
 }
 
+/* オンライン端末 (自分以外) のカード右上の角にそっと光るインジケーター */
+.hud-online-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background-color: #00e676;
+  box-shadow: 0 0 8px #00e676;
+  opacity: 1;
+  transition: all 0.3s ease;
+}
+
 .hud-device-name {
   font-size: 13px;
   font-weight: 500;
@@ -94,13 +190,52 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 100%;
+  /* Connect ヒントの表示/非表示や選択状態がどう変わっても、
+     デバイス名自体はどのカード状態でも常に見えたままにする (§バグ修正) */
+  opacity: 1;
+  visibility: visible;
 }
 
-.hud-device-card.self .hud-device-name::after {
+/* 自分が今操作しているデバイス。周囲のカードと同じ形状のまま、
+   縁取りとほのかな背景だけで「これが今使っている端末」と分かるようにする */
+.hud-device-card.is-me {
+  border-color: rgba(10, 132, 255, 0.55);
+  background: rgba(10, 132, 255, 0.1);
+}
+
+.hud-device-card.is-me .hud-device-name::after {
   content: "(この端末)";
   display: block;
   margin-top: 3px;
   font-size: 11px;
   font-weight: 400;
   color: var(--fg-dim);
+}
+
+/* フォーカス (Tab/ホバーによる選択) が当たっている、自分以外の端末カードにだけ浮かび上がる。
+   すりガラス背景に埋もれないよう、バッジ状の背景付きで表示する */
+.hud-connect-hint {
+  margin-top: 10px;
+  padding: 3px 11px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.2px;
+  color: rgba(235, 235, 245, 0.55);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  opacity: 0;
+  transform: translateY(5px);
+  transition: all 0.2s ease;
+}
+
+/* 選択中 (ホバー/Tab フォーカス) は視認性を最大化: 鮮やかな白 + bold + 発光バッジ */
+.hud-device-card.selected .hud-connect-hint {
+  opacity: 1;
+  transform: translateY(0);
+  color: #ffffff;
+  font-weight: 700;
+  background: rgba(10, 132, 255, 0.4);
+  border-color: rgba(10, 132, 255, 0.75);
+  box-shadow: 0 0 14px rgba(10, 132, 255, 0.4);
 }

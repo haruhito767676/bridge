@@ -20,17 +20,20 @@ function canSendToHud() {
 // カーソルがあるディスプレイの workArea 中央に、デバイス数に応じた幅のカード列ボックスを配置する
 // (デバイスは縦並びの行ではなく横一列のカードとして並ぶため、行数ではなくカード数から幅を算出する)
 const HUD_CARD_WIDTH = 180;
-const HUD_CARD_HEIGHT = 220;
+const HUD_CARD_HEIGHT = 240;
 const HUD_CARD_GAP = 28;
 const HUD_PADDING = 40; // フォーカスリングの発光がクリップされないよう左右上下に余白を持たせる
 const HUD_MIN_WIDTH = HUD_CARD_WIDTH + HUD_PADDING;
+// 最上部の [Host]/[Client] セッション状態タブの高さ。Idle 時は空だが、セッション状態が
+// 変わるたびにウインドウを作り直さず高さを常に確保しておく (setSessionStatus はリサイズを伴わない)
+const HUD_STATUS_HEIGHT = 34;
 
 function hudBoundsForDisplay(display, deviceCount) {
   const { x: dx, y: dy, width: dw, height: dh } = display.workArea;
   const count = Math.max(deviceCount, 1);
   const contentWidth = count * HUD_CARD_WIDTH + (count - 1) * HUD_CARD_GAP;
   const width = Math.max(HUD_MIN_WIDTH, Math.min(contentWidth + HUD_PADDING, dw - 40));
-  const height = Math.min(HUD_CARD_HEIGHT + HUD_PADDING, dh);
+  const height = Math.min(HUD_CARD_HEIGHT + HUD_PADDING + HUD_STATUS_HEIGHT, dh);
   const x = Math.round(dx + (dw - width) / 2);
   const y = Math.round(dy + (dh - height) / 2);
   return { x, y, width, height };
@@ -72,16 +75,23 @@ function createHudWindow() {
   hudWin.loadFile('hud.html');
 }
 
-// 現在マウスがあるディスプレイを基準に HUD を表示し、デバイス一覧を送る
-function showHud(devices) {
+// 現在マウスがあるディスプレイを基準に HUD を表示し、デバイス一覧 + 現在のマウス共有
+// セッション状態 ({ status: 'idle'|'host'|'client', targetDevice }) を送る
+function showHud(devices, session) {
   if (!hudAlive()) return;
   const cursor = screen.getCursorScreenPoint();
   const display = screen.getDisplayNearestPoint(cursor);
   hudWin.setBounds(hudBoundsForDisplay(display, devices.length), false);
-  if (canSendToHud()) hudWin.webContents.send('hud-set-devices', devices);
+  if (canSendToHud()) hudWin.webContents.send('hud-set-devices', { devices, session });
   hudShownAt = Date.now();
   hudWin.show();
   hudWin.focus();
+}
+
+// HUD が開いている間にセッション状態が変わった際 (target 側が control-start/close を
+// 受けた瞬間など) に、デバイス一覧を送り直さずステータスタブだけをリアルタイム更新する
+function setSessionStatus(session) {
+  if (canSendToHud()) hudWin.webContents.send('hud-session-status', session);
 }
 
 function hideHud() {
@@ -188,6 +198,7 @@ function overlayWebContents() {
 module.exports = {
   createHudWindow,
   showHud,
+  setSessionStatus,
   hideHud,
   isHudVisible,
   hudAlive,
