@@ -104,7 +104,8 @@
 - `BrowserWindow` オプション: `frame: false` / `transparent: true` / `resizable: false` / `alwaysOnTop: true`（`'floating'` レベル、シェルフと同じ理由で `'screen-saver'` は避ける）/ `fullscreenable: false` / `skipTaskbar: true` / `vibrancy: 'hud'`（macOS）
 - 位置: `showHud()` のたびに `screen.getCursorScreenPoint()` → `getDisplayNearestPoint()` でカーソルのあるディスプレイを再判定し、その `workArea` 中央に配置（幅 280px 固定、高さはデバイス数に応じて可変・上限 420px）
 - キーボード操作（`Tab` / `Enter` / `Esc`）は `hud-renderer.js` 側の通常 DOM `keydown` リスナーで処理する（HUD は表示中は通常のフォーカスウインドウであり、`before-input-event` は不要）
-- グローバルショートカット `Shift+Alt+Space`（`globalShortcut.register`）で `toggleHud()` を呼ぶ。`will-quit` で `globalShortcut.unregisterAll()`
+- マウス操作も等価にサポートする: カードのホバーで選択移動、クリックで確定、カード外（パネル余白）の `mousedown` でキャンセル。さらに HUD が `blur` したら自動で閉じる（表示直後 300ms は Windows の show 直後の一瞬の blur を無視する猶予を置く）
+- グローバルショートカット `Shift+Alt+Space`（`globalShortcut.register`）で `toggleHud()` を呼ぶ。**操作セッション中は `toggleHud()` が「セッション終了 → HUD 再表示」として振る舞う**（§ 12.3 の離脱経路）。`will-quit` で `globalShortcut.unregisterAll()`
 - デバイス一覧は既存の同期ピア発見 (`knownPeers`) をそのまま再利用する。専用の発見機構は持たない（§ 12.3）
 
 ### 2.5 全画面キャプチャオーバーレイ
@@ -466,7 +467,7 @@ Main 側履歴 (`clipHistory`) の上限はテキスト 100 / 画像 30。**Main
 2. `hello-ack` 受信 → `control-start` を送信し `state: 'hosting'` へ遷移 → `controlWindows.showOverlay(display, targetDevice)`
 3. `overlay-mouse-move` / `-mouse-button` / `-wheel` の各 IPC と、Main 側 `before-input-event` で捕捉したキーイベントは、`controlSession.state === 'hosting'` の間だけ `controlSession.client.send(...)` へ素通しする
 4. 終了は `endControlSession(reason, skipSend)` の一本道。`skipSend` は「相手が既にいなくなっている」経路（異常切断・エラー・拒否）で二重に `control-end` を送らないためのフラグ。`controlSession = null` を先に行うことで、複数経路（release コンボ・`close` イベント・タイムアウト）からの競合呼び出しに対して冪等
-5. 離脱経路: Main の `before-input-event` ハンドラが予約コンボ (`Shift+Alt+Space` の同時押下) を検知したら **ワイヤーへ転送せず** `endControlSession('user-confirmed')` → HUD 再表示を行う。`globalShortcut` がフォーカスを持つオーバーレイウインドウ上でも発火するかは OS 依存で不確実なため、この自己完結的な経路を正とし、`globalShortcut` は idle 状態向けの冗長経路として併存させる
+5. 離脱経路: `globalShortcut` (`Shift+Alt+Space`) が本命。`globalShortcut` は OS レベル (RegisterHotKey / RegisterEventHotKey) でキーを消費するため、実際にはオーバーレイの `before-input-event` にはこのコンボはほぼ届かない。そのため `toggleHud()` がセッション中は `endControlSession('user-confirmed')` → HUD 再表示として振る舞う（終了せずに HUD だけ出すと、オーバーレイの blur 時フォーカス奪還と競合して HUD が操作不能になる）。`before-input-event` 側の予約コンボ検知（ワイヤーへ転送せず終了）は、`globalShortcut` の登録に失敗した環境向けのフォールバックとして併存させる
 
 ### 12.4 host 側の入力捕捉（ネイティブフック不使用）
 
@@ -475,7 +476,7 @@ Main 側履歴 (`clipHistory`) の上限はテキスト 100 / 画像 30。**Main
 **マウス** (`overlay-renderer.js`):
 
 - `mousemove` の相対デルタ (`movementX`/`movementY`) を `active` の間は常に転送する。Pointer Lock はカーソルを画面端で止めない・誤操作を防ぐための強化であり、転送の前提条件にはしない（ロック未確立でも操作可能に保つ）
-- `requestPointerLock()` は失敗しうる（フォーカス遷移中の `pointerlockerror` 等）ため、失敗時は 250ms 間隔で再試行する。`window` の `focus` と `mousedown`（ユーザージェスチャ）でも再取得を試みる
+- `requestPointerLock()` は失敗しうる（フォーカス遷移中の `pointerlockerror` 等）ため、失敗時は 120ms 間隔で再試行する。`window` の `focus` と `mousedown`（ユーザージェスチャ）でも再取得を試みる。なお Chromium は `Esc` 押下でロックを強制解除し（target へ `Esc` を転送しただけでもホスト側のロックが外れる）、直後の再取得は内部クールダウンでしばらく失敗し続けるため、この再試行が「カーソルが画面端から出ない」時間の長さを直接決める
 - `mousedown` / `mouseup` / `wheel` / `contextmenu`（`preventDefault`）の通常 DOM イベント
 - **Pointer Lock の仕様上の注意**: ロックは `Esc` 押下以外の理由（フォーカス喪失等）でも解除されうるため、`pointerlockchange` で解除を検知した際に「`Esc` が押された」と決め打ちして実キーを合成送信することはしない（target への誤ったキー注入を避けるため）。ロックだけを即座に再要求し、操作の継続性を保つ
 - `setIgnoreMouseEvents` は絶対に呼ばない
@@ -485,13 +486,16 @@ Main 側履歴 (`clipHistory`) の上限はテキスト 100 / 画像 30。**Main
 - Renderer の DOM `keydown` ではなく、Main プロセスがオーバーレイ `webContents` の `before-input-event` で捕捉し、`event.preventDefault()` してから `{ type: 'key', code, action }` を送出する（`input.code` = `KeyboardEvent.code` 相当、レイアウト非依存）
 - `preventDefault()` により**アプリケーションメニューのアクセラレータを無効化**する。これをしないと macOS ホストでは `Cmd+Q` が Bridge 自身の終了になり、`Cmd+C/V/W` 等のコンボもメニューに食われて target へ届かない
 - Chromium は同一押下に対し `rawKeyDown` / `keyDown` の両方を発火させることがあるため、down 済みコードの `Set`（`overlayHeldCodes`）で二重転送を抑止する（autorepeat は通す）。`'char'` タイプは転送しない
+- **修飾キー up 取りこぼしの自己修復（スタックキー防止のホスト側の第一防衛線）**: 修飾キーの `keyUp` は OS ショートカット（`Cmd+Tab` / `Win` キー等）による横取りやフォーカス喪失で届かないことがあり、届かないと target 側で Ctrl/Cmd が押しっぱなしになる。`before-input-event` は毎イベントに現在の修飾フラグ（`input.control/shift/alt/meta`）を運んでくるため、転送済み down とフラグが食い違う修飾キーの up をその場で合成送出して自己修復する（`reconcileHeldModifiers`）
+- **macOS の keyUp 抑止仕様への対策**: macOS は Cmd を押している間、他キーの `keyUp` をアプリへ届けない（`Cmd+C` の C の up が来ない）。darwin ホストでは Cmd（`MetaLeft/Right`）の `keyUp` を境に、まだ down のままの非修飾キーの up をまとめて合成する
 
 ### 12.5 target 側の入力注入 (`control-input.js`)
 
 - `@nut-tree-fork/nut-js` の薄いラッパー。**この機能に限り「外部依存パッケージはゼロ」の原則の例外**として導入した（macOS: CGEventPost / Windows: SendInput を叩くにはネイティブコードが不可避なため）
 - **座標**: `dx`/`dy` を受けるたびに `mouse.getPosition()`（物理ピクセル）へ加算して `mouse.setPosition()` する。**Electron の `screen` API を座標の起点に使ってはいけない**: Electron は DIP 座標、nut-js (SendInput/GetCursorPos) は物理ピクセル座標のため、Windows の表示スケーリングが 100% 以外だと両者が食い違いカーソルが飛ぶ。毎回 OS から現在位置を読み直せば座標系は常に一貫し、画面外への移動も OS が自動クランプするので手製の境界計算は不要。200Hz 級で届くデルタを get→set の非同期ペアで並行処理すると加算が失われるため、ペンディングデルタに累積して単一のフラッシュループで直列注入する。相対デルタ方式のため host/target の解像度差はスケーリング計算なしで吸収できる
 - **ホイール**: `mouse.scrollDown/Up/Left/Right` へマッピング。トラックパッド/物理ホイールでデルタの粒度が大きく異なるため、スケール係数は実運用での調整が必要な想定（現状は 1 ステップ = 1 delta の単純換算）
-- **キーマップ**: DOM `KeyboardEvent.code`（レイアウト非依存）→ nut-js `Key` enum への静的テーブル（`control-input.js` 内 `KEY_MAP`）。文字/数字/テンキー/モディファイア（左右別）/ファンクションキー/矢印/記号/ロックキーを網羅。未対応の `code` はログして無視する
+- **キーマップ**: DOM `KeyboardEvent.code`（レイアウト非依存）→ nut-js `Key` enum への静的テーブル（`control-input.js` 内 `KEY_MAP`）。文字/数字/テンキー/モディファイア（左右別）/ファンクションキー/矢印/記号/ロックキーを網羅。未対応の `code` はログして無視する（JIS 固有キー: `IntlYen` / `IntlRo` / 変換 / 無変換 / かな は nut-js の `Key` enum 自体に存在せず注入不可能 = 既知の制約）
+- **主修飾キーの OS 跨ぎ読み替え** (`main.js` の `translateKeyCode`): 操作元と操作先の OS が異なるセッションでは、mac→win で `Meta`（Cmd）を `Control` に、win→mac で `Control` を `Meta`（Cmd）に読み替えてから注入する。これにより host 側の筋肉記憶どおりにコピー/ペースト等の標準ショートカットが効く。down/up が同じ規則で読み替わるため `heldKeys` 追跡は破綻しない。トレードオフとして mac target へ素の Ctrl（win target へ素の Win キー）を送る手段は失われる
 - **修飾キーコンボの OS 差分**: macOS の CGEvent は「イベントごとに修飾フラグを持つ」モデルのため、修飾キーを単独の down イベントとして注入しただけでは後続キーに Cmd/Ctrl/Opt が乗らない（Ctrl+C を送っても素の C が届く）。darwin では非修飾キーの down/up のたびに、押下中の修飾キーを nut-js の可変長引数（先頭に修飾キー、末尾に主キー）で添えて注入し、libnut に主キーイベントへ修飾フラグを焼き込ませる。Windows は SendInput が OS 側でグローバルなキー押下状態を保持するモデルなので単独注入のままでよい（実機で `GetAsyncKeyState` により Ctrl/Win の押下状態が正しく立つことを検証済み）
-- **⚠️ スタックキー防止（最重要の安全設計）**: `heldButtons` / `heldKeys` の `Set` で押しっぱなし状態を追跡する。異常切断・タイムアウト・明示的 `control-end` の**いずれの経路でも必ず** `releaseAllHeld()` を呼び、押しっぱなしのボタン/キーを target の OS 上に残さない。`releaseAllHeld()` はスタブ化した単体テストで冪等性（既に空の状態で呼んでも何もしない）・部分解放（一部だけ手動で up 済みの場合は残りだけ解放する）を検証済み
+- **⚠️ スタックキー防止（最重要の安全設計）**: `heldButtons` / `heldKeys` の `Set` で押しっぱなし状態を追跡する。異常切断・タイムアウト・明示的 `control-end` の**いずれの経路でも必ず** `releaseAllHeld()` を呼び、押しっぱなしのボタン/キーを target の OS 上に残さない。1 キーの解放失敗で後続の解放が止まらないよう各解放は個別に握りつぶして完走させ、さらに**追跡に残っていない全修飾キー（8 キー）も無条件で解放する**（ホスト側の up 取りこぼしで追跡が実状態とズレていても、セッション終了後に Ctrl/Cmd が残る事故を確実に断ち切る。未押下キーへの up 注入は無害）
 - **Accessibility 権限（macOS のみ）**: 注入 (target) 側にのみ必要。捕捉 (host) 側は Pointer Lock + DOM イベントのみで OS フックを使わないため権限不要。チェックは起動時ではなく、実際に `control-start` を受信した瞬間に遅延実行する: `systemPreferences.isTrustedAccessibilityClient(false)` で非プロンプト確認 → 未許可なら `control-start-reject` を返しつつ、target 側で `isTrustedAccessibilityClient(true)` により OS 標準の許可ダイアログ（システム設定への誘導）を表示。同時にシェルフ UI へ `accessibility-permission-needed` IPC でバナー通知する

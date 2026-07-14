@@ -19,7 +19,10 @@ let intentionalUnlock = false; // exitPointerLock を自分で呼んだ直後か
 let lockRetryTimer = null;
 
 // Pointer Lock の要求はウインドウの表示/フォーカス遷移中だと失敗しうる
-// (pointerlockerror)。失敗しても諦めず、アクティブな間は短い間隔で再試行し続ける。
+// (pointerlockerror)。さらに Chromium は Esc 押下でロックを強制解除し、直後の
+// 再取得には内部クールダウンで失敗し続ける仕様がある (target へ Esc を転送した
+// だけでもホスト側のロックが外れる)。失敗しても諦めず、アクティブな間は短い間隔で
+// 再試行し続けることで「カーソルが画面端から出ない」時間を最小化する。
 // なおロックが取れていない間も mousemove の movementX/Y は届くため、マウス転送
 // 自体は動き続ける (ロックの目的はカーソルを画面端で止めないことと誤操作防止)
 function scheduleLockRetry() {
@@ -27,7 +30,7 @@ function scheduleLockRetry() {
   lockRetryTimer = setTimeout(() => {
     lockRetryTimer = null;
     requestLock();
-  }, 250);
+  }, 120);
 }
 
 function cancelLockRetry() {

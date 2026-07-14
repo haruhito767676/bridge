@@ -7,6 +7,7 @@ const path = require('path');
 
 let hudWin = null;
 let hudReady = false;
+let hudShownAt = 0; // 直近に HUD を表示した時刻 (blur による自動クローズの誤爆防止に使う)
 
 function hudAlive() {
   return hudWin !== null && !hudWin.isDestroyed();
@@ -62,6 +63,11 @@ function createHudWindow() {
     hudReady = false;
     hudWin = null;
   });
+  // HUD の外側をクリックしてフォーカスを失ったら自動で閉じる (マウスだけで完結する導線)。
+  // ただし表示直後は Windows で show → 一瞬 blur が来ることがあるため、猶予を置いて誤爆を防ぐ
+  hudWin.on('blur', () => {
+    if (hudAlive() && hudWin.isVisible() && Date.now() - hudShownAt > 300) hudWin.hide();
+  });
 
   hudWin.loadFile('hud.html');
 }
@@ -73,6 +79,7 @@ function showHud(devices) {
   const display = screen.getDisplayNearestPoint(cursor);
   hudWin.setBounds(hudBoundsForDisplay(display, devices.length), false);
   if (canSendToHud()) hudWin.webContents.send('hud-set-devices', devices);
+  hudShownAt = Date.now();
   hudWin.show();
   hudWin.focus();
 }

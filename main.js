@@ -1746,6 +1746,16 @@ function getKnownDevicesForHud() {
 }
 
 function toggleHud() {
+  // 操作セッション中のホットキーは「セッション終了 → HUD 再表示」として扱う。
+  // globalShortcut は OS レベルでキーを消費するため、before-input-event 側の
+  // 予約コンボ (handleOverlayBeforeInput) には実際にはほぼ届かない。つまり
+  // ここがセッションからの脱出経路の本命であり、終了せずに HUD だけ出すと
+  // オーバーレイとフォーカスを奪い合って HUD が操作不能になる
+  if (controlSession) {
+    endControlSession('user-confirmed');
+    controlWindows.showHud(getKnownDevicesForHud());
+    return;
+  }
   if (controlWindows.isHudVisible()) {
     controlWindows.hideHud();
   } else {
@@ -1852,15 +1862,51 @@ ipcMain.on('overlay-wheel', (_event, { dx, dy }) => {
 // 発火させることがあるため、二重転送をここで抑止する (autorepeat は通す)
 const overlayHeldCodes = new Set();
 
+// KeyboardEvent.code → before-input-event が運ぶ修飾フラグ名の対応表
+const MODIFIER_FLAG_BY_CODE = {
+  ShiftLeft: 'shift', ShiftRight: 'shift',
+  ControlLeft: 'control', ControlRight: 'control',
+  AltLeft: 'alt', AltRight: 'alt',
+  MetaLeft: 'meta', MetaRight: 'meta',
+};
+
+// up の転送と追跡解除をワンセットで行う (合成 up と実 up の両方から使う)
+function sendOverlayKeyUp(code) {
+  overlayHeldCodes.delete(code);
+  controlSession.client.send({ type: 'key', code, action: 'up', ts: Date.now() });
+}
+
+// 修飾キーの keyUp はホスト側で取りこぼされることがある (Cmd+Tab / Win キー等の
+// OS ショートカットによる横取り、フォーカス喪失、macOS の keyUp 抑止仕様)。
+// 取りこぼすと target 側で Ctrl/Cmd が押しっぱなしになる最悪の事故につながるため、
+// 毎イベントに載ってくる「現在の修飾フラグ」と転送済みの down を突き合わせ、
+// 食い違っている修飾キーの up をここで合成して自己修復する
+function reconcileHeldModifiers(input) {
+  for (const code of [...overlayHeldCodes]) {
+    const flag = MODIFIER_FLAG_BY_CODE[code];
+    if (!flag || code === input.code) continue; // 非修飾キーと処理中のイベント自身は対象外
+    if (!input[flag]) sendOverlayKeyUp(code);
+  }
+}
+
 function handleOverlayBeforeInput(event, input) {
   if (controlSession?.state !== 'hosting') return;
   event.preventDefault(); // ページへの配送とメニューアクセラレータの両方を止める
   const code = input.code;
   if (!code) return;
 
+  reconcileHeldModifiers(input);
+
   if (input.type === 'keyUp') {
-    overlayHeldCodes.delete(code);
-    controlSession.client.send({ type: 'key', code, action: 'up', ts: Date.now() });
+    // macOS は Cmd を押している間、他キーの keyUp をアプリへ届けない仕様のため
+    // (Cmd+C の C の up が来ない)、Cmd の up を境に「まだ down のままの非修飾キー」の
+    // up をまとめて合成し、target 側に文字キーが押しっぱなしで残るのを防ぐ
+    if (process.platform === 'darwin' && (code === 'MetaLeft' || code === 'MetaRight')) {
+      for (const held of [...overlayHeldCodes]) {
+        if (!MODIFIER_FLAG_BY_CODE[held]) sendOverlayKeyUp(held);
+      }
+    }
+    sendOverlayKeyUp(code);
     return;
   }
   if (input.type !== 'keyDown' && input.type !== 'rawKeyDown') return; // 'char' は転送しない
@@ -1874,6 +1920,21 @@ function handleOverlayBeforeInput(event, input) {
     return;
   }
   controlSession.client.send({ type: 'key', code, action: 'down', ts: Date.now() });
+}
+
+// 操作元と操作先の OS が異なるセッションでは「主修飾キー」を読み替える。
+// mac の Cmd と Windows の Ctrl は役割 (コピー/ペースト等の標準ショートカット) が
+// 対応するため、mac→win では Cmd を Ctrl として、win→mac では Ctrl を Cmd として
+// 注入する。down/up が同じ規則で読み替わるため押しっぱなし追跡 (heldKeys) は破綻しない。
+// トレードオフ: mac target へ素の Ctrl を送る手段は失われる (mac 側の Ctrl 利用は稀と判断)
+const PRIMARY_MODIFIER_MAP = {
+  'darwin->win32': { MetaLeft: 'ControlLeft', MetaRight: 'ControlRight' },
+  'win32->darwin': { ControlLeft: 'MetaLeft', ControlRight: 'MetaRight' },
+};
+
+function translateKeyCode(code, fromPlatform) {
+  const map = PRIMARY_MODIFIER_MAP[`${fromPlatform}->${process.platform}`];
+  return (map && map[code]) || code;
 }
 
 // TCP コントロールチャネルのサーバー側 (target) は、同期 HTTP サーバーと同様に
@@ -1916,7 +1977,9 @@ function startControlSubsystem() {
           controlInput.injectWheel(msg.dx, msg.dy).catch((err) => console.error('[control] injectWheel 失敗:', err));
           break;
         case 'key':
-          controlInput.injectKey(msg.code, msg.action).catch((err) => console.error('[control] injectKey 失敗:', err));
+          controlInput
+            .injectKey(translateKeyCode(msg.code, session.fromPlatform), msg.action)
+            .catch((err) => console.error('[control] injectKey 失敗:', err));
           break;
         default:
           break; // 前方互換: 未知の入力種別は無視

@@ -1,4 +1,6 @@
-// デバイス切り替え HUD の表示ロジック。Tab で選択移動、Enter で確定、Esc でキャンセル。
+// デバイス切り替え HUD の表示ロジック。
+// キーボード: Tab で選択移動 → Enter で確定 → Esc でキャンセル。
+// マウス: ホバーで選択移動、クリックで確定、カード外のクリックでキャンセル。
 // ネットワーク処理は一切持たず、選択結果を IPC で Main へ渡すだけ。
 
 const listEl = document.getElementById('hud-device-list');
@@ -31,9 +33,27 @@ function render() {
 
     card.appendChild(iconBox);
     card.appendChild(name);
+
+    // マウス操作: ホバーで選択を追従させ、クリックで即確定する
+    // (再 render で要素が差し替わっても、カーソル直下の新要素に同じ mouseenter が
+    // 届き selectedIndex が一致してガードされるため、無限再描画にはならない)
+    card.addEventListener('mouseenter', () => {
+      if (selectedIndex === i) return;
+      selectedIndex = i;
+      render();
+    });
+    card.addEventListener('click', () => {
+      window.bridge.hudConfirm(d.id);
+    });
+
     listEl.appendChild(card);
   });
 }
+
+// カード以外の場所 (パネルの余白) のクリックはキャンセル扱いにする
+document.addEventListener('mousedown', (e) => {
+  if (!e.target.closest('.hud-device-card')) window.bridge.hudCancel();
+});
 
 function selectNext() {
   if (devices.length === 0) return;

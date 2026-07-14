@@ -171,20 +171,37 @@ async function injectKey(code, action) {
 }
 
 // セッションの異常終了時に必ず呼ぶ。押しっぱなしのボタン/キーをすべて解放し、
-// target 側の OS にスタックしたキー/ボタンを残さない (最重要の安全設計)
+// target 側の OS にスタックしたキー/ボタンを残さない (最重要の安全設計)。
+// 1 つの解放が失敗しても後続の解放が止まらないよう、個別に握りつぶして必ず完走させる
 async function releaseAllHeld() {
   for (const button of [...heldButtons]) {
-    await injectMouseButton(button, 'up');
+    try {
+      await injectMouseButton(button, 'up');
+    } catch {}
   }
   // 非修飾キーを先に解放する: darwin では非修飾キーの up イベントに押下中の
   // 修飾フラグを添えるため、修飾キーを先に消すと実際の押下状態と食い違う
   const codes = [...heldKeys];
   for (const code of codes.filter((c) => !MODIFIER_CODES.has(c))) {
-    await injectKey(code, 'up');
+    try {
+      await injectKey(code, 'up');
+    } catch {}
   }
   for (const code of codes.filter((c) => MODIFIER_CODES.has(c))) {
-    await injectKey(code, 'up');
+    try {
+      await injectKey(code, 'up');
+    } catch {}
   }
+  // 追跡に残っていない修飾キーも無条件で解放する。ホスト側の up 取りこぼし等で
+  // 追跡が実際の OS 状態とズレていても、セッション終了後に Ctrl/Cmd が
+  // 押しっぱなしのまま残る事故だけはここで確実に断ち切る (未押下キーへの up は無害)
+  for (const code of MODIFIER_CODES) {
+    try {
+      await keyboard.releaseKey(KEY_MAP[code]);
+    } catch {}
+  }
+  heldButtons.clear();
+  heldKeys.clear();
 }
 
 // macOS のみ必要。CGEventPost による注入には Accessibility 権限が要る。

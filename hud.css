@@ -41,6 +41,7 @@ body {
 }
 
 .hud-device-card {
+  cursor: pointer; /* クリック/ホバーでも選択できることを示す */
   display: flex;
   flex-direction: column;
   align-items: center;
