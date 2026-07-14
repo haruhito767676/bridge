@@ -44,8 +44,8 @@
 │  ├─ HUD (hud-renderer.js + hud.html + hud.css)                    │
 │  │  └─ デバイス一覧・Tab 選択移動・Enter 確定・Esc キャンセル         │
 │  └─ 全画面オーバーレイ (overlay-renderer.js + overlay.html/.css)    │
-│     └─ Pointer Lock + DOM イベントによる入力捕捉 (ネイティブ         │
-│        グローバルフック不使用)                                     │
+│     └─ マウス捕捉: Pointer Lock + DOM イベント / キー捕捉: Main の   │
+│        before-input-event (ネイティブグローバルフック不使用)         │
 └──────────────────────────────────────────────────────────────────┘
 ```
 
@@ -111,9 +111,11 @@
 
 同じく `control-windows.js` が管理する 3 つ目の `BrowserWindow`。HUD で確定した瞬間から host 側の入力を「奪う」ための透過・最前面ウインドウ。
 
-- `BrowserWindow` オプション: `frame: false` / `transparent: true` / `resizable: false` / `fullscreenable: true` / `skipTaskbar: true`。`alwaysOnTop` はシェルフ・HUD とは逆に `'screen-saver'` レベルを採用する（このウインドウは「常に唯一の最前面レイヤーである」こと自体が目的であり、シェルフが `'screen-saver'` を避ける理由 = OS のドラッグ中アイコン描画との競合は、ここでは問題にならない）
-- `showOverlay(display, deviceLabel)`: セッション開始時にカーソルがあったディスプレイの `bounds`（`workArea` ではなくメニューバー/Dock を含む画面全体）へ `setBounds` → `show()` → `setFullScreen(true)` → `focus()`。v1 スコープはこの単一ディスプレイのみをカバーし、全ディスプレイ同時カバーは非対応（§ 11）
-- `hideOverlay()`: フルスクリーン中は `setFullScreen(false)` を呼び、`'leave-full-screen'` イベントで実際に `hide()` する（フルスクリーン解除アニメーションの完了を待つ必要があるため）
+- `BrowserWindow` オプション: `frame: false` / `transparent: true` / `resizable: false` / `fullscreenable: false` / `skipTaskbar: true` / `hasShadow: false` / `roundedCorners: false`。`alwaysOnTop` はシェルフ・HUD とは逆に `'screen-saver'` レベルを採用する（このウインドウは「常に唯一の最前面レイヤーである」こと自体が目的であり、シェルフが `'screen-saver'` を避ける理由 = OS のドラッグ中アイコン描画との競合は、ここでは問題にならない）
+- **OS ネイティブのフルスクリーン (`setFullScreen`) は使わない**: macOS では透過ウインドウとネイティブフルスクリーンが非互換で真っ黒な画面になり、さらに `setVisibleOnAllWorkspaces` とも競合してしばらく後に OS からフルスクリーンを強制解除される（= オーバーレイが勝手に消える）。代わりにディスプレイの `bounds` 全体を `setBounds` で覆う「キオスク風」方式を採り、`'screen-saver'` レベルの最前面指定でメニューバー/Dock/タスクバーの上にも被せる
+- `showOverlay(display, deviceLabel)`: セッション開始時にカーソルがあったディスプレイの `bounds`（`workArea` ではなくメニューバー/Dock を含む画面全体）へ `setBounds` → `show()` → `focus()`。v1 スコープはこの単一ディスプレイのみをカバーし、全ディスプレイ同時カバーは非対応（§ 11）
+- `hideOverlay()`: `overlay-deactivate` を送ってから `hide()` するだけ
+- 表示中に `'blur'` したら即座に `focus()` し返し、入力捕捉の前提であるフォーカス保持を維持する
 - **`setIgnoreMouseEvents` は絶対に呼ばない**: 呼ぶとクリックスルーしてしまい、入力を奪うというこのウインドウの目的そのものが破綻する
 - 入力捕捉の詳細は § 12.4 を参照
 - Renderer 準備前に届いたアイテムは `pendingFiles` / `pendingClipItems` にキューイングし、`did-finish-load` で一括送出。キュー上限は各 200 件（FIFO で最古から破棄）
@@ -196,11 +198,11 @@
 | `reportRetainedPaths(paths)` | `report-retained-paths` | send | 現在リスト保持中のパス一覧（終了時クリーンアップの除外判定用、render のたびに送信） |
 | `hudConfirm(deviceId)` | `hud-confirm` | send | HUD で `Enter` 確定。`deviceId` は `knownPeers` のキー形式 (`host:port`) または `'self'` |
 | `hudCancel()` | `hud-cancel` | send | HUD で `Esc` キャンセル |
-| `overlaySendMouseMove(dx, dy)` | `overlay-mouse-move` | send | Pointer Lock の相対デルタをそのまま転送（間引きなし） |
+| `overlaySendMouseMove(dx, dy)` | `overlay-mouse-move` | send | `mousemove` の相対デルタ (`movementX/Y`) をそのまま転送（間引きなし） |
 | `overlaySendMouseButton(button, action)` | `overlay-mouse-button` | send | `button: 'left'\|'right'\|'middle'`, `action: 'down'\|'up'` |
 | `overlaySendWheel(dx, dy)` | `overlay-wheel` | send | ホイール/トラックパッドの delta |
-| `overlaySendKey(code, action)` | `overlay-key` | send | `code` は `KeyboardEvent.code`（レイアウト非依存） |
-| `overlayReopenHud()` | `overlay-reopen-hud` | send | 予約コンボ (`Shift+Alt+Space`) をオーバーレイ自身が検知した際の離脱経路 |
+
+キーボードは Renderer 経由の IPC を使わない。Main プロセスがオーバーレイ `webContents` の `before-input-event` で直接捕捉する（§ 12.4）。
 
 ### Main → Renderer
 
@@ -418,8 +420,8 @@ Main 側履歴 (`clipHistory`) の上限はテキスト 100 / 画像 30。**Main
 5. **サブネットスキャンは /24 固定**: それより広いネットワークのピアは `peers` への静的登録が必要
 6. `secretToken` の共有は手動運用（設定ファイルの値を各デバイスで揃える）
 7. **リモート操作は v1 時点で単一ディスプレイのみカバー**: セッション開始時にカーソルがあったディスプレイのみを全画面オーバーレイで覆う。複数ディスプレイの同時カバーは非対応
-8. **OS 予約ショートカットは捕捉不可能**: `Cmd+Tab` / `Alt+Tab` / `Ctrl+Alt+Del` 等はユーザー空間のアプリからは原理的に捕捉できない
-9. **Pointer Lock の `Esc` は実キーとして転送不可**: 仕様上 `Esc` によるロック解除はブラウザ内部処理のため、ページの `keydown` に配送されない。ロックだけは即座に再要求して操作継続性を保つが、`Esc` キー自体の押下は target 側へ届かない
+8. **OS 予約ショートカットは捕捉不可能**: `Cmd+Tab` / Spotlight (`Cmd+Space`) / `Alt+Tab` / `Win` キー / `Ctrl+Alt+Del` 等、OS がアプリより先に消費するショートカットはユーザー空間のアプリからは原理的に捕捉できない（host 側で効いてしまう）。それ以外の修飾キーコンボは `before-input-event` + `preventDefault` により捕捉する（§ 12.4）
+9. **Pointer Lock は失敗しうるがマウス転送は継続する**: ロック要求はウインドウのフォーカス遷移中などに失敗しうるため、失敗時は 250ms 間隔でリトライする。ロック未確立の間も `mousemove` の `movementX/Y` は転送されるため操作は可能だが、カーソルが画面端に達すると movement が 0 になる劣化がある
 10. **双方向同時セッションはフィードバックループの危険がある**: A が B を操作しながら同時に B も A を操作するような双方向同時セッションは、注入された入力を自分自身のオーバーレイが再捕捉して送り返す無限フィードバックループを起こしうる（自己ループバックでの検証時に実際に確認済み）。通常の HUD 操作では自分自身は選択対象から除外されるため単純な自己ループは起きないが、双方向同時利用は現時点で非推奨・非対応とする
 11. **開発用（未署名）バイナリでの Accessibility 権限はキャッシュ不整合を起こしうる**: 署名が不安定な生の Electron dev バイナリでは、`systemPreferences.isTrustedAccessibilityClient()` が `true` を返しても実際の注入 API（特に `mouse.setPosition` による絶対座標移動）が無反応になることが実機検証で確認された。ビルド・署名済みの配布用 `Bridge.app` では発生しない見込み
 
@@ -450,7 +452,7 @@ Main 側履歴 (`clipHistory`) の上限はテキスト 100 / 画像 30。**Main
 { type: 'control-end',          id, reason }   // 'user-confirmed' | 'peer-disconnected' | 'timeout' | 'error' | 'reject' | 'accessibility-permission-required'
 { type: 'control-start-reject', reason }        // 'accessibility-permission-required' 等
 { type: 'heartbeat',            ts }
-{ type: 'mouse-move',           dx, dy, ts }    // Pointer Lock の movementX/Y 相対値
+{ type: 'mouse-move',           dx, dy, ts }    // mousemove の movementX/Y 相対値
 { type: 'mouse-button',         button, action, ts }  // button: 'left'|'right'|'middle', action: 'down'|'up'
 { type: 'wheel',                dx, dy, ts }
 { type: 'key',                  code, action, ts }     // code = KeyboardEvent.code、action: 'down'|'up'
@@ -462,25 +464,34 @@ Main 側履歴 (`clipHistory`) の上限はテキスト 100 / 画像 30。**Main
 
 1. HUD の `Enter` 確定 (`hud-confirm`) → `startControlSession(targetId)`。`targetId` は `knownPeers` のキー形式 (`host:port`、同期ポート基準) で、既存の同期ピア発見機構をそのまま再利用する（専用のピア発見機構は持たない）。`controlNet.connectToPeer(peer.host, CONTROL_PORT, ...)` で接続
 2. `hello-ack` 受信 → `control-start` を送信し `state: 'hosting'` へ遷移 → `controlWindows.showOverlay(display, targetDevice)`
-3. `overlay-mouse-move` / `-mouse-button` / `-wheel` / `-key` の各 IPC は、`controlSession.state === 'hosting'` の間だけ `controlSession.client.send(...)` へ素通しする
+3. `overlay-mouse-move` / `-mouse-button` / `-wheel` の各 IPC と、Main 側 `before-input-event` で捕捉したキーイベントは、`controlSession.state === 'hosting'` の間だけ `controlSession.client.send(...)` へ素通しする
 4. 終了は `endControlSession(reason, skipSend)` の一本道。`skipSend` は「相手が既にいなくなっている」経路（異常切断・エラー・拒否）で二重に `control-end` を送らないためのフラグ。`controlSession = null` を先に行うことで、複数経路（release コンボ・`close` イベント・タイムアウト）からの競合呼び出しに対して冪等
-5. 離脱経路: オーバーレイ自身のローカル `keydown` リスナーが予約コンボ (`Shift+Alt+Space` の同時押下) を検知したら **ワイヤーへ転送せず** `overlay-reopen-hud` IPC を送る。`globalShortcut` がフォーカスを持つオーバーレイウインドウ上でも発火するかは OS 依存で不確実なため、この自己完結的な経路を正とし、`globalShortcut` は idle 状態向けの冗長経路として併存させる
+5. 離脱経路: Main の `before-input-event` ハンドラが予約コンボ (`Shift+Alt+Space` の同時押下) を検知したら **ワイヤーへ転送せず** `endControlSession('user-confirmed')` → HUD 再表示を行う。`globalShortcut` がフォーカスを持つオーバーレイウインドウ上でも発火するかは OS 依存で不確実なため、この自己完結的な経路を正とし、`globalShortcut` は idle 状態向けの冗長経路として併存させる
 
 ### 12.4 host 側の入力捕捉（ネイティブフック不使用）
 
-`overlay-renderer.js` が全画面オーバーレイ内で以下を行う。**グローバル入力フック（uiohook-napi 等）は使用しない** — 全画面・最前面・フォーカス保持のオーバーレイウインドウであること自体が、下のアプリへ入力が漏れないことを保証する設計:
+**グローバル入力フック（uiohook-napi 等）は使用しない** — 画面全体を覆う・最前面・フォーカス保持のオーバーレイウインドウであること自体が、下のアプリへ入力が漏れないことを保証する設計。
 
-- `requestPointerLock()` による相対マウスデルタ (`movementX`/`movementY`) の取得。`document.pointerLockElement === root` の間だけ転送し、ロック外の `mousemove` は無視する
+**マウス** (`overlay-renderer.js`):
+
+- `mousemove` の相対デルタ (`movementX`/`movementY`) を `active` の間は常に転送する。Pointer Lock はカーソルを画面端で止めない・誤操作を防ぐための強化であり、転送の前提条件にはしない（ロック未確立でも操作可能に保つ）
+- `requestPointerLock()` は失敗しうる（フォーカス遷移中の `pointerlockerror` 等）ため、失敗時は 250ms 間隔で再試行する。`window` の `focus` と `mousedown`（ユーザージェスチャ）でも再取得を試みる
 - `mousedown` / `mouseup` / `wheel` / `contextmenu`（`preventDefault`）の通常 DOM イベント
-- `keydown` / `keyup` は `KeyboardEvent.code`（レイアウト非依存）を使用
 - **Pointer Lock の仕様上の注意**: ロックは `Esc` 押下以外の理由（フォーカス喪失等）でも解除されうるため、`pointerlockchange` で解除を検知した際に「`Esc` が押された」と決め打ちして実キーを合成送信することはしない（target への誤ったキー注入を避けるため）。ロックだけを即座に再要求し、操作の継続性を保つ
 - `setIgnoreMouseEvents` は絶対に呼ばない
+
+**キーボード** (`main.js` の `before-input-event`):
+
+- Renderer の DOM `keydown` ではなく、Main プロセスがオーバーレイ `webContents` の `before-input-event` で捕捉し、`event.preventDefault()` してから `{ type: 'key', code, action }` を送出する（`input.code` = `KeyboardEvent.code` 相当、レイアウト非依存）
+- `preventDefault()` により**アプリケーションメニューのアクセラレータを無効化**する。これをしないと macOS ホストでは `Cmd+Q` が Bridge 自身の終了になり、`Cmd+C/V/W` 等のコンボもメニューに食われて target へ届かない
+- Chromium は同一押下に対し `rawKeyDown` / `keyDown` の両方を発火させることがあるため、down 済みコードの `Set`（`overlayHeldCodes`）で二重転送を抑止する（autorepeat は通す）。`'char'` タイプは転送しない
 
 ### 12.5 target 側の入力注入 (`control-input.js`)
 
 - `@nut-tree-fork/nut-js` の薄いラッパー。**この機能に限り「外部依存パッケージはゼロ」の原則の例外**として導入した（macOS: CGEventPost / Windows: SendInput を叩くにはネイティブコードが不可避なため）
-- **座標**: セッション開始時に `screen.getCursorScreenPoint()` で実際のカーソル位置から絶対座標の起点をシードし（ジャンプ防止）、以後 `dx`/`dy` を累積。`screen.getAllDisplays()` から算出した仮想デスクトップ全体の矩形にクランプしてから `mouse.setPosition()`。相対デルタ方式のため host/target の解像度差はスケーリング計算なしで吸収できる
+- **座標**: `dx`/`dy` を受けるたびに `mouse.getPosition()`（物理ピクセル）へ加算して `mouse.setPosition()` する。**Electron の `screen` API を座標の起点に使ってはいけない**: Electron は DIP 座標、nut-js (SendInput/GetCursorPos) は物理ピクセル座標のため、Windows の表示スケーリングが 100% 以外だと両者が食い違いカーソルが飛ぶ。毎回 OS から現在位置を読み直せば座標系は常に一貫し、画面外への移動も OS が自動クランプするので手製の境界計算は不要。200Hz 級で届くデルタを get→set の非同期ペアで並行処理すると加算が失われるため、ペンディングデルタに累積して単一のフラッシュループで直列注入する。相対デルタ方式のため host/target の解像度差はスケーリング計算なしで吸収できる
 - **ホイール**: `mouse.scrollDown/Up/Left/Right` へマッピング。トラックパッド/物理ホイールでデルタの粒度が大きく異なるため、スケール係数は実運用での調整が必要な想定（現状は 1 ステップ = 1 delta の単純換算）
-- **キーマップ**: DOM `KeyboardEvent.code`（レイアウト非依存）→ nut-js `Key` enum への静的テーブル（`control-input.js` 内 `KEY_MAP`）。文字/数字/テンキー/モディファイア（左右別）/ファンクションキー/矢印/記号/ロックキーを網羅。nut-js の `Key` enum 自体がクロスプラットフォーム抽象化されているため OS 分岐は不要。未対応の `code` はログして無視する
+- **キーマップ**: DOM `KeyboardEvent.code`（レイアウト非依存）→ nut-js `Key` enum への静的テーブル（`control-input.js` 内 `KEY_MAP`）。文字/数字/テンキー/モディファイア（左右別）/ファンクションキー/矢印/記号/ロックキーを網羅。未対応の `code` はログして無視する
+- **修飾キーコンボの OS 差分**: macOS の CGEvent は「イベントごとに修飾フラグを持つ」モデルのため、修飾キーを単独の down イベントとして注入しただけでは後続キーに Cmd/Ctrl/Opt が乗らない（Ctrl+C を送っても素の C が届く）。darwin では非修飾キーの down/up のたびに、押下中の修飾キーを nut-js の可変長引数（先頭に修飾キー、末尾に主キー）で添えて注入し、libnut に主キーイベントへ修飾フラグを焼き込ませる。Windows は SendInput が OS 側でグローバルなキー押下状態を保持するモデルなので単独注入のままでよい（実機で `GetAsyncKeyState` により Ctrl/Win の押下状態が正しく立つことを検証済み）
 - **⚠️ スタックキー防止（最重要の安全設計）**: `heldButtons` / `heldKeys` の `Set` で押しっぱなし状態を追跡する。異常切断・タイムアウト・明示的 `control-end` の**いずれの経路でも必ず** `releaseAllHeld()` を呼び、押しっぱなしのボタン/キーを target の OS 上に残さない。`releaseAllHeld()` はスタブ化した単体テストで冪等性（既に空の状態で呼んでも何もしない）・部分解放（一部だけ手動で up 済みの場合は残りだけ解放する）を検証済み
 - **Accessibility 権限（macOS のみ）**: 注入 (target) 側にのみ必要。捕捉 (host) 側は Pointer Lock + DOM イベントのみで OS フックを使わないため権限不要。チェックは起動時ではなく、実際に `control-start` を受信した瞬間に遅延実行する: `systemPreferences.isTrustedAccessibilityClient(false)` で非プロンプト確認 → 未許可なら `control-start-reject` を返しつつ、target 側で `isTrustedAccessibilityClient(true)` により OS 標準の許可ダイアログ（システム設定への誘導）を表示。同時にシェルフ UI へ `accessibility-permission-needed` IPC でバナー通知する

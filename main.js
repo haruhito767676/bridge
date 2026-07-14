@@ -1814,6 +1814,7 @@ function endControlSession(reason, skipSend) {
   if (!controlSession) return; // 冪等: 複数経路からの二重呼び出しに備える
   const session = controlSession;
   controlSession = null;
+  overlayHeldCodes.clear();
   controlWindows.hideOverlay();
   if (!skipSend && session.state === 'hosting') {
     session.client.send({ type: 'control-end', id: session.sessionId, reason });
@@ -1834,13 +1835,46 @@ ipcMain.on('overlay-mouse-button', (_event, { button, action }) => {
 ipcMain.on('overlay-wheel', (_event, { dx, dy }) => {
   if (controlSession?.state === 'hosting') controlSession.client.send({ type: 'wheel', dx, dy, ts: Date.now() });
 });
-ipcMain.on('overlay-key', (_event, { code, action }) => {
-  if (controlSession?.state === 'hosting') controlSession.client.send({ type: 'key', code, action, ts: Date.now() });
-});
-ipcMain.on('overlay-reopen-hud', () => {
-  endControlSession('user-confirmed');
-  controlWindows.showHud(getKnownDevicesForHud());
-});
+// ---- ホスト側キー捕捉 (before-input-event) ----
+//
+// キーボードは Renderer の DOM keydown ではなく、オーバーレイ webContents の
+// before-input-event で Main プロセス側から横取りする。理由:
+// 1. event.preventDefault() でアプリケーションメニューのアクセラレータを無効化できる。
+//    これをしないと macOS ホストでは Cmd+Q が「Bridge 自身の終了」になり、
+//    Cmd+C/V/W 等のコンボもメニューに食われて target へ届かない
+// 2. フルスクリーン遷移や Pointer Lock の状態に依存せず、ウインドウがフォーカスを
+//    持ってさえいれば必ず発火するため、修飾キー単体の押下も確実に捕捉できる
+//
+// なお OS 自体が先に消費するショートカット (macOS の Cmd+Tab / Spotlight、
+// Windows の Win キー等) はアプリからは捕捉できない (既知の制約として SPEC.md に記載)
+
+// down 済みコードの追跡。Chromium は同一押下に対し rawKeyDown / keyDown の両方を
+// 発火させることがあるため、二重転送をここで抑止する (autorepeat は通す)
+const overlayHeldCodes = new Set();
+
+function handleOverlayBeforeInput(event, input) {
+  if (controlSession?.state !== 'hosting') return;
+  event.preventDefault(); // ページへの配送とメニューアクセラレータの両方を止める
+  const code = input.code;
+  if (!code) return;
+
+  if (input.type === 'keyUp') {
+    overlayHeldCodes.delete(code);
+    controlSession.client.send({ type: 'key', code, action: 'up', ts: Date.now() });
+    return;
+  }
+  if (input.type !== 'keyDown' && input.type !== 'rawKeyDown') return; // 'char' は転送しない
+  if (overlayHeldCodes.has(code) && !input.isAutoRepeat) return; // rawKeyDown/keyDown の二重発火除去
+  overlayHeldCodes.add(code);
+
+  // 予約コンボ (Shift+Alt+Space): ワイヤーへ転送せずセッションを終えて HUD へ戻る
+  if (code === 'Space' && input.shift && input.alt) {
+    endControlSession('user-confirmed');
+    controlWindows.showHud(getKnownDevicesForHud());
+    return;
+  }
+  controlSession.client.send({ type: 'key', code, action: 'down', ts: Date.now() });
+}
 
 // TCP コントロールチャネルのサーバー側 (target) は、同期 HTTP サーバーと同様に
 // 全デバイスが起動時から常時listenする (どのデバイスもいつでも target になりうる)。
@@ -1868,7 +1902,6 @@ function startControlSubsystem() {
         session.close('accessibility-permission-required');
         return;
       }
-      controlInput.seedCursorFromCurrentPosition();
     });
 
     session.on('input', (msg) => {
@@ -1917,6 +1950,7 @@ app.whenReady().then(() => {
   createTray();
   controlWindows.createHudWindow();
   controlWindows.createOverlayWindow();
+  controlWindows.overlayWebContents()?.on('before-input-event', handleOverlayBeforeInput);
   globalShortcut.register(HUD_SHORTCUT, toggleHud);
   startControlSubsystem();
   startClipboardWatcher();

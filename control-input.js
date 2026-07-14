@@ -6,7 +6,7 @@
 // 内部の操作間ディレイを排除する。
 
 const { mouse, keyboard, Key, Button } = require('@nut-tree-fork/nut-js');
-const { screen: electronScreen, systemPreferences } = require('electron');
+const { systemPreferences } = require('electron');
 
 mouse.config.autoDelayMs = 0;
 keyboard.config.autoDelayMs = 0;
@@ -71,41 +71,37 @@ const BUTTON_MAP = { left: Button.LEFT, right: Button.RIGHT, middle: Button.MIDD
 const heldButtons = new Set();
 const heldKeys = new Set();
 
-let cursorX = 0;
-let cursorY = 0;
+// 相対デルタを nut-js が返す「実際の現在位置」(物理ピクセル) に加算して注入する。
+//
+// Electron の screen API を座標の起点に使ってはいけない: Electron は DIP 座標、
+// nut-js (SendInput/GetCursorPos) は物理ピクセル座標で動くため、Windows の表示
+// スケーリングが 100% 以外だと両者が食い違い、カーソルが意図しない位置へ飛ぶ。
+// 毎回 OS から現在位置を読み直す方式なら座標系は常に一貫し、画面外への移動も
+// OS 側が自動でクランプしてくれるので手製の境界計算は不要になる。
+//
+// 200Hz 級で届くデルタを get→set の非同期ペアで並行処理すると加算が失われるため、
+// ペンディングデルタに累積し、単一のフラッシュループで直列に注入する
+let pendingDx = 0;
+let pendingDy = 0;
+let flushingMouse = false;
 
-// セッション開始時に呼ぶ。実際のカーソル位置を起点にシードすることで、
-// セッション開始時にカーソルが飛んでジャンプするような不自然な挙動を防ぐ
-function seedCursorFromCurrentPosition() {
-  const p = electronScreen.getCursorScreenPoint();
-  cursorX = p.x;
-  cursorY = p.y;
-}
-
-// 全ディスプレイを合成した仮想デスクトップ全体の矩形 (マルチモニタ環境でのクランプ用)
-function virtualDesktopBounds() {
-  const displays = electronScreen.getAllDisplays();
-  let minX = Infinity;
-  let minY = Infinity;
-  let maxX = -Infinity;
-  let maxY = -Infinity;
-  for (const d of displays) {
-    const { x, y, width, height } = d.bounds;
-    minX = Math.min(minX, x);
-    minY = Math.min(minY, y);
-    maxX = Math.max(maxX, x + width);
-    maxY = Math.max(maxY, y + height);
-  }
-  return { minX, minY, maxX, maxY };
-}
-
-// 相対デルタを累積し、仮想デスクトップ全体の矩形にクランプしてから注入する。
-// 相対デルタ方式のため host/target の解像度差はスケーリング計算なしで吸収できる
 async function injectMouseMove(dx, dy) {
-  const b = virtualDesktopBounds();
-  cursorX = Math.min(Math.max(cursorX + dx, b.minX), b.maxX - 1);
-  cursorY = Math.min(Math.max(cursorY + dy, b.minY), b.maxY - 1);
-  await mouse.setPosition({ x: Math.round(cursorX), y: Math.round(cursorY) });
+  pendingDx += dx;
+  pendingDy += dy;
+  if (flushingMouse) return; // 既存のフラッシュループが拾う
+  flushingMouse = true;
+  try {
+    while (pendingDx !== 0 || pendingDy !== 0) {
+      const mx = pendingDx;
+      const my = pendingDy;
+      pendingDx = 0;
+      pendingDy = 0;
+      const pos = await mouse.getPosition();
+      await mouse.setPosition({ x: Math.round(pos.x + mx), y: Math.round(pos.y + my) });
+    }
+  } finally {
+    flushingMouse = false;
+  }
 }
 
 async function injectMouseButton(button, action) {
@@ -131,6 +127,20 @@ async function injectWheel(dx, dy) {
 
 const loggedUnknownCodes = new Set();
 
+const MODIFIER_CODES = new Set([
+  'ShiftLeft', 'ShiftRight', 'ControlLeft', 'ControlRight',
+  'AltLeft', 'AltRight', 'MetaLeft', 'MetaRight',
+]);
+
+// 現在押しっぱなしの修飾キーを nut-js の Key 配列として返す
+function heldModifierNutKeys() {
+  const keys = [];
+  for (const code of heldKeys) {
+    if (MODIFIER_CODES.has(code)) keys.push(KEY_MAP[code]);
+  }
+  return keys;
+}
+
 async function injectKey(code, action) {
   const key = KEY_MAP[code];
   if (key === undefined) {
@@ -140,12 +150,23 @@ async function injectKey(code, action) {
     }
     return;
   }
+
+  // macOS の CGEvent は「イベントごとに修飾フラグを持つ」モデルのため、修飾キーを
+  // 別イベントとして press しただけでは後続キーに Cmd/Ctrl/Opt が乗らない
+  // (Ctrl+C を送っても target には素の C が届く)。nut-js の可変長引数
+  // (先頭に修飾キー、末尾に主キー) で渡すと libnut が主キーのイベントに修飾フラグを
+  // 焼き込んでくれるので、darwin では押下中の修飾キーを毎回添える。
+  // Windows は SendInput が OS 側でグローバルなキー押下状態を保持するモデルなので
+  // 単独注入のままでよい (添えると libnut が修飾キーを勝手に上げ下げして状態が壊れる)
+  const attachModifiers =
+    process.platform === 'darwin' && !MODIFIER_CODES.has(code) ? heldModifierNutKeys() : [];
+
   if (action === 'down') {
     heldKeys.add(code);
-    await keyboard.pressKey(key);
+    await keyboard.pressKey(...attachModifiers, key);
   } else {
     heldKeys.delete(code);
-    await keyboard.releaseKey(key);
+    await keyboard.releaseKey(...attachModifiers, key);
   }
 }
 
@@ -155,7 +176,13 @@ async function releaseAllHeld() {
   for (const button of [...heldButtons]) {
     await injectMouseButton(button, 'up');
   }
-  for (const code of [...heldKeys]) {
+  // 非修飾キーを先に解放する: darwin では非修飾キーの up イベントに押下中の
+  // 修飾フラグを添えるため、修飾キーを先に消すと実際の押下状態と食い違う
+  const codes = [...heldKeys];
+  for (const code of codes.filter((c) => !MODIFIER_CODES.has(c))) {
+    await injectKey(code, 'up');
+  }
+  for (const code of codes.filter((c) => MODIFIER_CODES.has(c))) {
     await injectKey(code, 'up');
   }
 }
@@ -173,7 +200,6 @@ function requestAccessibilityPermission() {
 }
 
 module.exports = {
-  seedCursorFromCurrentPosition,
   injectMouseMove,
   injectMouseButton,
   injectWheel,

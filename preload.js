@@ -88,12 +88,9 @@ contextBridge.exposeInMainWorld('bridge', {
   onOverlayDeactivate: (callback) =>
     ipcRenderer.on('overlay-deactivate', () => callback()),
 
-  // Overlay → Main: 捕捉した入力イベントをそのまま転送する (間引きなし)
+  // Overlay → Main: 捕捉したマウス入力イベントをそのまま転送する (間引きなし)。
+  // キーボードは Main 側の before-input-event で横取りするため Renderer は関与しない
   overlaySendMouseMove: (dx, dy) => ipcRenderer.send('overlay-mouse-move', { dx, dy }),
   overlaySendMouseButton: (button, action) => ipcRenderer.send('overlay-mouse-button', { button, action }),
   overlaySendWheel: (dx, dy) => ipcRenderer.send('overlay-wheel', { dx, dy }),
-  overlaySendKey: (code, action) => ipcRenderer.send('overlay-key', { code, action }),
-
-  // 予約コンボ (Shift+Alt+Space) をオーバーレイ自身が検知した際の離脱経路
-  overlayReopenHud: () => ipcRenderer.send('overlay-reopen-hud'),
 });

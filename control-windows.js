@@ -92,6 +92,14 @@ function isHudVisible() {
 // 最前面ウインドウ。v1 スコープはセッション開始時にカーソルがあったディスプレイの
 // みをカバーする (全ディスプレイ同時カバーは後続フェーズの改善項目)。
 //
+// OS ネイティブのフルスクリーン (setFullScreen) は使わない: macOS では透過ウインドウ
+// とネイティブフルスクリーンが非互換で「真っ黒な画面」になり、さらに
+// setVisibleOnAllWorkspaces とも競合してしばらく後に OS 側からフルスクリーンを
+// 強制解除される (= オーバーレイが勝手に消える)。代わりにディスプレイの bounds
+// 全体を setBounds で物理的に覆う「キオスク風」方式を採る。screen-saver レベルの
+// 最前面指定によりメニューバー/Dock/タスクバーの上にも被さるため、見た目・機能とも
+// フルスクリーンと等価になる。
+//
 // alwaysOnTop を 'screen-saver' レベルにするのはシェルフの流儀とは逆だが、
 // このウインドウは「常に唯一の最前面レイヤーである」こと自体が目的なので、
 // シェルフが screen-saver を避ける理由 (OS のドラッグ中アイコン描画と競合する) は
@@ -117,8 +125,10 @@ function createOverlayWindow() {
     frame: false,
     transparent: true,
     resizable: false,
-    fullscreenable: true,
+    fullscreenable: false, // ネイティブフルスクリーンは使わない (冒頭コメント参照)
     skipTaskbar: true,
+    hasShadow: false,
+    roundedCorners: false, // macOS のフレームレス角丸で画面の四隅が露出しないようにする
     backgroundColor: '#00000000',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -136,20 +146,21 @@ function createOverlayWindow() {
     overlayReady = false;
     overlayWin = null;
   });
-  overlayWin.on('leave-full-screen', () => {
-    if (overlayAlive()) overlayWin.hide();
+  // 入力捕捉はこのウインドウがフォーカスを持ち続けることが前提。表示中に何かの拍子で
+  // フォーカスを失ったら (通知クリック等) 即座に取り返す
+  overlayWin.on('blur', () => {
+    if (overlayAlive() && overlayWin.isVisible()) overlayWin.focus();
   });
 
   overlayWin.loadFile('overlay.html');
 }
 
 // セッション開始時にカーソルがあったディスプレイの全体 (workArea ではなく bounds:
-// メニューバー/Dock も含めて画面全体を覆う) をカバーして全画面化する
+// メニューバー/Dock も含めて画面全体を覆う) を setBounds でカバーする
 function showOverlay(display, deviceLabel) {
   if (!overlayAlive()) return;
   overlayWin.setBounds(display.bounds, false);
   overlayWin.show();
-  overlayWin.setFullScreen(true);
   overlayWin.focus();
   if (canSendToOverlay()) overlayWin.webContents.send('overlay-activate', { device: deviceLabel });
 }
@@ -157,11 +168,12 @@ function showOverlay(display, deviceLabel) {
 function hideOverlay() {
   if (!overlayAlive()) return;
   if (canSendToOverlay()) overlayWin.webContents.send('overlay-deactivate');
-  if (overlayWin.isFullScreen()) {
-    overlayWin.setFullScreen(false); // 'leave-full-screen' ハンドラが実際の hide() を行う
-  } else {
-    overlayWin.hide();
-  }
+  overlayWin.hide();
+}
+
+// main.js が before-input-event でキー入力を横取りするための webContents アクセサ
+function overlayWebContents() {
+  return overlayAlive() ? overlayWin.webContents : null;
 }
 
 module.exports = {
@@ -176,4 +188,5 @@ module.exports = {
   hideOverlay,
   overlayAlive,
   canSendToOverlay,
+  overlayWebContents,
 };
