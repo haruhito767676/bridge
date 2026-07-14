@@ -211,7 +211,7 @@
 | `onShelterExpanded(cb)` | `shelter-expanded` | 展開通知（検索リセット + 自動フォーカス） |
 | `onControlConnectFailed(cb)` | `control-connect-failed` | controller 側で接続/ハンドシェイクに失敗。`{ device, reason }` をシェルフのトーストで表示 |
 | `onAccessibilityPermissionNeeded(cb)` | `accessibility-permission-needed` | target 側で Accessibility 権限未許可のまま `control-start` を受けた通知 |
-| `onHudSetDevices(cb)` | `hud-set-devices` | (HUD ウインドウ専用) HUD が開くたびに送られる最新デバイス一覧 `{ id, device, isSelf }[]` |
+| `onHudSetDevices(cb)` | `hud-set-devices` | (HUD ウインドウ専用) HUD が開くたびに送られる最新デバイス一覧 `{ id, device, iconType, isSelf }[]` |
 | `onOverlayActivate(cb)` | `overlay-activate` | (オーバーレイ専用) アクティブ化。`{ device }` を受けて Pointer Lock 要求・バナー表示 |
 | `onOverlayDeactivate(cb)` | `overlay-deactivate` | (オーバーレイ専用) 非アクティブ化。Pointer Lock 解除 |
 
@@ -265,7 +265,7 @@ Main 側履歴 (`clipHistory`) の上限はテキスト 100 / 画像 30。**Main
 
 | メソッド / パス | 役割 |
 |---|---|
-| `GET /ping` | 自己紹介。`{ app: "bridge", device, platform, port }`。ピア発見のプローブ（タイムアウト 800ms） |
+| `GET /ping` | 自己紹介。`{ app: "bridge", device, platform, port, iconType }`。ピア発見のプローブ（タイムアウト 800ms） |
 | `GET /items?since=T` | タイムスタンプ `T` より新しい台帳エントリの**メタデータ**一覧（差分同期） |
 | `GET /file?id=<uuid>` | エントリ実体のストリーム配信（`application/octet-stream`）。実体なし / フォルダは 404。受信側切断で読み取りを即中止 |
 | `POST /push` | 新着メタデータの即時受信。送信元を known peer として自動登録（自動ブートストラップ） |

@@ -16,18 +16,23 @@ function canSendToHud() {
   return hudAlive() && hudReady && !hudWin.webContents.isDestroyed();
 }
 
-// カーソルがあるディスプレイの workArea 中央に、デバイス数に応じた高さの小型ボックスを配置する
-const HUD_WIDTH = 280;
-const HUD_ROW_HEIGHT = 40;
-const HUD_PADDING = 24;
-const HUD_MAX_HEIGHT = 420;
+// カーソルがあるディスプレイの workArea 中央に、デバイス数に応じた幅のカード列ボックスを配置する
+// (デバイスは縦並びの行ではなく横一列のカードとして並ぶため、行数ではなくカード数から幅を算出する)
+const HUD_CARD_WIDTH = 180;
+const HUD_CARD_HEIGHT = 220;
+const HUD_CARD_GAP = 28;
+const HUD_PADDING = 40; // フォーカスリングの発光がクリップされないよう左右上下に余白を持たせる
+const HUD_MIN_WIDTH = HUD_CARD_WIDTH + HUD_PADDING;
 
 function hudBoundsForDisplay(display, deviceCount) {
   const { x: dx, y: dy, width: dw, height: dh } = display.workArea;
-  const height = Math.min(HUD_PADDING + Math.max(deviceCount, 1) * HUD_ROW_HEIGHT, HUD_MAX_HEIGHT);
-  const x = Math.round(dx + (dw - HUD_WIDTH) / 2);
+  const count = Math.max(deviceCount, 1);
+  const contentWidth = count * HUD_CARD_WIDTH + (count - 1) * HUD_CARD_GAP;
+  const width = Math.max(HUD_MIN_WIDTH, Math.min(contentWidth + HUD_PADDING, dw - 40));
+  const height = Math.min(HUD_CARD_HEIGHT + HUD_PADDING, dh);
+  const x = Math.round(dx + (dw - width) / 2);
   const y = Math.round(dy + (dh - height) / 2);
-  return { x, y, width: HUD_WIDTH, height };
+  return { x, y, width, height };
 }
 
 function createHudWindow() {

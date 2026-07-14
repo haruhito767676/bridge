@@ -99,6 +99,7 @@ bridge://add?text=任意のテキスト              # テキスト → .txt 化
   "peers": ["192.168.1.23", "192.168.1.40:9095"],
   "autoScan": true,
   "myDeviceName": "Win-Desk",
+  "iconType": "win_desktop",
   "secretToken": "全デバイスで同じ値に揃える共有キー"
 }
 ```
@@ -109,6 +110,7 @@ bridge://add?text=任意のテキスト              # テキスト → .txt 化
 | `peers` | 静的ピア指定（`host` または `host:port`）。自動スキャンで見つからないセグメント越しのピア用 |
 | `autoScan` | 同一 /24 サブネットの自動スキャン（既定 `true`、5 分間隔） |
 | `myDeviceName` | バッジに表示される自デバイス名（省略時は `os.hostname()`） |
+| `iconType` | HUD に表示する自端末のアイコン種別。`win_laptop` / `macbook` / `win_desktop` のいずれか（省略・未知の値はフォールバック枠が表示される） |
 | `secretToken` | **同期認証キー。同期させたいデバイス全台でこの値を手動で一致させてください。** 未設定なら初回起動時に暗号学的乱数で自動生成されます |
 
 トークンが一致しない相手からのリクエストは全エンドポイントで 401 遮断されるため、同一 LAN に他人の Bridge がいても履歴が混線・漏洩することはありません。

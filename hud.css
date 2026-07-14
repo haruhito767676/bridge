@@ -5,18 +5,13 @@
 }
 
 :root {
-  --fg: #1d1d1f;
-  --fg-dim: rgba(60, 60, 67, 0.6);
+  --fg: #f5f5f7;
+  --fg-dim: rgba(235, 235, 245, 0.6);
   --accent: #0a84ff;
-  --row-border: rgba(0, 0, 0, 0.08);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --fg: #f5f5f7;
-    --fg-dim: rgba(235, 235, 245, 0.55);
-    --row-border: rgba(255, 255, 255, 0.08);
-  }
+  --card-bg: rgba(255, 255, 255, 0.07);
+  --card-border: rgba(255, 255, 255, 0.12);
+  --icon-bg: rgba(255, 255, 255, 0.06);
+  --icon-border: rgba(255, 255, 255, 0.16);
 }
 
 html,
@@ -27,41 +22,94 @@ body {
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", sans-serif;
-  font-size: 14px;
-  background: transparent;
+  font-size: 13px;
+  /* 裏の画面が有機的にすりガラス状に透ける、Mac ネイティブ風の高級感あるダークパネル */
+  background: rgba(30, 30, 30, 0.65);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
   color: var(--fg);
   user-select: none;
   -webkit-user-select: none;
 }
 
 #hud-device-list {
-  list-style: none;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
   height: 100%;
-  overflow-y: auto;
-  padding: 8px;
+  padding: 20px;
 }
 
-.hud-device-row {
+.hud-device-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  flex: 0 0 auto;
+  width: 180px;
+  height: 220px;
+  padding: 22px 14px;
+  border-radius: 22px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  box-shadow: 0 0 0 0 rgba(10, 132, 255, 0);
+  /* フォーカスリングが隣のカードへ吸い付くように移動するアニメーション */
+  transition: all 0.2s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+/* Tab で選択中のカードだけに効く、ネオンブルーのフォーカスリング */
+.hud-device-card.selected {
+  background: rgba(10, 132, 255, 0.12);
+  border-color: rgba(10, 132, 255, 0.9);
+  box-shadow:
+    0 0 0 3px rgba(10, 132, 255, 0.6),
+    0 0 26px 6px rgba(10, 132, 255, 0.45);
+  transform: translateY(-3px);
+}
+
+.hud-device-icon {
+  width: 120px;
+  height: 120px;
   display: flex;
   align-items: center;
-  height: 32px;
-  padding: 0 12px;
-  margin-bottom: 4px;
-  border-radius: 8px;
-  color: var(--fg-dim);
+  justify-content: center;
+  margin-bottom: 16px;
+  border-radius: 18px;
+  /* 実アイコン画像が未配置でもレイアウトが崩れないプレースホルダー枠 */
+  background: var(--icon-bg);
+  border: 1px solid var(--icon-border);
+  overflow: hidden;
+}
+
+.hud-device-icon img {
+  width: 120px;
+  height: 120px;
+  object-fit: contain;
+}
+
+/* 画像の読み込みに失敗した場合は隠し、プレースホルダー枠だけを残す */
+.hud-device-icon img.hud-icon-missing {
+  display: none;
+}
+
+.hud-device-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--fg);
+  text-align: center;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  max-width: 100%;
 }
 
-.hud-device-row.selected {
-  background: var(--accent);
-  color: #fff;
-}
-
-.hud-device-row.self::after {
+.hud-device-card.self .hud-device-name::after {
   content: "(この端末)";
-  margin-left: 6px;
+  display: block;
+  margin-top: 3px;
   font-size: 11px;
-  opacity: 0.7;
+  font-weight: 400;
+  color: var(--fg-dim);
 }
