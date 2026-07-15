@@ -1757,6 +1757,19 @@ function getHudSessionStatus() {
   return { status: 'idle', targetDevice: null };
 }
 
+// マウス共有系の通知 (接続失敗・権限案内) を送る前に呼ぶ。シェルフは普段
+// TAB_WIDTH (15px) の「つまみ」に格納されており、その状態のままだとトースト
+// (styles.css #control-toast) はウインドウ外にクリップされて実質見えない。
+// ユーザーの対応が必要な通知なので、送出前にシェルフを強制展開して確実に見せる
+function revealShelfForNotice() {
+  if (!winAlive()) return;
+  if (win.isMinimized()) win.restore();
+  placeOnCursorDisplay(expanded);
+  win.show();
+  win.focus();
+  expandShelter();
+}
+
 function toggleHud() {
   // 操作セッション中のホットキーは「セッション終了 → HUD 再表示」として扱う。
   // globalShortcut は OS レベルでキーを消費するため、before-input-event 側の
@@ -1845,20 +1858,29 @@ function startControlSession(targetId) {
 
   client.on('message', (msg) => {
     if (!isCurrent() || msg.type !== 'control-start-reject') return;
-    if (canSendToRenderer()) win.webContents.send('control-connect-failed', { device: targetDevice, reason: msg.reason });
+    if (canSendToRenderer()) {
+      revealShelfForNotice();
+      win.webContents.send('control-connect-failed', { device: targetDevice, reason: msg.reason });
+    }
     endControlSession('reject', true);
   });
 
   client.on('reject', (reason) => {
     if (!isCurrent()) return;
-    if (canSendToRenderer()) win.webContents.send('control-connect-failed', { device: targetDevice, reason });
+    if (canSendToRenderer()) {
+      revealShelfForNotice();
+      win.webContents.send('control-connect-failed', { device: targetDevice, reason });
+    }
     controlSession = null;
     controlWindows.setSessionStatus(getHudSessionStatus());
   });
 
   client.on('error', () => {
     if (!isCurrent()) return;
-    if (canSendToRenderer()) win.webContents.send('control-connect-failed', { device: targetDevice, reason: 'error' });
+    if (canSendToRenderer()) {
+      revealShelfForNotice();
+      win.webContents.send('control-connect-failed', { device: targetDevice, reason: 'error' });
+    }
     endControlSession('error', true);
   });
 
@@ -1942,7 +1964,10 @@ function startControlSubsystem() {
       if (!controlInput.hasAccessibilityPermission()) {
         session.send({ type: 'control-start-reject', reason: 'accessibility-permission-required' });
         controlInput.requestAccessibilityPermission();
-        if (canSendToRenderer()) win.webContents.send('accessibility-permission-needed');
+        if (canSendToRenderer()) {
+          revealShelfForNotice();
+          win.webContents.send('accessibility-permission-needed');
+        }
         session.close('accessibility-permission-required');
         return;
       }

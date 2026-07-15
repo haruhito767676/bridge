@@ -564,6 +564,14 @@ window.bridge.onShelterExpanded(() => {
 const controlToast = document.getElementById('control-toast');
 let controlToastTimer = null;
 
+function hideControlToast() {
+  controlToast.classList.remove('visible');
+  if (controlToastTimer) {
+    clearTimeout(controlToastTimer);
+    controlToastTimer = null;
+  }
+}
+
 function showControlToast(message, durationMs = 4000) {
   controlToast.textContent = message;
   controlToast.hidden = false;
@@ -575,8 +583,23 @@ function showControlToast(message, durationMs = 4000) {
   }, durationMs);
 }
 
+// 表示中はユーザーの注意を引きたい通知だが、内容を確認したらタイマーを待たず
+// 自分の判断ですぐ閉じられるようにする
+// (#control-toast は既に cursor: pointer なので、クリック可能であることは見た目からも分かる)
+controlToast.addEventListener('click', hideControlToast);
+
+// 接続失敗の理由ごとに、ユーザーが次に取るべき行動が分かる具体的な文言を出す。
+// 未知の reason (今後追加されうる前方互換の値) は汎用メッセージへフォールバックする
+const CONNECT_FAILED_REASONS = {
+  'bad-token': 'secretToken が一致していません。sync-config.json の設定を確認してください',
+  'malformed-hello': '通信プロトコルの不整合が発生しました',
+  'accessibility-permission-required': '相手デバイスで Accessibility 権限が許可されていません',
+};
+
 window.bridge.onControlConnectFailed(({ device, reason }) => {
-  showControlToast(`${device || '相手デバイス'} への接続に失敗しました`);
+  const detail = CONNECT_FAILED_REASONS[reason];
+  const base = `${device || '相手デバイス'} への接続に失敗しました`;
+  showControlToast(detail ? `${base}（${detail}）` : base);
 });
 
 window.bridge.onAccessibilityPermissionNeeded(() => {

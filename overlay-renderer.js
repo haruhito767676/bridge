@@ -25,6 +25,7 @@
 
 const root = document.getElementById('overlay-root');
 const bannerDevice = document.getElementById('overlay-banner-device');
+const bannerFallback = document.getElementById('overlay-banner-fallback');
 
 let active = false; // overlay-activate 〜 overlay-deactivate の間だけ true
 let mouseMode = 'pointer-lock'; // overlay-activate で毎回上書きされる
@@ -77,6 +78,11 @@ window.bridge.onOverlayActivate(({ device, mouseMode: mode }) => {
   active = true;
   mouseMode = mode === 'native' ? 'native' : 'pointer-lock';
   bannerDevice.textContent = device || '';
+  // ネイティブ捕捉が使えず Pointer Lock へフォールバックしている間は、その旨を
+  // セッション中ずっと見えるオーバーレイのバナーに出す。この状態はシェルフの
+  // トースト通知 (入力監視権限の案内) が最前面のオーバーレイに隠れて実質見えない
+  // 間もユーザーに伝わる、確実な表示先になる
+  bannerFallback.hidden = mouseMode !== 'pointer-lock';
   root.focus();
   requestLock(); // native モードでは内部ガードにより no-op
 });

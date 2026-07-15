@@ -135,6 +135,12 @@ function selectNext() {
   render();
 }
 
+function selectPrev() {
+  if (devices.length === 0) return;
+  selectedIndex = (selectedIndex - 1 + devices.length) % devices.length;
+  render();
+}
+
 window.bridge.onHudSetDevices(({ devices: list, session }) => {
   devices = list;
   selectedIndex = 0;
@@ -149,9 +155,17 @@ window.bridge.onHudSessionStatus((session) => {
 });
 
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Tab') {
+  // カードは横一列に並んでいるため、Tab に加えて ←→ でも直感的に移動できるようにする。
+  // Shift+Tab は Tab の逆順移動という一般的な慣習に合わせる
+  if (e.key === 'Tab' && e.shiftKey) {
+    e.preventDefault();
+    selectPrev();
+  } else if (e.key === 'Tab' || e.key === 'ArrowRight') {
     e.preventDefault();
     selectNext();
+  } else if (e.key === 'ArrowLeft') {
+    e.preventDefault();
+    selectPrev();
   } else if (e.key === 'Enter') {
     e.preventDefault();
     const target = devices[selectedIndex];

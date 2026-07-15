@@ -4,13 +4,14 @@
   <meta charset="UTF-8" />
   <meta http-equiv="Content-Security-Policy"
         content="default-src 'self'; style-src 'self'" />
-  <title>Bridge Remote Control Overlay</title>
+  <title>Bridge Mouse Sharing Overlay</title>
   <link rel="stylesheet" href="overlay.css" />
 </head>
 <body id="overlay-root" tabindex="0">
   <div id="overlay-banner">
     <span id="overlay-banner-device"></span>
     <span id="overlay-banner-hint">Shift+Alt+Space で操作を戻す</span>
+    <span id="overlay-banner-fallback" hidden>フォールバック方式で操作中</span>
   </div>
 
   <script src="overlay-renderer.js"></script>

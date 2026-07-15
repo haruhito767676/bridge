@@ -703,7 +703,7 @@ body.drag-mode #drop-zone.drag-over {
   color: var(--accent);
 }
 
-/* ---- リモート操作の短命な通知 (接続失敗 / Accessibility 権限案内) ---- */
+/* ---- マウス共有の短命な通知 (接続失敗 / Accessibility 権限案内) ---- */
 
 #control-toast {
   position: absolute;
