@@ -577,6 +577,106 @@ const MAX_IMAGE_HISTORY = 30;
 let lastClipText = '';
 let lastClipImageKey = '';
 let lastClipFileKey = ''; // Finder でコピーされたファイル群の同一判定キー (パスを \n 連結)
+// ---- コピー元アプリの取得 (アプリ名 + アイコン。ウインドウタイトルまでは取らない) ----
+
+// アプリバンドル/exe パス → アイコンの data URL のキャッシュ (同じアプリからの連続コピーで
+// 毎回ネイティブアイコン抽出をやり直さないため)
+const appIconCache = new Map();
+
+// Windows の .exe はレギュラーファイルなので Electron 標準の app.getFileIcon で実アイコンが取れる
+async function getExeIconDataUrl(filePath) {
+  if (appIconCache.has(filePath)) return appIconCache.get(filePath);
+  let dataUrl = null;
+  try {
+    const img = await app.getFileIcon(filePath, { size: 'normal' });
+    if (!img.isEmpty()) dataUrl = img.toDataURL();
+  } catch {
+    // アイコン抽出失敗時は名前だけのバッジにフォールバック
+  }
+  appIconCache.set(filePath, dataUrl);
+  return dataUrl;
+}
+
+// macOS の .app はディレクトリ (バンドル) なため、Electron の app.getFileIcon では
+// カスタムアイコンが解決されず汎用の書類アイコンしか返らない。Info.plist の
+// CFBundleIconFile が指す .icns を直接 sips で PNG 化して読む (いずれも macOS 標準コマンド)
+async function getMacAppIconDataUrl(bundlePath) {
+  if (appIconCache.has(bundlePath)) return appIconCache.get(bundlePath);
+  let dataUrl = null;
+  try {
+    const infoPlistBase = path.join(bundlePath, 'Contents', 'Info');
+    const { stdout } = await execFileAsync('defaults', ['read', infoPlistBase, 'CFBundleIconFile'], {
+      timeout: 2000,
+    });
+    let iconName = stdout.trim();
+    if (!/\.icns$/i.test(iconName)) iconName += '.icns';
+    const icnsPath = path.join(bundlePath, 'Contents', 'Resources', iconName);
+    const tmpPng = path.join(os.tmpdir(), `bridge-appicon-${crypto.randomUUID()}.png`);
+    try {
+      await execFileAsync(
+        'sips',
+        ['-s', 'format', 'png', icnsPath, '--out', tmpPng, '--resampleHeightWidthMax', '64'],
+        { timeout: 2000 },
+      );
+      const buf = await fsp.readFile(tmpPng);
+      dataUrl = `data:image/png;base64,${buf.toString('base64')}`;
+    } finally {
+      fsp.unlink(tmpPng).catch(() => {});
+    }
+  } catch {
+    // Info.plist にアイコン指定が無い/変換失敗時は名前だけのバッジにフォールバック
+  }
+  appIconCache.set(bundlePath, dataUrl);
+  return dataUrl;
+}
+
+async function getFrontmostAppMac() {
+  const { stdout } = await execFileAsync(
+    'osascript',
+    ['-e', 'POSIX path of (path to frontmost application)'],
+    { timeout: 2000 },
+  );
+  const bundlePath = stdout.trim().replace(/\/$/, '');
+  if (!bundlePath) return null;
+  const name = path.basename(bundlePath).replace(/\.app$/i, '');
+  const icon = await getMacAppIconDataUrl(bundlePath);
+  return { name, icon };
+}
+
+// GetForegroundWindow → そのプロセスの exe パスを取得する。ウインドウタイトルは取得しない
+const WIN_FRONT_APP_PS = [
+  'Add-Type -MemberDefinition \'[DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow(); [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint procId);\' -Name Win32 -Namespace Native | Out-Null',
+  '$hwnd = [Native.Win32]::GetForegroundWindow()',
+  '$procId = 0',
+  '[Native.Win32]::GetWindowThreadProcessId($hwnd, [ref]$procId) | Out-Null',
+  '(Get-Process -Id $procId).Path',
+].join('; ');
+
+async function getFrontmostAppWindows() {
+  const { stdout } = await execFileAsync(
+    'powershell',
+    ['-NoProfile', '-NonInteractive', '-Command', WIN_FRONT_APP_PS],
+    { timeout: 2000 },
+  );
+  const exePath = stdout.trim();
+  if (!exePath) return null;
+  const name = path.basename(exePath).replace(/\.exe$/i, '');
+  const icon = await getExeIconDataUrl(exePath);
+  return { name, icon };
+}
+
+// 直前のクリップボード変更検知からアプリ切り替えが起きていることは稀ではないため、
+// あくまでベストエフォート (取得失敗時は null を返し、バッジ無しにフォールバック)
+async function getFrontmostApp() {
+  try {
+    if (process.platform === 'darwin') return await getFrontmostAppMac();
+    if (process.platform === 'win32') return await getFrontmostAppWindows();
+  } catch (err) {
+    console.error('コピー元アプリの取得に失敗:', err);
+  }
+  return null;
+}
+
 let clipboardPolling = false;
 
 // Main 側で保持する履歴 (最新順)。テキストは「生データ + 裏で生成した .txt パス」の二刀流で持つ
@@ -801,6 +901,7 @@ async function pollClipboard() {
           timestamp: Date.now(),
           fromDevice: deviceName,
           fromPlatform: process.platform,
+          sourceApp: await getFrontmostApp(),
         };
         pushClipHistory(entry);
         sendClipboardItem(entry);
@@ -825,6 +926,7 @@ async function pollClipboard() {
             timestamp: Date.now(),
             fromDevice: deviceName,
             fromPlatform: process.platform,
+            sourceApp: await getFrontmostApp(),
           };
           pushClipHistory(entry);
           sendClipboardItem(entry);

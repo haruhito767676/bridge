@@ -1,8 +1,10 @@
 // シェルフのアイテム (最新順)。kind: 'file' | 'clip-text' | 'clip-image'
-// { kind, path, name, text, icon, isImage, downloading, removing, timestamp, fileKind, fromDevice, fromPlatform }
+// { kind, path, name, text, icon, isImage, downloading, removing, timestamp, fileKind, fromDevice, fromPlatform, sourceApp }
 // fileKind: kind === 'file' のアイテムに非同期で付与される Finder 純正の種類名 (例:「PDF書類」「フォルダ」)
 // fromDevice: 出身デバイス名。null / 自分のデバイス名なら「ローカル」、他拠点から同期されたものはその拠点名
 // fromPlatform: 出身デバイスの OS ('darwin' | 'win32' 等)。バッジの色分けに使う
+// sourceApp: コピー時にフロントにあったアプリの { name, icon(data URL) }。ローカルのクリップボード
+//            履歴 (clip-text/clip-image) にのみ付与され、他拠点から同期されたものには乗らない
 const items = [];
 const selectedItems = new Set();
 let lastSelectedIndex = null;
@@ -672,6 +674,7 @@ window.bridge.onClipboardItem((data) => {
     timestamp: data.timestamp,
     fromDevice: data.fromDevice || null,
     fromPlatform: data.fromPlatform || null,
+    sourceApp: data.sourceApp || null,
   };
   items.unshift(item);
   trimClipHistory();
@@ -1042,6 +1045,25 @@ function createDeviceBadge(item) {
   return badge;
 }
 
+// ---- コピー元アプリバッジ (アプリ名 + アイコンだけ。ウインドウタイトルは持たない) ----
+
+function createAppBadge(item) {
+  if (!item.sourceApp || !item.sourceApp.name) return null;
+  const badge = document.createElement('div');
+  badge.className = 'app-badge';
+  if (item.sourceApp.icon) {
+    const icon = document.createElement('img');
+    icon.className = 'app-badge-icon';
+    icon.src = item.sourceApp.icon;
+    icon.draggable = false;
+    badge.appendChild(icon);
+  }
+  const label = document.createElement('span');
+  label.textContent = item.sourceApp.name;
+  badge.appendChild(label);
+  return badge;
+}
+
 function render() {
   // リストを作り直すと mouseleave が発火しないままホバー元の要素が消えるため、
   // 残骸ツールチップをここで必ず取り除く
@@ -1128,10 +1150,12 @@ function render() {
     // 2段目: 出身地バッジ (例: [Mac])。外部デバイス由来のアイテムだけ改行して表示し、
     // ローカル生まれのものは行ごと DOM 生成をスキップしてカードの縦幅を詰める
     const deviceBadge = createDeviceBadge(item);
-    if (deviceBadge) {
+    const appBadge = createAppBadge(item);
+    if (deviceBadge || appBadge) {
       const badgeLine = document.createElement('div');
       badgeLine.className = 'item-badge-line';
-      badgeLine.appendChild(deviceBadge);
+      if (appBadge) badgeLine.appendChild(appBadge);
+      if (deviceBadge) badgeLine.appendChild(deviceBadge);
       lines.appendChild(badgeLine);
     }
 

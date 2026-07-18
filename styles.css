@@ -564,6 +564,47 @@ body.drag-mode #drop-zone.drag-over {
 .item-badge-line {
   display: flex;
   align-items: center;
+  gap: 4px;
+}
+
+/* ---- コピー元アプリバッジ (アプリアイコン + 名前だけの最小チップ) ---- */
+.app-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 6px 2px 4px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  max-width: 110px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.app-badge span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.app-badge-icon {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+}
+
+@media (prefers-color-scheme: light) {
+  .app-badge {
+    background: rgba(0, 0, 0, 0.07);
+    color: rgba(60, 60, 67, 0.72);
+    border-color: rgba(0, 0, 0, 0.05);
+  }
 }
 
 /* ---- 出身デバイスバッジ (外部デバイスから同期されたアイテムの見分け) ----
