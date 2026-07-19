@@ -339,7 +339,7 @@ function attachFileKind(item, filePath) {
 
 // ローカルファイルをリストへ追加する共通処理。
 // origin が渡された場合は他拠点から同期されてきたファイル ({ fromDevice, fromPlatform })
-function addLocalFile(filePath, fileName, origin) {
+function addLocalFile(filePath, fileName, origin, sourceApp) {
   if (!filePath) return;
   const name = fileName || filePath.split(/[\\/]/).pop(); // Windows のパス区切り (\) にも対応
   // 全く同じファイル (同一パス、または同一ファイル名) が既にあればカードを増やさず、
@@ -360,6 +360,7 @@ function addLocalFile(filePath, fileName, origin) {
     timestamp: Date.now(),
     fromDevice: origin ? origin.fromDevice : null,
     fromPlatform: origin ? origin.fromPlatform : null,
+    sourceApp: sourceApp || null,
   };
   items.unshift(item); // タイムライン表示のため最新を先頭へ
   trimFileHistory(); // 上限あふれの最古アイテムを外し、同期由来の一時ファイル実体もお掃除する
@@ -548,7 +549,7 @@ dropZone.addEventListener('drop', (e) => {
 // (旧形式のパス文字列が届いた場合もローカルファイルとして扱う)
 window.bridge.onAddFile((payload) => {
   if (payload && typeof payload === 'object') {
-    addLocalFile(payload.path, payload.name, payload.fromDevice ? payload : null);
+    addLocalFile(payload.path, payload.name, payload.fromDevice ? payload : null, payload.sourceApp);
   } else {
     addLocalFile(payload);
   }

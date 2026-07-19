@@ -402,12 +402,13 @@ ipcMain.handle('download-url', (_event, url) => downloadToLocal(url));
 
 // add-file の送信ペイロード。origin が無ければ自分のデバイスで生まれたファイル (fromDevice: null)、
 // あれば他拠点から同期されてきたファイルとして出身デバイス名とプラットフォームを添える
-function addFilePayload(filePath, origin) {
+function addFilePayload(filePath, origin, sourceApp) {
   return {
     path: filePath,
     name: path.basename(filePath),
     fromDevice: origin ? origin.fromDevice : null,
     fromPlatform: origin ? origin.fromPlatform : null,
+    sourceApp: sourceApp || null,
   };
 }
 
@@ -726,8 +727,8 @@ function sendClipboardItem(item) {
 
 // Finder のファイルコピーで検知したパスや他拠点から同期されたファイルを、
 // ウインドウを奪わずに通常ドロップと同じ扱いでリストへ追加する
-function addFileQuietly(filePath, origin) {
-  const payload = addFilePayload(filePath, origin);
+function addFileQuietly(filePath, origin, sourceApp) {
+  const payload = addFilePayload(filePath, origin, sourceApp);
   if (canSendToRenderer()) {
     win.webContents.send('add-file', payload);
   } else {
@@ -873,8 +874,9 @@ async function pollClipboard() {
       if (key !== lastClipFileKey) {
         lastClipFileKey = key;
         lastClipText = clipboard.readText(); // 付随テキストを履歴に入れない
+        const sourceApp = await getFrontmostApp();
         for (const p of copiedFiles) {
-          if (fs.existsSync(p)) addFileQuietly(p);
+          if (fs.existsSync(p)) addFileQuietly(p, null, sourceApp);
         }
       }
       return;
