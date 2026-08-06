@@ -14,6 +14,14 @@ const controlNet = require('./control-net');
 const controlInput = require('./control-input');
 const mouseCapture = require('./mouse-capture');
 
+// 開発時 (`npm start` / `electron .`) はインストール済みの本番 Bridge と userData
+// (設定・sync-config.json 等) を共有すると requestSingleInstanceLock が競合し、
+// 本番アプリが常駐しているだけで開発版が起動直後に app.quit() されてしまう。
+// パッケージ版とは別ディレクトリに退避して分離する。
+if (!app.isPackaged) {
+  app.setPath('userData', path.join(app.getPath('appData'), 'bridge-dev'));
+}
+
 let win = null;
 let rendererReady = false;
 // Renderer の準備が整う前に URL スキーム経由で届いたファイルを溜めるキュー
