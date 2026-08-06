@@ -4,7 +4,7 @@
   "description": "Mac/Windows 間でファイルやクリップボードを共有するユーティリティ (プロトタイプ: Yoink 風ファイルシェルフ)",
   "main": "main.js",
   "scripts": {
-    "start": "electron .",
+    "start": "node scripts/start.js",
     "build": "electron-builder",
     "build:mac": "electron-builder --mac"
   },
