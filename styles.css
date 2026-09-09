@@ -751,7 +751,7 @@ body.drag-mode #drop-zone.drag-over {
   color: var(--accent);
 }
 
-/* ---- 短命な通知 (マウス共有の接続失敗 / Accessibility 権限案内 / クリアの取り消し) ----
+/* ---- 短命な通知 (クリアの取り消しなど) ----
    用途ごとに #control-toast-title 等の中身と toast-accent-* だけを差し替えて使い回す */
 
 #control-toast {

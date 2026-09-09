@@ -576,7 +576,7 @@ window.bridge.onShelterExpanded(() => {
   searchBar.focus();
 });
 
-// ---- 短命な通知 (マウス共有の接続失敗 / Accessibility 権限案内 / クリアの取り消し) ----
+// ---- 短命な通知 (クリアの取り消しなど) ----
 // アイコン・タイトル・補足・任意のアクションボタンを持つ汎用トースト。
 // 用途ごとに showToast() へ渡す中身だけを変え、見た目とタイマー管理は 1 箇所に集約する
 
@@ -627,45 +627,6 @@ controlToastAction.addEventListener('click', (e) => {
   if (handler) handler();
 });
 controlToast.addEventListener('click', hideControlToast);
-
-// 接続失敗の理由ごとに、ユーザーが次に取るべき行動が分かる具体的な文言を出す。
-// 未知の reason (今後追加されうる前方互換の値) は補足なしにフォールバックする
-const CONNECT_FAILED_REASONS = {
-  'bad-token': 'secretToken が一致していません。sync-config.json の設定を確認してください',
-  'malformed-hello': '通信プロトコルの不整合が発生しました',
-  'accessibility-permission-required': '相手デバイスで Accessibility 権限が許可されていません',
-};
-
-window.bridge.onControlConnectFailed(({ device, reason }) => {
-  showToast({
-    icon: '⚠️',
-    title: `${device || '相手デバイス'} への接続に失敗しました`,
-    sub: CONNECT_FAILED_REASONS[reason] || '',
-    accent: 'red',
-  });
-});
-
-window.bridge.onAccessibilityPermissionNeeded(() => {
-  showToast({
-    icon: '🔒',
-    title: 'Accessibility権限が必要です',
-    sub: 'マウス共有を有効にするにはシステム設定で許可してください',
-    accent: 'amber',
-    actionLabel: '設定を開く',
-    onAction: () => window.bridge.requestAccessibilityPermission(),
-    durationMs: 8000,
-  });
-});
-
-window.bridge.onInputMonitoringPermissionNeeded(() => {
-  showToast({
-    icon: '🔒',
-    title: '入力監視の権限が必要です',
-    sub: 'この端末でのマウス操作に必要です（今回はフォールバック方式で継続します）',
-    accent: 'amber',
-    durationMs: 8000,
-  });
-});
 
 // ---- クリップボード履歴（Main の監視から届いた新規コピーをタイムライン先頭へ）----
 

@@ -23,25 +23,11 @@
       "renderer.js",
       "index.html",
       "styles.css",
-      "control-windows.js",
-      "control-net.js",
-      "control-input.js",
-      "mouse-capture.js",
-      "hud.html",
-      "hud.css",
-      "hud-renderer.js",
-      "overlay.html",
-      "overlay.css",
-      "overlay-renderer.js",
       "assets/**/*"
     ],
     "directories": {
       "output": "dist"
     },
-    "asarUnpack": [
-      "node_modules/@nut-tree-fork/**",
-      "node_modules/uiohook-napi/**"
-    ],
     "protocols": {
       "name": "Bridge URL Scheme",
       "schemes": [
@@ -58,9 +44,5 @@
     "linux": {
       "target": "AppImage"
     }
-  },
-  "dependencies": {
-    "@nut-tree-fork/nut-js": "^4.2.6",
-    "uiohook-napi": "^1.5.5"
   }
 }

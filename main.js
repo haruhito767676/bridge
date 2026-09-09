@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, net, screen, clipboard, nativeImage, Tray, globalShortcut } = require('electron');
+const { app, BrowserWindow, ipcMain, net, screen, clipboard, nativeImage, Tray } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const fsp = require('fs/promises');
@@ -9,10 +9,13 @@ const { pathToFileURL, fileURLToPath } = require('url');
 const { execFile } = require('child_process');
 const { promisify } = require('util');
 const execFileAsync = promisify(execFile);
-const controlWindows = require('./control-windows');
-const controlNet = require('./control-net');
-const controlInput = require('./control-input');
-const mouseCapture = require('./mouse-capture');
+
+// secretToken の定数時間比較。長さが違う場合は timingSafeEqual に渡す前に弾く。
+function tokensMatch(provided, expected) {
+  const a = Buffer.from(String(provided || ''), 'utf8');
+  const b = Buffer.from(String(expected || ''), 'utf8');
+  return a.length > 0 && b.length > 0 && a.length === b.length && crypto.timingSafeEqual(a, b);
+}
 
 // 開発時 (`npm start` / `electron .`) はインストール済みの本番 Bridge と userData
 // (設定・sync-config.json 等) を共有すると requestSingleInstanceLock が競合し、
@@ -1096,7 +1099,6 @@ app.on('will-quit', () => {
     }
   }
   sessionTempFiles.clear();
-  globalShortcut.unregisterAll();
 });
 
 // ---- マルチデバイス全自動同期 (軽量 HTTP サーバー + ピア発見 + 差分同期) ----
@@ -1115,7 +1117,8 @@ app.on('will-quit', () => {
 
 let deviceName = os.hostname();
 
-// HUD に表示するデバイスアイコンの許容バリエーション (未設定・未知の値はフォールバック枠を表示させる)
+// デバイスアイコンの許容バリエーション。sync-config.json の iconType として受け取り、
+// 同期ペイロードでピア間に伝播する (未設定・未知の値はフォールバック枠を表示させる)
 const ALLOWED_ICON_TYPES = ['win_laptop', 'macbook', 'win_desktop'];
 let myIconType = null;
 
@@ -1181,7 +1184,7 @@ function loadSyncConfig() {
     if (typeof parsed.myDeviceName === 'string' && parsed.myDeviceName.trim()) {
       deviceName = parsed.myDeviceName.trim();
     }
-    // iconType: HUD に表示する自端末のハードウェアアイコン種別。未知の値は無視してフォールバックに委ねる
+    // iconType: 自端末のハードウェアアイコン種別。未知の値は無視してフォールバックに委ねる
     if (typeof parsed.iconType === 'string' && ALLOWED_ICON_TYPES.includes(parsed.iconType)) {
       myIconType = parsed.iconType;
     }
@@ -1552,9 +1555,8 @@ function respondJson(res, obj) {
 }
 
 // リクエストヘッダーの secretToken を厳格に照合する。
-// 定数時間比較 (tokensMatch) はマウス共有の TCP コントロールチャネルとも共有する
 function isAuthorizedRequest(req) {
-  return controlNet.tokensMatch(req.headers[SYNC_TOKEN_HEADER], syncConfig.secretToken);
+  return tokensMatch(req.headers[SYNC_TOKEN_HEADER], syncConfig.secretToken);
 }
 
 function startSyncServer() {
@@ -1760,12 +1762,6 @@ function startDeviceSync() {
 // Renderer が「ローカル / 他拠点」バッジを出し分けるための自分自身の情報
 ipcMain.handle('get-device-info', () => ({ device: deviceName, platform: process.platform }));
 
-// 通知トーストの「設定を開く」ボタンから呼ばれる。未許可であれば isTrustedAccessibilityClient(true)
-// が macOS 標準の「システム設定へ促す」ダイアログを開く (control-input.js 側の実装を再利用)
-ipcMain.on('request-accessibility-permission', () => {
-  controlInput.requestAccessibilityPermission();
-});
-
 // ---- フォルダの自動 .zip 化 (フォルダ除外ガードのアップグレード) ----
 // /file はフォルダをストリーム配信できないため、フォルダは登録前に OS 標準コマンドで
 // 「フォルダ名.zip」へ裏圧縮し、その zip の実体を同期相手へストリーム転送する。
@@ -1841,305 +1837,10 @@ ipcMain.on('sync-register-file', (_event, payload) => {
   });
 });
 
-// ---- マウス共有 HUD ----
-//
-// Tab で選択移動 → Enter で確定 → Esc でキャンセル、という一連の UI ロジックは
-// hud-renderer.js 側に閉じている。Main は「開く/閉じる/確定結果を受け取る」だけを担う。
-// デバイス一覧は既存のマルチデバイス同期の knownPeers Map をそのまま再利用する
-// (同期用ピア発見の仕組みに相乗りし、別建ての発見機構は持たない)。
-
-const HUD_SHORTCUT = 'Shift+Alt+Space';
-
-// knownPeers を丸ごと HUD へ渡す (オフラインのピアもグレーアウト表示のため含める)。
-// isOnline は直近の /ping 応答・差分同期の成否を反映する。
-// 先頭に自分自身 ("この端末") を常に含め、操作を自分へ戻す選択肢として使えるようにする
-function getKnownDevicesForHud() {
-  const peers = [...knownPeers.values()].map((peer) => ({
-    id: `${peer.host}:${peer.port}`,
-    device: peer.device || peer.host,
-    iconType: peer.iconType || null,
-    isSelf: false,
-    isOnline: !!peer.online,
-  }));
-  return [{ id: 'self', device: deviceName, iconType: myIconType, isSelf: true, isOnline: true }, ...peers];
-}
-
-// HUD 最上部のセッション状態タブ用。controller として他デバイスへマウスを転送中なら
-// 'host'、target として他デバイスから操作を受け入れ中なら 'client'、どちらでもなければ
-// 'idle'。controlSession (controller 側) と activeTargetSession (target 側) は排他的に
-// しか埋まらない想定 (§SPEC 11-10 の通り双方向同時セッションは非対応) だが、念のため
-// controlSession を優先する
-function getHudSessionStatus() {
-  if (controlSession) return { status: 'host', targetDevice: controlSession.targetDevice };
-  if (activeTargetSession) return { status: 'client', targetDevice: activeTargetSession.fromDevice };
-  return { status: 'idle', targetDevice: null };
-}
-
-// マウス共有系の通知 (接続失敗・権限案内) を送る前に呼ぶ。シェルフは普段
-// TAB_WIDTH (15px) の「つまみ」に格納されており、その状態のままだとトースト
-// (styles.css #control-toast) はウインドウ外にクリップされて実質見えない。
-// ユーザーの対応が必要な通知なので、送出前にシェルフを強制展開して確実に見せる
-function revealShelfForNotice() {
-  if (!winAlive()) return;
-  if (win.isMinimized()) win.restore();
-  placeOnCursorDisplay(expanded);
-  win.show();
-  win.focus();
-  expandShelter();
-}
-
-function toggleHud() {
-  // 操作セッション中のホットキーは「セッション終了 → HUD 再表示」として扱う。
-  // globalShortcut は OS レベルでキーを消費するため、before-input-event 側の
-  // 予約コンボ (handleOverlayBeforeInput) には実際にはほぼ届かない。つまり
-  // ここがセッションからの脱出経路の本命であり、終了せずに HUD だけ出すと
-  // オーバーレイとフォーカスを奪い合って HUD が操作不能になる
-  if (controlSession) {
-    endControlSession('user-confirmed');
-    controlWindows.showHud(getKnownDevicesForHud(), getHudSessionStatus());
-    return;
-  }
-  if (controlWindows.isHudVisible()) {
-    controlWindows.hideHud();
-  } else {
-    controlWindows.showHud(getKnownDevicesForHud(), getHudSessionStatus());
-  }
-}
-
-// ---- controller (操作元) 側のセッション状態機械 ----
-//
-// null (待機中) | { role: 'controller', state: 'connecting' | 'hosting', targetId,
-//                   targetDevice, sessionId, client, display }
-// 複数経路 (release コンボ・異常切断・接続エラー) から endControlSession が
-// 競合して呼ばれうるため、null 化を先に行うことで冪等性を保証する
-let controlSession = null;
-
-// ---- target (操作先) 側のセッション状態 ----
-//
-// null (待機中) | { fromDevice, session } — 他デバイスから control-start を受理し、
-// 現在このデバイスへマウス入力が注入されている間だけ埋まる。HUD 最上部の [Client]
-// ステータスタブ表示にのみ使う (実際の入力注入自体は startControlSubsystem の
-// session.on('input', ...) がセッションの生死に関係なく処理する)
-let activeTargetSession = null;
-
-function startControlSession(targetId) {
-  const peer = knownPeers.get(targetId);
-  if (!peer || !peer.online) return; // オフラインのピアへは HUD 側で操作をブロックしているが、念のため二重に防ぐ
-  const targetDevice = peer.device || peer.host;
-  const sessionId = crypto.randomUUID();
-  const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
-
-  const client = controlNet.connectToPeer(peer.host, controlNet.CONTROL_PORT, {
-    getToken: () => syncConfig.secretToken,
-    getDeviceName: () => deviceName,
-  });
-  controlSession = { role: 'controller', state: 'connecting', targetId, targetDevice, sessionId, client, display };
-  controlWindows.setSessionStatus(getHudSessionStatus());
-
-  // 差し替え・終了済みの古い接続からの遅延イベントを無視するためのガード
-  const isCurrent = () => controlSession && controlSession.sessionId === sessionId;
-
-  client.on('ready', async () => {
-    if (!isCurrent()) return;
-    client.send({ type: 'control-start', id: sessionId, fromDevice: deviceName, timestamp: Date.now() });
-    controlSession.state = 'hosting';
-    controlWindows.setSessionStatus(getHudSessionStatus());
-
-    // マウス捕捉方式の決定: ネイティブグローバルフックが使える環境では
-    // uiohook-napi + 再センタリング方式 (mouse-capture.js) を使い、モジュール
-    // 未ロード (未署名バイナリブロック等) や macOS の Input Monitoring 権限
-    // 未許可の場合は既存の Pointer Lock 方式へフォールバックする。
-    // Accessibility (target 側) と異なり、権限不足でもセッション自体は拒否せず
-    // 劣化した形で継続させる (§12.6)
-    let mouseMode = 'pointer-lock';
-    if (mouseCapture.isModuleAvailable()) {
-      const available = await mouseCapture.probeNativeCapture();
-      if (available) mouseMode = 'native';
-      else if (process.platform === 'darwin' && canSendToRenderer()) {
-        win.webContents.send('input-monitoring-permission-needed');
-      }
-    }
-    if (!isCurrent()) return; // プローブ待ちの間にセッションが差し替え/終了した場合のガード
-
-    controlSession.mouseMode = mouseMode;
-    if (mouseMode === 'native') {
-      mouseCapture.startCapture({
-        onDelta: (dx, dy) => {
-          if (controlSession?.state === 'hosting') {
-            controlSession.client.send({ type: 'mouse-move', dx, dy, ts: Date.now() });
-          }
-        },
-      });
-    }
-    controlWindows.showOverlay(display, targetDevice, mouseMode);
-  });
-
-  client.on('message', (msg) => {
-    if (!isCurrent() || msg.type !== 'control-start-reject') return;
-    if (canSendToRenderer()) {
-      revealShelfForNotice();
-      win.webContents.send('control-connect-failed', { device: targetDevice, reason: msg.reason });
-    }
-    endControlSession('reject', true);
-  });
-
-  client.on('reject', (reason) => {
-    if (!isCurrent()) return;
-    if (canSendToRenderer()) {
-      revealShelfForNotice();
-      win.webContents.send('control-connect-failed', { device: targetDevice, reason });
-    }
-    controlSession = null;
-    controlWindows.setSessionStatus(getHudSessionStatus());
-  });
-
-  client.on('error', () => {
-    if (!isCurrent()) return;
-    if (canSendToRenderer()) {
-      revealShelfForNotice();
-      win.webContents.send('control-connect-failed', { device: targetDevice, reason: 'error' });
-    }
-    endControlSession('error', true);
-  });
-
-  client.on('close', () => {
-    if (!isCurrent()) return;
-    endControlSession('peer-disconnected', true);
-  });
-}
-
-// セッション終了の唯一の入口。skipSend は「相手が既にいなくなっている」経路
-// (異常切断・エラー・拒否) で二重に control-end を送らないためのフラグ
-function endControlSession(reason, skipSend) {
-  if (!controlSession) return; // 冪等: 複数経路からの二重呼び出しに備える
-  const session = controlSession;
-  controlSession = null;
-  controlWindows.setSessionStatus(getHudSessionStatus());
-  if (session.mouseMode === 'native') mouseCapture.stopCapture();
-  controlWindows.hideOverlay();
-  if (!skipSend && session.state === 'hosting') {
-    session.client.send({ type: 'control-end', id: session.sessionId, reason });
-  }
-  session.client.close();
-}
-
-// ---- 全画面キャプチャオーバーレイの IPC 配線 ----
-//
-// 捕捉した入力イベントは間引かずそのまま TCP コントロールチャネルへ送出する
-
-ipcMain.on('overlay-mouse-move', (_event, { dx, dy }) => {
-  if (controlSession?.state === 'hosting') controlSession.client.send({ type: 'mouse-move', dx, dy, ts: Date.now() });
-});
-ipcMain.on('overlay-mouse-button', (_event, { button, action }) => {
-  if (controlSession?.state === 'hosting') controlSession.client.send({ type: 'mouse-button', button, action, ts: Date.now() });
-});
-ipcMain.on('overlay-wheel', (_event, { dx, dy }) => {
-  if (controlSession?.state === 'hosting') controlSession.client.send({ type: 'wheel', dx, dy, ts: Date.now() });
-});
-// ---- ホスト側の予約コンボ検知 (before-input-event) ----
-//
-// Bridge は純粋なマウス共有機能であり、キーボードの転送・注入は一切行わない
-// (物理キーボードは各デバイスでそのまま使う運用を前提とする)。ただし
-// Shift+Alt+Space によるセッション終了 → HUD 復帰は、globalShortcut が
-// OS レベルでキーを消費してしまいこのコンボがオーバーレイまで届かないケースの
-// フォールバックとして、オーバーレイ webContents の before-input-event でも
-// 検知する (本命は toggleHud() 経由の globalShortcut 登録、§SPEC 12.3)
-function handleOverlayBeforeInput(event, input) {
-  if (controlSession?.state !== 'hosting') return;
-  if (input.type !== 'keyDown' && input.type !== 'rawKeyDown') return;
-  if (input.code === 'Space' && input.shift && input.alt) {
-    event.preventDefault();
-    endControlSession('user-confirmed');
-    controlWindows.showHud(getKnownDevicesForHud(), getHudSessionStatus());
-  }
-}
-
-// TCP コントロールチャネルのサーバー側 (target) は、同期 HTTP サーバーと同様に
-// 全デバイスが起動時から常時listenする (どのデバイスもいつでも target になりうる)。
-// 実際の入力注入は nut-js ラッパー (control-input.js) の各 inject*() へ配線する。
-function startControlSubsystem() {
-  const server = controlNet.startControlServer({
-    getToken: () => syncConfig.secretToken,
-    getDeviceName: () => deviceName,
-  });
-  server.on('session', (session) => {
-    console.log('[control] session opened from', session.fromDevice, session.fromPlatform);
-
-    // 異常切断・タイムアウト・明示的 control-end のいずれでも必ず一度だけ呼ばれる。
-    // 押しっぱなしのキー/ボタンを target 側に残さないための最重要の安全弁
-    session.on('close', () => {
-      controlInput.releaseAllHeld().catch((err) => console.error('[control] releaseAllHeld 失敗:', err));
-      // このセッションが HUD の [Client] ステータスタブの表示元だった場合のみクリアする
-      // (差し替え済みの古いセッションの close で最新セッションを誤って消さないためのガード)
-      if (activeTargetSession && activeTargetSession.session === session) {
-        activeTargetSession = null;
-        controlWindows.setSessionStatus(getHudSessionStatus());
-      }
-    });
-
-    session.on('control-start', (msg) => {
-      console.log('[control] control-start id=%s from=%s', msg.id, msg.fromDevice);
-      if (!controlInput.hasAccessibilityPermission()) {
-        session.send({ type: 'control-start-reject', reason: 'accessibility-permission-required' });
-        controlInput.requestAccessibilityPermission();
-        if (canSendToRenderer()) {
-          revealShelfForNotice();
-          win.webContents.send('accessibility-permission-needed');
-        }
-        session.close('accessibility-permission-required');
-        return;
-      }
-      // このデバイスが target として他デバイスから操作を受け入れ中であることを HUD へ反映する
-      activeTargetSession = { fromDevice: msg.fromDevice, session };
-      controlWindows.setSessionStatus(getHudSessionStatus());
-    });
-
-    session.on('input', (msg) => {
-      switch (msg.type) {
-        case 'mouse-move':
-          controlInput.injectMouseMove(msg.dx, msg.dy).catch((err) => console.error('[control] injectMouseMove 失敗:', err));
-          break;
-        case 'mouse-button':
-          controlInput.injectMouseButton(msg.button, msg.action).catch((err) => console.error('[control] injectMouseButton 失敗:', err));
-          break;
-        case 'wheel':
-          controlInput.injectWheel(msg.dx, msg.dy).catch((err) => console.error('[control] injectWheel 失敗:', err));
-          break;
-        default:
-          break; // 前方互換: 未知の入力種別は無視
-      }
-    });
-
-    session.on('control-end', (msg) => {
-      console.log('[control] control-end reason=%s', msg.reason);
-    });
-  });
-  return server;
-}
-
-ipcMain.on('hud-confirm', (_event, deviceId) => {
-  controlWindows.hideHud();
-  if (deviceId === 'self') {
-    endControlSession('user-confirmed'); // 操作中でなければ何もしない (endControlSession は冪等)
-    return;
-  }
-  if (controlSession) endControlSession('user-confirmed'); // 既存セッションがあれば先に畳んでから乗り換える
-  startControlSession(deviceId);
-});
-
-ipcMain.on('hud-cancel', () => {
-  controlWindows.hideHud();
-});
-
 app.whenReady().then(() => {
   if (!gotSingleInstanceLock) return; // 多重起動の第2インスタンスは何も起動せず quit を待つ
   createWindow();
   createTray();
-  controlWindows.createHudWindow();
-  controlWindows.createOverlayWindow();
-  controlWindows.overlayWebContents()?.on('before-input-event', handleOverlayBeforeInput);
-  globalShortcut.register(HUD_SHORTCUT, toggleHud);
-  startControlSubsystem();
   startClipboardWatcher();
   startEdgeRevealWatcher();
   startDeviceSync();
