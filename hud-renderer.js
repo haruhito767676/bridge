@@ -16,11 +16,23 @@ let selectedIndex = 0;
 // hud-session-status (リアルタイム差分) の両方で更新される
 let sessionStatus = { status: 'idle', targetDevice: null };
 
-// HUD 最上部のステータスタブ。Idle は非表示、Host/Client はバッジで表示する
+// 一度でも実際に切り替えに成功したユーザーには、以後この案内を出さない
+const ONBOARD_SEEN_KEY = 'bridge-hud-onboarded';
+
+// HUD 最上部のステータスタブ。Idle は非表示、Host/Client はバッジで表示する。
+// ただし初回だけは Idle 中に「操作方法」の案内をここに出す (高さは常に確保済みなので跳ねない)
 function renderStatusTab() {
   statusTabEl.innerHTML = '';
   statusTabEl.classList.remove('is-host', 'is-client');
-  if (!sessionStatus || sessionStatus.status === 'idle') return;
+  if (!sessionStatus || sessionStatus.status === 'idle') {
+    if (!localStorage.getItem(ONBOARD_SEEN_KEY) && devices.length > 1) {
+      const hint = document.createElement('div');
+      hint.className = 'hud-onboard-hint';
+      hint.textContent = 'Tab で選択 → Enter で切り替え';
+      statusTabEl.appendChild(hint);
+    }
+    return;
+  }
 
   statusTabEl.classList.add(sessionStatus.status === 'host' ? 'is-host' : 'is-client');
 
@@ -56,6 +68,8 @@ function confirmDevice(d, card) {
     shakeCard(card);
     return;
   }
+  // 実際に他デバイスへ切り替えるところまで到達したら、以後の初回案内は不要と判断する
+  if (!d.isSelf) localStorage.setItem(ONBOARD_SEEN_KEY, '1');
   window.bridge.hudConfirm(d.id);
 }
 

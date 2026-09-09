@@ -83,6 +83,10 @@ contextBridge.exposeInMainWorld('bridge', {
   onAccessibilityPermissionNeeded: (callback) =>
     ipcRenderer.on('accessibility-permission-needed', () => callback()),
 
+  // 通知トーストの「設定を開く」から呼ばれる。既に許可済みなら何も起きず、
+  // 未許可なら macOS 標準の「システム設定へ促す」ダイアログが Main 側の処理で開く
+  requestAccessibilityPermission: () => ipcRenderer.send('request-accessibility-permission'),
+
   // controller 側 (host) で macOS の Input Monitoring 権限が未許可のままネイティブ
   // マウス捕捉を試みた際の通知。target 側の Accessibility 未許可とは異なりセッション
   // は拒否されず Pointer Lock 方式へフォールバックして継続する

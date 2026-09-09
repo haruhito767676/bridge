@@ -13,6 +13,7 @@ const dropZone = document.getElementById('drop-zone');
 const listEl = document.getElementById('file-list');
 const emptyEl = document.getElementById('empty-state');
 const emptyLabel = emptyEl.querySelector('.empty-label');
+const emptySub = emptyEl.querySelector('.empty-sub');
 const countEl = document.getElementById('item-count');
 const clearBtn = document.getElementById('clear-button');
 const searchBar = document.getElementById('search-bar');
@@ -257,6 +258,19 @@ function setDragMode(on) {
 
 document.addEventListener('mouseenter', () => window.bridge.expandShelter());
 document.addEventListener('mouseleave', () => window.bridge.collapseShelter());
+
+// つまみ自体は 15px の薄い帯だけなので、初見では「クリックで展開できる」と
+// 気づきにくい。少し粘ってホバーし続けたときだけ控えめな説明を出す
+const handleEl = document.getElementById('handle');
+let handleHintTimer = null;
+
+handleEl.addEventListener('mouseenter', () => {
+  handleHintTimer = setTimeout(() => showTooltip(handleEl, 'クリックで展開', 'right'), 600);
+});
+handleEl.addEventListener('mouseleave', () => {
+  clearTimeout(handleHintTimer);
+  hideTooltip();
+});
 
 document.addEventListener('dragenter', () => {
   if (draggingOut) return;
@@ -562,10 +576,17 @@ window.bridge.onShelterExpanded(() => {
   searchBar.focus();
 });
 
-// ---- マウス共有の短命な通知 (接続失敗 / Accessibility 権限案内) ----
+// ---- 短命な通知 (マウス共有の接続失敗 / Accessibility 権限案内 / クリアの取り消し) ----
+// アイコン・タイトル・補足・任意のアクションボタンを持つ汎用トースト。
+// 用途ごとに showToast() へ渡す中身だけを変え、見た目とタイマー管理は 1 箇所に集約する
 
 const controlToast = document.getElementById('control-toast');
+const controlToastIcon = document.getElementById('control-toast-icon');
+const controlToastTitle = document.getElementById('control-toast-title');
+const controlToastSub = document.getElementById('control-toast-sub');
+const controlToastAction = document.getElementById('control-toast-action');
 let controlToastTimer = null;
+let controlToastActionHandler = null;
 
 function hideControlToast() {
   controlToast.classList.remove('visible');
@@ -573,26 +594,42 @@ function hideControlToast() {
     clearTimeout(controlToastTimer);
     controlToastTimer = null;
   }
+  controlToastActionHandler = null;
 }
 
-function showControlToast(message, durationMs = 4000) {
-  controlToast.textContent = message;
+// accent: 'neutral' (情報) | 'amber' (システム設定での許可が要る) | 'red' (失敗・削除など後戻りが要る操作)
+function showToast({ icon = '', title, sub = '', actionLabel = null, onAction = null, accent = 'neutral', durationMs = 4000 }) {
+  controlToastIcon.textContent = icon;
+  controlToastTitle.textContent = title;
+  controlToastSub.textContent = sub;
+  if (actionLabel) {
+    controlToastAction.textContent = actionLabel;
+    controlToastAction.hidden = false;
+    controlToastActionHandler = onAction || null;
+  } else {
+    controlToastAction.hidden = true;
+    controlToastActionHandler = null;
+  }
+  controlToast.classList.toggle('toast-accent-amber', accent === 'amber');
+  controlToast.classList.toggle('toast-accent-red', accent === 'red');
   controlToast.hidden = false;
   controlToast.classList.add('visible');
   if (controlToastTimer) clearTimeout(controlToastTimer);
-  controlToastTimer = setTimeout(() => {
-    controlToast.classList.remove('visible');
-    controlToastTimer = null;
-  }, durationMs);
+  controlToastTimer = setTimeout(hideControlToast, durationMs);
 }
 
-// 表示中はユーザーの注意を引きたい通知だが、内容を確認したらタイマーを待たず
-// 自分の判断ですぐ閉じられるようにする
-// (#control-toast は既に cursor: pointer なので、クリック可能であることは見た目からも分かる)
+// アクションボタンはクリックでハンドラを実行してから閉じる。トースト本体側のクリックは
+// 内容を確認し終えた際にタイマーを待たず自分の判断で閉じるための従来通りの挙動を維持する
+controlToastAction.addEventListener('click', (e) => {
+  e.stopPropagation(); // 親の #control-toast click (即時クローズ) に伝播させない
+  const handler = controlToastActionHandler;
+  hideControlToast();
+  if (handler) handler();
+});
 controlToast.addEventListener('click', hideControlToast);
 
 // 接続失敗の理由ごとに、ユーザーが次に取るべき行動が分かる具体的な文言を出す。
-// 未知の reason (今後追加されうる前方互換の値) は汎用メッセージへフォールバックする
+// 未知の reason (今後追加されうる前方互換の値) は補足なしにフォールバックする
 const CONNECT_FAILED_REASONS = {
   'bad-token': 'secretToken が一致していません。sync-config.json の設定を確認してください',
   'malformed-hello': '通信プロトコルの不整合が発生しました',
@@ -600,17 +637,34 @@ const CONNECT_FAILED_REASONS = {
 };
 
 window.bridge.onControlConnectFailed(({ device, reason }) => {
-  const detail = CONNECT_FAILED_REASONS[reason];
-  const base = `${device || '相手デバイス'} への接続に失敗しました`;
-  showControlToast(detail ? `${base}（${detail}）` : base);
+  showToast({
+    icon: '⚠️',
+    title: `${device || '相手デバイス'} への接続に失敗しました`,
+    sub: CONNECT_FAILED_REASONS[reason] || '',
+    accent: 'red',
+  });
 });
 
 window.bridge.onAccessibilityPermissionNeeded(() => {
-  showControlToast('マウス共有には Accessibility 権限が必要です。システム設定で許可してください', 8000);
+  showToast({
+    icon: '🔒',
+    title: 'Accessibility権限が必要です',
+    sub: 'マウス共有を有効にするにはシステム設定で許可してください',
+    accent: 'amber',
+    actionLabel: '設定を開く',
+    onAction: () => window.bridge.requestAccessibilityPermission(),
+    durationMs: 8000,
+  });
 });
 
 window.bridge.onInputMonitoringPermissionNeeded(() => {
-  showControlToast('この端末でのマウス操作には「入力監視」権限が必要です。システム設定で許可してください（今回はフォールバック方式で操作を継続します）', 8000);
+  showToast({
+    icon: '🔒',
+    title: '入力監視の権限が必要です',
+    sub: 'この端末でのマウス操作に必要です（今回はフォールバック方式で継続します）',
+    accent: 'amber',
+    durationMs: 8000,
+  });
 });
 
 // ---- クリップボード履歴（Main の監視から届いた新規コピーをタイムライン先頭へ）----
@@ -1009,23 +1063,33 @@ function hideTooltip() {
   }
 }
 
-function showTooltip(target, text) {
+// placement: 'below' (カードのタイトル用、デフォルト) | 'right' (つまみのように
+// 縦長で高さいっぱいの要素の右側に、縦中央揃えで出したい場合)
+function showTooltip(target, text, placement = 'below') {
   hideTooltip();
   tooltipEl = document.createElement('div');
   tooltipEl.className = 'bridge-tooltip';
   tooltipEl.textContent = text;
   document.body.appendChild(tooltipEl);
 
-  // カード (タイトル要素) のすぐ下に出し、実寸を測ってから画面端からのはみ出しを補正する
   const rect = target.getBoundingClientRect();
   const tipRect = tooltipEl.getBoundingClientRect();
-  let left = rect.left;
-  let top = rect.bottom + 6;
-  if (left + tipRect.width > window.innerWidth - 8) {
-    left = Math.max(8, window.innerWidth - 8 - tipRect.width);
-  }
-  if (top + tipRect.height > window.innerHeight - 8) {
-    top = rect.top - tipRect.height - 6; // 下に収まらないときだけ上に反転
+  let left;
+  let top;
+
+  if (placement === 'right') {
+    left = rect.right + 6;
+    top = Math.max(8, Math.min(window.innerHeight - 8 - tipRect.height, window.innerHeight / 2 - tipRect.height / 2));
+  } else {
+    // カード (タイトル要素) のすぐ下に出し、実寸を測ってから画面端からのはみ出しを補正する
+    left = rect.left;
+    top = rect.bottom + 6;
+    if (left + tipRect.width > window.innerWidth - 8) {
+      left = Math.max(8, window.innerWidth - 8 - tipRect.width);
+    }
+    if (top + tipRect.height > window.innerHeight - 8) {
+      top = rect.top - tipRect.height - 6; // 下に収まらないときだけ上に反転
+    }
   }
   tooltipEl.style.left = `${left}px`;
   tooltipEl.style.top = `${top}px`;
@@ -1177,8 +1241,11 @@ function render() {
   const noItems = items.length === 0;
   const noVisible = visibleItems.length === 0;
 
-  // 検索で 0 件のときはプレースホルダの文言を切り替えて「該当なし」を伝える
+  // 検索で 0 件のときはプレースホルダの文言を切り替えて「該当なし」を伝える。
+  // クリップボード自動収集のヒントは「本当に何もない」ときだけの案内なので、
+  // 検索で絞り込んだ結果 0 件になっただけのときは引っ込める
   emptyLabel.textContent = noItems ? 'ここにファイルをドロップ' : '一致するアイテムがありません';
+  emptySub.hidden = !noItems;
   emptyEl.hidden = !noVisible;
   listEl.hidden = noVisible;
   countEl.textContent = noItems
@@ -1194,9 +1261,23 @@ function render() {
 }
 
 clearBtn.addEventListener('click', () => {
+  if (items.length === 0) return;
+  // 誤操作からの回復手段として、消した内容そのものをクロージャに保持して
+  // 「元に戻す」で丸ごと復元できるようにする (ディスク上のファイルには一切触れないため安全)
+  const removed = items.slice();
   items.length = 0;
   selectedItems.clear();
   render();
+  showToast({
+    icon: '🗑️',
+    title: `${removed.length}件を削除しました`,
+    actionLabel: '元に戻す',
+    onAction: () => {
+      items.unshift(...removed);
+      render();
+    },
+    durationMs: 5000,
+  });
 });
 
 render();

@@ -1760,6 +1760,12 @@ function startDeviceSync() {
 // Renderer が「ローカル / 他拠点」バッジを出し分けるための自分自身の情報
 ipcMain.handle('get-device-info', () => ({ device: deviceName, platform: process.platform }));
 
+// 通知トーストの「設定を開く」ボタンから呼ばれる。未許可であれば isTrustedAccessibilityClient(true)
+// が macOS 標準の「システム設定へ促す」ダイアログを開く (control-input.js 側の実装を再利用)
+ipcMain.on('request-accessibility-permission', () => {
+  controlInput.requestAccessibilityPermission();
+});
+
 // ---- フォルダの自動 .zip 化 (フォルダ除外ガードのアップグレード) ----
 // /file はフォルダをストリーム配信できないため、フォルダは登録前に OS 標準コマンドで
 // 「フォルダ名.zip」へ裏圧縮し、その zip の実体を同期相手へストリーム転送する。

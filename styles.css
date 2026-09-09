@@ -392,6 +392,13 @@ body.drag-mode #drop-zone.drag-over {
   font-size: 13px;
 }
 
+/* クリップボード履歴が自動で貯まることの案内。ドロップ訴求とぶつからないよう控えめに */
+.empty-sub {
+  font-size: 11px;
+  color: var(--fg-dim);
+  opacity: 0.75;
+}
+
 /* ---- ファイルリスト ---- */
 
 #file-list {
@@ -744,20 +751,24 @@ body.drag-mode #drop-zone.drag-over {
   color: var(--accent);
 }
 
-/* ---- マウス共有の短命な通知 (接続失敗 / Accessibility 権限案内) ---- */
+/* ---- 短命な通知 (マウス共有の接続失敗 / Accessibility 権限案内 / クリアの取り消し) ----
+   用途ごとに #control-toast-title 等の中身と toast-accent-* だけを差し替えて使い回す */
 
 #control-toast {
   position: absolute;
   left: 50%;
   bottom: 54px;
   transform: translateX(-50%);
-  max-width: 280px;
-  padding: 8px 14px;
-  border-radius: 9px;
-  background: rgba(0, 0, 0, 0.78);
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  max-width: 300px;
+  padding: 9px 10px 9px 12px;
+  border-radius: 10px;
+  border-left: 3px solid rgba(255, 255, 255, 0.35);
+  background: rgba(20, 20, 20, 0.92);
   color: #fff;
   font-size: 12px;
-  text-align: center;
   line-height: 1.4;
   opacity: 0;
   pointer-events: none;
@@ -769,4 +780,65 @@ body.drag-mode #drop-zone.drag-over {
   opacity: 1;
   pointer-events: auto;
   cursor: pointer;
+}
+
+/* 要許可 (システム設定を開く必要がある) */
+#control-toast.toast-accent-amber {
+  border-left-color: #ff9f0a;
+}
+
+/* 失敗 / 削除のような後戻りが要る操作 */
+#control-toast.toast-accent-red {
+  border-left-color: #ff453a;
+}
+
+.toast-icon {
+  flex-shrink: 0;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.toast-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.toast-title {
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.toast-sub {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.toast-sub:empty {
+  display: none;
+}
+
+.toast-action {
+  flex-shrink: 0;
+  align-self: center;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 5px 10px;
+  border: none;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+  cursor: pointer;
+  transition: background-color 0.12s;
+}
+
+.toast-action:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.toast-action[hidden] {
+  display: none;
 }

@@ -24,7 +24,7 @@
           <span id="filter-badge-label"></span>
           <button id="filter-badge-remove" title="フィルターを解除" tabindex="-1">×</button>
         </span>
-        <input id="search-bar" type="search" placeholder="アイテムを検索"
+        <input id="search-bar" type="search" placeholder="アイテムを検索 ・「:」で絞り込み"
                spellcheck="false" autocomplete="off" />
       </div>
       <ul id="search-suggest" hidden></ul>
@@ -40,6 +40,7 @@
           <path d="M8 32v4a4 4 0 0 0 4 4h24a4 4 0 0 0 4-4v-4" />
         </svg>
         <p class="empty-label">ここにファイルをドロップ</p>
+        <p class="empty-sub">⌘Cでコピーした内容も自動で並びます</p>
       </div>
 
       <!-- ドロップされたファイルのリスト -->
@@ -62,8 +63,16 @@
       <p>ここにドロップして追加</p>
     </div>
 
-    <!-- マウス共有の接続失敗・Accessibility 権限案内などの短命な通知 -->
-    <div id="control-toast" hidden></div>
+    <!-- マウス共有の接続失敗・Accessibility 権限案内・クリアの取り消しなどの短命な通知。
+         用途ごとに文言・色・アクションボタンの有無を JS 側から差し替えて使い回す -->
+    <div id="control-toast" hidden>
+      <span id="control-toast-icon" class="toast-icon"></span>
+      <span class="toast-text">
+        <span id="control-toast-title" class="toast-title"></span>
+        <span id="control-toast-sub" class="toast-sub"></span>
+      </span>
+      <button id="control-toast-action" class="toast-action" hidden></button>
+    </div>
   </div>
 
   <script src="renderer.js"></script>

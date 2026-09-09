@@ -68,6 +68,20 @@ body {
   opacity: 0.85;
 }
 
+/* Idle 中、初回起動時だけステータスタブの位置に浮かべる操作案内。
+   一度でも実際に切り替えに成功したら以後は出さない (hud-renderer.js が localStorage で判定) */
+.hud-onboard-hint {
+  padding: 5px 14px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.2px;
+  color: rgba(235, 235, 245, 0.65);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  animation: hud-status-in 0.2s ease;
+}
+
 /* [Host]: 他デバイスへマウスを転送中 (このデバイスが操作元) - ブルー系 */
 .hud-status-tab.is-host .hud-status-badge {
   color: #ffffff;
