@@ -9,6 +9,11 @@
    角丸は 6 / 10 / 14 の 3 段、文字サイズは 13 (本文) / 11 (補助) の 2 段に統一する */
 
 :root {
+  /* ネイティブのオーバーレイスクロールバーは prefers-color-scheme ではなく
+     この color-scheme に追従する。指定がないと常にライト扱いになり、
+     ダーク配色時に周りと合わない白いスクロールバーが出てしまう */
+  color-scheme: light dark;
+
   --fg: #1d1d1f;
   --fg-secondary: rgba(60, 60, 67, 0.6);
   --fg-tertiary: rgba(60, 60, 67, 0.3);
