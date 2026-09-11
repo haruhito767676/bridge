@@ -47,6 +47,8 @@ const GLYPHS = {
     '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2.2 14.3 13H1.7L8 2.2zM8 6.5v3M8 11.6v.1"/></svg>',
   info:
     '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6.3"/><path d="M8 7.2v4M8 5v.1"/></svg>',
+  pin:
+    '<svg viewBox="0 0 16 16" fill="currentColor"><path d="M9.5 1.5 14.5 6.5l-1.2 1.2-.9-.3-2.6 2.6.3 2.6-1.2 1.2L6 11 2.5 14.5l-1-1L5 10 2.2 7.1l1.2-1.2 2.6.3 2.6-2.6-.3-.9z"/></svg>',
   laptop:
     '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3.5" width="10" height="7" rx="1"/><path d="M1.5 12.5h13"/></svg>',
   desktop:
@@ -83,9 +85,13 @@ let searchQuery = '';
 // 生の入力文字列に ":file" 等がたまたま含まれていてもフィルターとは解釈しない (誤検知の完全回避)
 let filterMode = null; // 'file' | 'clip' | null
 
-// 表示は常に時刻の新しい順。他拠点から古いアイテムが後から届いても、日付セクションの並びが崩れない
+// 表示はピン留めを先頭に、その後は時刻の新しい順。
+// 他拠点から古いアイテムが後から届いても、日付セクションの並びが崩れない
 function sortedByTime(list) {
-  return list.slice().sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+  return list.slice().sort((a, b) => {
+    if (Boolean(a.pinned) !== Boolean(b.pinned)) return a.pinned ? -1 : 1;
+    return (b.timestamp || 0) - (a.timestamp || 0);
+  });
 }
 
 function filterItems() {
@@ -280,6 +286,12 @@ searchBar.addEventListener('keydown', (e) => {
   }
 });
 
+// テキスト履歴が「1 本の URL」かどうか (リンクとして開けるもの)
+function urlOfItem(item) {
+  if (!item || item.kind !== 'clip-text') return null;
+  return window.BridgeFormat.urlOfText(item.text);
+}
+
 // ---- 画像判定とサムネイル用ヘルパー ----
 
 const IMAGE_EXTS = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg', 'avif'];
@@ -360,7 +372,7 @@ dropZone.addEventListener('dragover', (e) => e.preventDefault());
 const MAX_FILE_ITEMS = 100;
 
 function trimFileHistory() {
-  const files = items.filter((it) => it.kind === 'file');
+  const files = items.filter((it) => it.kind === 'file' && !it.pinned); // ピン留めは上限の対象外
   for (const extra of files.slice(MAX_FILE_ITEMS)) {
     items.splice(items.indexOf(extra), 1);
     selectedItems.delete(extra);
@@ -410,9 +422,9 @@ function attachFileIcon(item, filePath) {
 function addLocalFile(filePath, fileName, origin, sourceApp) {
   if (!filePath) return;
   const name = fileName || filePath.split(/[\\/]/).pop(); // Windows のパス区切り (\) にも対応
-  // 全く同じファイル (同一パス、または同一ファイル名) が既にあればカードを増やさず、
-  // 既存カードを最上位へ引き上げて時刻だけを最新に更新する (重複排除・スタック)
-  if (bumpExistingItem((it) => it.kind === 'file' && (it.path === filePath || it.name === name))) {
+  // 全く同じファイル (同一パス) が既にあればカードを増やさず、既存カードを最上位へ引き上げて
+  // 時刻だけを最新に更新する (重複排除・スタック)。名前が同じだけの別ファイルは別カードにする
+  if (bumpExistingItem((it) => it.kind === 'file' && it.path === filePath)) {
     return;
   }
 
@@ -443,28 +455,11 @@ function addLocalFile(filePath, fileName, origin, sourceApp) {
 
 // dataTransfer から Web 画像/リンクの http(s) URL を抽出する
 function extractWebUrl(dataTransfer) {
-  // Web 画像のドラッグでは text/html に <img src="..."> が入ることが多く、
-  // ここから取るのが最も確実 (uri-list はページ URL の場合がある)
-  const html = dataTransfer.getData('text/html');
-  if (html) {
-    const m = /<img[^>]+src\s*=\s*["']?(https?:\/\/[^"'\s>]+)/i.exec(html);
-    if (m) return m[1].replace(/&amp;/g, '&');
-  }
-
-  // text/uri-list: 1行1URL。# で始まる行はコメント
-  const uriList = dataTransfer.getData('text/uri-list');
-  if (uriList) {
-    const line = uriList
-      .split(/\r?\n/)
-      .map((l) => l.trim())
-      .find((l) => l && !l.startsWith('#'));
-    if (line && /^https?:\/\//i.test(line)) return line;
-  }
-
-  // text/plain: テキスト中の最初の http(s) URL を拾う
-  const plain = dataTransfer.getData('text/plain');
-  const m = /https?:\/\/\S+/i.exec(plain || '');
-  return m ? m[0] : null;
+  return window.BridgeFormat.extractWebUrlFromData({
+    html: dataTransfer.getData('text/html'),
+    uriList: dataTransfer.getData('text/uri-list'),
+    plain: dataTransfer.getData('text/plain'),
+  });
 }
 
 // 「保存中」のプレースホルダを先頭に置き、実体が確定したらファイルアイテムへ昇格させる共通処理
@@ -561,7 +556,29 @@ window.bridge.onAddFile((payload) => {
 // ウインドウが展開されるたびに検索状態 (文字列・トークン・サジェスト・選択) をリセットして
 // 最新の全リスト表示へ戻す。ホットキー等の明示的な呼び出しのときだけ検索バーへフォーカスする
 // (ホバー展開でフォーカスを奪うと、作業中のアプリへのキー入力が乗っ取られてしまう)
+// ファイル項目の実体が移動・削除されていないか確かめ、無くなっていれば行を「見つかりません」表示にする
+async function refreshMissingFiles() {
+  const targets = items.filter((it) => it.kind === 'file' && it.path && !it.downloading);
+  if (targets.length === 0) return;
+  let missing;
+  try {
+    missing = new Set(await window.bridge.statPaths(targets.map((it) => it.path)));
+  } catch {
+    return;
+  }
+  let changed = false;
+  for (const it of targets) {
+    const nowMissing = missing.has(it.path);
+    if (Boolean(it.missing) !== nowMissing) {
+      it.missing = nowMissing;
+      changed = true;
+    }
+  }
+  if (changed) render();
+}
+
 window.bridge.onShelterExpanded(({ focus }) => {
+  refreshMissingFiles();
   // アニメーション開始と同時にリストを組み直すとコマ落ちするため、状態が残っているときだけリセットする
   if (searchBar.value || filterMode || selectedItems.size > 0) resetSearchState();
   closeContextMenu();
@@ -633,6 +650,18 @@ controlToastAction.addEventListener('click', (e) => {
 });
 controlToast.addEventListener('click', hideControlToast);
 
+// bridge://add?path= で外部から要求されたローカルファイルの追加は、確認してから載せる
+window.bridge.onConfirmAddFile(({ path: filePath, name }) => {
+  showToast({
+    icon: 'info',
+    title: `「${name}」を追加しますか？`,
+    sub: '外部のリンクから要求されました。追加するとほかのデバイスにも同期されます',
+    actionLabel: '追加',
+    onAction: () => window.bridge.confirmAddFile(filePath),
+    durationMs: 12000,
+  });
+});
+
 // ---- クリップボード履歴（Main の監視から届いた新規コピーをタイムライン先頭へ）----
 
 // ハイブリッド上限: テキスト履歴は検索資産として 100 件まで保持し、
@@ -641,8 +670,8 @@ const MAX_TEXT_CLIP_ITEMS = 100;
 const MAX_IMAGE_CLIP_ITEMS = 30;
 
 function trimClipHistory() {
-  const texts = items.filter((it) => it.kind === 'clip-text');
-  const images = items.filter((it) => it.kind === 'clip-image');
+  const texts = items.filter((it) => it.kind === 'clip-text' && !it.pinned); // ピン留めは上限の対象外
+  const images = items.filter((it) => it.kind === 'clip-image' && !it.pinned);
   const overflow = [...texts.slice(MAX_TEXT_CLIP_ITEMS), ...images.slice(MAX_IMAGE_CLIP_ITEMS)];
   for (const extra of overflow) {
     items.splice(items.indexOf(extra), 1);
@@ -745,7 +774,12 @@ function onItemDragStart(e, item) {
   // クリップボード履歴はファイルとしてドラッグアウト (履歴なのでリストには残す)
   if (item.kind === 'clip-text') {
     draggingOut = true;
-    window.bridge.dragClipboardText({ text: item.text, path: item.path });
+    window.bridge
+      .dragClipboardText({ text: item.text, path: item.path })
+      .then((generated) => {
+        if (generated && !item.path) item.path = generated; // 次回以降は同じファイルを使い回す
+      })
+      .catch(() => {});
     return;
   }
   if (item.kind === 'clip-image') {
@@ -755,7 +789,7 @@ function onItemDragStart(e, item) {
     return;
   }
 
-  if (!item.path) return;
+  if (!item.path || item.missing) return;
 
   // 選択されていないアイテムをドラッグし始めたら、そのアイテム単体の選択に切り替える (Finder と同じ挙動)
   if (!selectedItems.has(item)) {
@@ -765,16 +799,32 @@ function onItemDragStart(e, item) {
   }
 
   const draggedItems = [...selectedItems].filter(
-    (it) => it.kind === 'file' && it.path && !it.downloading
+    (it) => it.kind === 'file' && it.path && !it.downloading && !it.missing
   );
   if (draggedItems.length === 0) return;
   draggingOut = true;
   window.bridge.startDrag(draggedItems.map((it) => it.path));
 
-  // ドラッグ開始と同時にフェードアウトしてリストから削除
+  // ドラッグ開始と同時にフェードアウトしてリストから削除。誤ドラッグ用に「元に戻す」を出す
   for (const it of draggedItems) {
     setTimeout(() => fadeOutAndRemove(it), 0);
   }
+  setTimeout(() => {
+    showToast({
+      icon: 'info',
+      title: draggedItems.length > 1 ? `${draggedItems.length} 個を取り出しました` : '取り出しました',
+      actionLabel: '元に戻す',
+      onAction: () => {
+        for (const it of draggedItems) {
+          it.removing = false;
+          if (!items.includes(it)) items.unshift(it);
+        }
+        render();
+        refreshMissingFiles(); // 移動されていれば「見つかりません」になる
+      },
+      durationMs: 5000,
+    });
+  }, 250);
 }
 
 // ---- 4. 選択（複数選択対応）・コピー・クイックルック ----
@@ -794,6 +844,17 @@ function resetSelectionAndFocus() {
 const COPIED_FEEDBACK_MS = 320;
 
 function copyItemToClipboard(item) {
+  if (item.missing) {
+    showToast({
+      icon: 'warning',
+      title: 'ファイルが見つかりません',
+      sub: '移動または削除されています',
+      accent: 'amber',
+      actionLabel: 'リストから外す',
+      onAction: () => fadeOutAndRemove(item),
+    });
+    return false;
+  }
   if (item.kind === 'clip-text') {
     window.bridge.writeClipboardText(item.text); // 生テキストを書き戻し → 即ペースト可能
   } else if (item.kind === 'clip-image' && item.path) {
@@ -826,10 +887,30 @@ function showCopiedFeedback(item) {
 }
 
 function previewItem(item) {
-  if (item && item.path) window.bridge.previewFile(item.path, item.name);
+  if (!item) return;
+  if (item.path) {
+    window.bridge.previewFile(item.path, item.name);
+    return;
+  }
+  // テキスト履歴は実体ファイルを遅延生成してからクイックルックに渡す
+  if (item.kind === 'clip-text' && item.text) {
+    window.bridge
+      .ensureClipboardTextFile({ text: item.text, path: null })
+      .then((generated) => {
+        if (!generated) return;
+        item.path = generated;
+        window.bridge.previewFile(generated, item.name);
+      })
+      .catch(() => {});
+  }
 }
 
 function revealItem(item) {
+  const url = urlOfItem(item);
+  if (url) {
+    window.bridge.openExternal(url); // リンクは Finder ではなくブラウザで開く
+    return;
+  }
   if (item && item.path) window.bridge.revealInFinder(item.path);
 }
 
@@ -860,6 +941,17 @@ function onItemClick(e, item) {
   }
   lastSelectedIndex = index;
   render();
+}
+
+// ピン留め: 上限の対象外になり、リスト先頭の「ピン留め」セクションに固定される (再起動後も残る)
+function togglePinned(item) {
+  item.pinned = !item.pinned;
+  render();
+  showToast({
+    icon: 'pin',
+    title: item.pinned ? 'ピン留めしました' : 'ピン留めを解除しました',
+    durationMs: 1500,
+  });
 }
 
 // ↑↓ でカーソル行を動かす (Shift で範囲を伸ばす)。選択が無ければ先頭 / 末尾から始める
@@ -950,6 +1042,12 @@ document.addEventListener('keydown', (e) => {
     return;
   }
 
+  if (cmd && e.code === 'KeyP' && first) {
+    e.preventDefault();
+    togglePinned(first);
+    return;
+  }
+
   // 「/」または ⌘F で検索へ
   if ((cmd && e.code === 'KeyF') || e.key === '/') {
     e.preventDefault();
@@ -957,7 +1055,7 @@ document.addEventListener('keydown', (e) => {
     return;
   }
 
-  if (e.code === 'Space' && first) {
+  if (e.code === 'Space' && first && (first.path || first.kind === 'clip-text')) {
     e.preventDefault();
     previewItem(first);
   }
@@ -1087,8 +1185,14 @@ function openContextMenu(e, item) {
   const entries = [
     { label: 'コピー', shortcut: '⏎', run: () => copyItemToClipboard(item), enabled: !item.downloading },
   ];
-  if (item.path) {
+  const url = urlOfItem(item);
+  if (url) {
+    entries.push({ label: 'リンクを開く', shortcut: `${mod}⏎`, run: () => window.bridge.openExternal(url) });
+  }
+  if (item.path || item.kind === 'clip-text') {
     entries.push({ label: 'クイックルック', shortcut: 'Space', run: () => previewItem(item) });
+  }
+  if (item.path) {
     entries.push({ type: 'separator' });
     entries.push({
       label: IS_MAC ? 'Finder で表示' : 'エクスプローラーで表示',
@@ -1105,6 +1209,11 @@ function openContextMenu(e, item) {
     });
   }
   entries.push({ type: 'separator' });
+  entries.push({
+    label: item.pinned ? 'ピン留めを解除' : 'ピン留め',
+    shortcut: IS_MAC ? '⌘P' : 'Ctrl+P',
+    run: () => togglePinned(item),
+  });
   entries.push({
     label: selectedItems.size > 1 ? `${selectedItems.size} 個をリストから外す` : 'リストから外す',
     shortcut: '⌫',
@@ -1160,82 +1269,8 @@ window.addEventListener('blur', closeContextMenu);
 
 // ---- 画面描画 ----
 
-function formatTime(timestamp) {
-  const d = new Date(timestamp);
-  return `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
-}
-
 // 日付セクションの見出し。「今日」「昨日」、それ以前は日付 (年が違えば年も付ける)
-const WEEKDAYS = ['日', '月', '火', '水', '木', '金', '土'];
-
-function dayKey(timestamp) {
-  const d = new Date(timestamp);
-  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-}
-
-function sectionLabel(timestamp) {
-  const now = new Date();
-  const d = new Date(timestamp);
-  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-  const diffDays = Math.floor((startOfToday - new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()) / 86400000);
-  if (diffDays <= 0) return '今日';
-  if (diffDays === 1) return '昨日';
-  const base = `${d.getMonth() + 1}月${d.getDate()}日 (${WEEKDAYS[d.getDay()]})`;
-  return d.getFullYear() === now.getFullYear() ? base : `${d.getFullYear()}年${base}`;
-}
-
-// ファイル名を「拡張子を除いた本体」と「拡張子」に分割する
-function splitNameExt(name) {
-  const dotIndex = name.lastIndexOf('.');
-  const hasExt = dotIndex > 0 && dotIndex < name.length - 1; // 先頭ドット(隠しファイル)は拡張子扱いしない
-  return hasExt
-    ? { base: name.slice(0, dotIndex), ext: name.slice(dotIndex) }
-    : { base: name, ext: '' };
-}
-
-// ---- 全角・半角の視覚幅を考慮した Finder 流の中央省略 ----
-
-// 視覚幅カウント: 全角文字・英大文字 = 2、半角英数・記号 (ASCII) = 1
-function charUnits(ch) {
-  const cp = ch.codePointAt(0);
-  const isHalfAscii = cp >= 0x20 && cp <= 0x7e;
-  const isUpper = cp >= 0x41 && cp <= 0x5a;
-  return isHalfAscii && !isUpper ? 1 : 2;
-}
-
-function countUnits(text) {
-  let total = 0;
-  for (const ch of text) total += charUnits(ch);
-  return total;
-}
-
-// 先頭 (fromEnd=true なら末尾) からカウント maxUnits 分の文字列を切り出す
-function sliceUnits(text, maxUnits, fromEnd) {
-  const chars = Array.from(text);
-  if (fromEnd) chars.reverse();
-  const out = [];
-  let total = 0;
-  for (const ch of chars) {
-    total += charUnits(ch);
-    if (total > maxUnits) break;
-    out.push(ch);
-  }
-  if (fromEnd) out.reverse();
-  return out.join('');
-}
-
-// 行の幅 (先頭スロットと削除ボタンを除いた約 220px) に収まるカウント数。
-// 拡張子ありは「先頭 + ⋯ + 末尾 + 拡張子」の中央省略、拡張子なし (フォルダ等) は末尾省略
-const NAME_MAX_UNITS = 30;
-const NAME_TAIL_UNITS = 6;
-
-function formatFileName(name, hasExt) {
-  const { base, ext } = hasExt ? splitNameExt(name) : { base: name, ext: '' };
-  if (countUnits(base) + countUnits(ext) <= NAME_MAX_UNITS) return base + ext;
-  if (!ext) return sliceUnits(base, NAME_MAX_UNITS - 1, false) + '…';
-  const headUnits = Math.max(4, NAME_MAX_UNITS - NAME_TAIL_UNITS - countUnits(ext) - 1);
-  return sliceUnits(base, headUnits, false) + '…' + sliceUnits(base, NAME_TAIL_UNITS, true) + ext;
-}
+const { formatFileName, dayKey, sectionLabel, formatTime } = window.BridgeFormat;
 
 // ---- カスタムツールチップ (Electron では OS 標準の title 属性が機能しないため自作) ----
 
@@ -1349,14 +1384,14 @@ function render() {
 
   let currentDay = null;
   for (const item of visibleItems) {
-    // 日付が変わるところにセクション見出しを挟む
-    const key = item.timestamp ? dayKey(item.timestamp) : 'none';
+    // ピン留めは先頭にひとまとめ、その後は日付が変わるところにセクション見出しを挟む
+    const key = item.pinned ? 'pinned' : item.timestamp ? dayKey(item.timestamp) : 'none';
     if (key !== currentDay) {
       currentDay = key;
       const header = document.createElement('li');
       header.className = 'section-header';
       header.setAttribute('role', 'presentation');
-      header.textContent = item.timestamp ? sectionLabel(item.timestamp) : '';
+      header.textContent = item.pinned ? 'ピン留め' : item.timestamp ? sectionLabel(item.timestamp) : '';
       listEl.appendChild(header);
     }
 
@@ -1367,6 +1402,7 @@ function render() {
     if (selectedItems.has(item)) li.classList.add('selected');
     if (item.removing) li.classList.add('removing');
     if (item.downloading) li.classList.add('downloading');
+    if (item.missing) li.classList.add('missing');
     li.draggable = !item.removing && !item.downloading;
     li.addEventListener('click', (e) => onItemClick(e, item));
     li.addEventListener('dragstart', (e) => onItemDragStart(e, item));
@@ -1397,7 +1433,9 @@ function render() {
 
     const kindLabel =
       item.kind === 'clip-text'
-        ? 'テキスト'
+        ? urlOfItem(item)
+          ? 'リンク'
+          : 'テキスト'
         : item.kind === 'clip-image'
           ? '画像'
           : item.downloading
@@ -1405,7 +1443,16 @@ function render() {
             : item.fileKind || 'ファイル'; // Finder 純正の種類名 (取得前は「ファイル」で暫定表示)
     const metaLine = document.createElement('div');
     metaLine.className = 'item-meta-line';
-    metaLine.textContent = item.timestamp ? `${kindLabel} · ${formatTime(item.timestamp)}` : kindLabel;
+    metaLine.textContent = item.missing
+      ? '見つかりません · 移動または削除されました'
+      : item.timestamp
+        ? `${kindLabel} · ${formatTime(item.timestamp)}`
+        : kindLabel;
+    if (item.pinned) {
+      const pinIcon = glyph('pin');
+      pinIcon.classList.add('meta-pin');
+      metaLine.prepend(pinIcon);
+    }
     lines.appendChild(metaLine);
 
     const deviceChip = createDeviceChip(item);
@@ -1452,7 +1499,79 @@ function render() {
   // 終了時クリーンアップ (残骸ファイル削除) の判定用に、
   // 「現在リストに保持しているパス」を Main プロセスへ常時共有する
   window.bridge.reportRetainedPaths(items.map((it) => it.path).filter(Boolean));
+  schedulePersist();
 }
+
+// ---- 履歴の永続化 ----
+// 描画のたびに保存用の一覧を Main へ渡す (Main 側で 0.5 秒デバウンスして history.json に書く)。
+// アイコンは起動時に取り直せるので保存しない。処理中 (保存中・フェードアウト中) の行も保存しない
+let persistTimer = null;
+
+function serializeItems() {
+  return items
+    .filter((it) => !it.downloading && !it.removing)
+    .map((it) => ({
+      kind: it.kind,
+      path: it.path,
+      name: it.name,
+      text: it.text,
+      isImage: it.isImage,
+      timestamp: it.timestamp,
+      fileKind: it.fileKind || null,
+      fromDevice: it.fromDevice,
+      fromPlatform: it.fromPlatform,
+      sourceApp: it.sourceApp ? { name: it.sourceApp.name, icon: it.sourceApp.icon || null } : null,
+      pinned: Boolean(it.pinned),
+    }));
+}
+
+function schedulePersist() {
+  if (persistTimer) clearTimeout(persistTimer);
+  persistTimer = setTimeout(() => {
+    persistTimer = null;
+    window.bridge.persistItems(serializeItems());
+  }, 300);
+}
+
+// 起動時 (と Renderer の再起動時) に前回の一覧を復元する。既にあるものは重複させない
+window.bridge.onRestoreItems((saved) => {
+  let added = 0;
+  for (const s of saved) {
+    if (!s || !s.kind) continue;
+    const duplicate = items.some((it) =>
+      it.kind === s.kind && (s.path ? it.path === s.path : s.kind === 'clip-text' && it.text === s.text)
+    );
+    if (duplicate) continue;
+    const item = {
+      kind: s.kind,
+      path: s.path || null,
+      name: s.name || '',
+      text: s.text || null,
+      icon: null,
+      isImage: Boolean(s.isImage),
+      downloading: false,
+      removing: false,
+      timestamp: Number(s.timestamp) || Date.now(),
+      fileKind: s.fileKind || undefined,
+      fromDevice: s.fromDevice || null,
+      fromPlatform: s.fromPlatform || null,
+      sourceApp: s.sourceApp || null,
+      pinned: Boolean(s.pinned),
+    };
+    // 画像の履歴は実体 PNG が無ければ復元できない
+    if (item.kind === 'clip-image' && !item.path) continue;
+    items.push(item);
+    added++;
+    if (item.kind === 'file' && item.path) {
+      attachFileIcon(item, item.path);
+      if (!item.fileKind) attachFileKind(item, item.path);
+    }
+  }
+  if (added > 0) {
+    render();
+    refreshMissingFiles();
+  }
+});
 
 // 空状態のヒントはショートカットを OS に合わせて表記する
 {
@@ -1463,16 +1582,19 @@ function render() {
 }
 
 clearBtn.addEventListener('click', () => {
-  if (items.length === 0) return;
-  // 誤操作からの回復手段として、消した内容そのものをクロージャに保持して
+  // ピン留めは残す。誤操作からの回復手段として、消した内容そのものをクロージャに保持して
   // 「元に戻す」で丸ごと復元できるようにする (ディスク上のファイルには一切触れないため安全)
-  const removed = items.slice();
+  const removed = items.filter((it) => !it.pinned);
+  if (removed.length === 0) return;
+  const kept = items.filter((it) => it.pinned);
   items.length = 0;
+  items.push(...kept);
   selectedItems.clear();
   render();
   showToast({
     icon: 'trash',
     title: `${removed.length} 個を消去しました`,
+    sub: kept.length > 0 ? 'ピン留めは残しています' : '',
     actionLabel: '元に戻す',
     onAction: () => {
       items.unshift(...removed);
@@ -1486,12 +1608,28 @@ clearBtn.addEventListener('click', () => {
 
 let syncStatus = { peers: [], onlineCount: 0 };
 
+const pauseLabel = document.getElementById('pause-label');
+
 function renderSyncStatus() {
-  const { peers, onlineCount } = syncStatus;
-  syncDot.hidden = peers.length === 0;
-  syncDot.classList.toggle('online', onlineCount > 0);
+  const { peers, onlineCount, clipboardPaused, syncPaused } = syncStatus;
+  const paused = clipboardPaused || syncPaused;
+  syncDot.hidden = peers.length === 0 && !paused;
+  syncDot.classList.toggle('online', onlineCount > 0 && !paused);
+  syncDot.classList.toggle('paused', Boolean(paused));
   const names = peers.filter((p) => p.online).map((p) => p.device || p.host);
-  syncDot.title = onlineCount > 0 ? `${names.join('、')} と同期中` : 'ほかのデバイスが見つかりません';
+  syncDot.title = paused
+    ? '一時停止中 (メニューバーから再開できます)'
+    : onlineCount > 0
+      ? `${names.join('、')} と同期中`
+      : 'ほかのデバイスが見つかりません';
+  pauseLabel.textContent = clipboardPaused && syncPaused
+    ? '監視と同期を停止中'
+    : clipboardPaused
+      ? '監視を停止中'
+      : syncPaused
+        ? '同期を停止中'
+        : '';
+  pauseLabel.hidden = !paused;
   renderPeerList();
 }
 
@@ -1518,6 +1656,8 @@ const settingPeers = document.getElementById('setting-peers');
 const settingPeerList = document.getElementById('setting-peer-list');
 const settingLogin = document.getElementById('setting-login');
 const settingHotkeyHelp = document.getElementById('setting-hotkey-help');
+const settingAutoPaste = document.getElementById('setting-autopaste');
+const settingPasteHelp = document.getElementById('setting-paste-help');
 
 function renderPeerList() {
   settingPeerList.textContent = '';
@@ -1538,7 +1678,13 @@ function renderPeerList() {
     name.textContent = peer.device || peer.host;
     const addr = document.createElement('span');
     addr.className = 'peer-addr';
-    addr.textContent = peer.online ? peer.host : 'オフライン';
+    // 診断用: オンラインなら「アドレス · 最終同期 時刻」、オフラインなら最後の失敗理由
+    if (peer.online) {
+      addr.textContent = peer.lastSyncedAt ? `${peer.host} · ${formatTime(peer.lastSyncedAt)} 同期` : peer.host;
+    } else {
+      addr.textContent = peer.lastError || 'オフライン';
+      addr.title = peer.host;
+    }
     li.append(dot, name, addr);
     settingPeerList.appendChild(li);
   }
@@ -1554,7 +1700,11 @@ async function openSettings() {
     settingAutoScan.checked = Boolean(s.autoScan);
     settingPeers.value = (s.peers || []).join('\n');
     settingLogin.checked = Boolean(s.openAtLogin);
-    settingHotkeyHelp.textContent = `${s.hotkeyLabel} でいつでもパネルを表示 / 非表示できます。`;
+    settingAutoPaste.checked = Boolean(s.autoPaste);
+    settingHotkeyHelp.textContent = `${s.hotkeyLabel} でパネルの表示 / 非表示、${s.pasteHotkeyLabel} でカーソルの近くに履歴を出せます。Bridge ${s.version}`;
+    settingPasteHelp.textContent = IS_MAC
+      ? '自動ペーストには「システム設定 > プライバシーとセキュリティ > アクセシビリティ」で Bridge の許可が必要です。'
+      : '';
   } catch (err) {
     console.error('設定の読み込みに失敗:', err);
   }
@@ -1580,6 +1730,7 @@ async function saveSettings() {
     autoScan: settingAutoScan.checked,
     peers: settingPeers.value.split(/\r?\n/).map((s) => s.trim()).filter(Boolean),
     openAtLogin: settingLogin.checked,
+    autoPaste: settingAutoPaste.checked,
   };
   try {
     const result = await window.bridge.saveSettings(payload);
@@ -1602,6 +1753,24 @@ async function saveSettings() {
 }
 
 settingsBtn.addEventListener('click', openSettings);
+const settingScan = document.getElementById('setting-scan');
+settingScan.addEventListener('click', async () => {
+  settingScan.disabled = true;
+  settingScan.textContent = '探しています…';
+  try {
+    const status = await window.bridge.scanPeersNow();
+    if (status) {
+      syncStatus = status;
+      renderSyncStatus();
+    }
+  } catch {
+    // 失敗しても一覧はそのまま
+  } finally {
+    settingScan.disabled = false;
+    settingScan.textContent = 'いま探す';
+  }
+});
+document.getElementById('setting-log').addEventListener('click', () => window.bridge.revealLog());
 document.getElementById('settings-back').addEventListener('click', closeSettings);
 document.getElementById('settings-save').addEventListener('click', saveSettings);
 settingTokenCopy.addEventListener('click', () => {
@@ -1609,5 +1778,26 @@ settingTokenCopy.addEventListener('click', () => {
   showToast({ icon: 'check', title: '同期キーをコピーしました', durationMs: 1800 });
 });
 window.bridge.onOpenSettings(() => openSettings());
+
+// ---- アップデートの通知 ----
+window.bridge.onUpdateAvailable(({ version, url }) => {
+  showToast({
+    icon: 'info',
+    title: `Bridge ${version} が利用できます`,
+    sub: 'ダウンロードページを開いて入れ替えてください',
+    actionLabel: 'ダウンロード',
+    onAction: () => window.bridge.openExternal(url),
+    durationMs: 15000,
+  });
+});
+window.bridge.onUpdateNone(({ version, error }) => {
+  showToast({
+    icon: error ? 'warning' : 'check',
+    title: error ? '確認できませんでした' : `最新版です (${version})`,
+    sub: error ? 'ネットワークまたは GitHub に接続できません' : '',
+    accent: error ? 'amber' : 'neutral',
+    durationMs: 3000,
+  });
+});
 
 render();

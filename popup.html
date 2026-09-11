@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; img-src 'self' data: file:; style-src 'self'" />
+  <title>Bridge</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body class="popup">
+  <!-- ⌘⇧V でカーソルの近くに出る「その場でペースト」用の小さな履歴。
+       打ち始めると絞り込み、↑↓ で選び、⏎ でクリップボードへ書いて即ペーストする -->
+  <div id="popup-root">
+    <div id="popup-search-field">
+      <input id="popup-search" type="search" placeholder="履歴を検索" spellcheck="false" autocomplete="off" aria-label="履歴を検索" />
+    </div>
+    <ul id="popup-list" role="listbox" aria-label="クリップボード履歴"></ul>
+    <p id="popup-empty" hidden>履歴はまだありません</p>
+    <footer id="popup-footer">
+      <span>↑↓ 選択 · ⏎ ペースト · Esc 閉じる</span>
+    </footer>
+  </div>
+  <script src="lib/format.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

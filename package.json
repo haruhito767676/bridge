@@ -5,6 +5,7 @@
   "main": "main.js",
   "scripts": {
     "start": "node scripts/start.js",
+    "test": "node --test \"test/**/*.test.js\"",
     "build": "electron-builder",
     "build:mac": "electron-builder --mac"
   },
@@ -23,6 +24,10 @@
       "renderer.js",
       "index.html",
       "styles.css",
+      "popup.html",
+      "popup.js",
+      "popup.css",
+      "lib/**/*",
       "assets/**/*"
     ],
     "directories": {
@@ -36,7 +41,13 @@
     },
     "mac": {
       "category": "public.app-category.utilities",
-      "target": "dmg"
+      "target": "dmg",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "notarize": true,
+      "extendInfo": {
+        "LSUIElement": true
+      }
     },
     "win": {
       "target": "nsis"

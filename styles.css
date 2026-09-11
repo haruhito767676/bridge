@@ -577,6 +577,16 @@ body:not(.platform-darwin) #drop-zone::-webkit-scrollbar-thumb:hover {
   height: 18px;
 }
 
+/* 元ファイルが移動・削除された行 */
+.file-item.missing .item-leading,
+.file-item.missing .item-title {
+  opacity: 0.45;
+}
+
+.file-item.missing .item-meta-line {
+  color: #ff9f0a;
+}
+
 /* ダウンロード / 保存の進行中: 不定スピナー */
 .file-item.downloading {
   pointer-events: none;
@@ -637,6 +647,14 @@ body:not(.platform-darwin) #drop-zone::-webkit-scrollbar-thumb:hover {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+
+.meta-pin {
+  width: 10px;
+  height: 10px;
+  margin-right: 3px;
+  vertical-align: -1px;
+  color: var(--fg-secondary);
 }
 
 /* 出身 (アプリ / デバイス) チップの行 */
@@ -769,6 +787,19 @@ body:not(.platform-darwin) #drop-zone::-webkit-scrollbar-thumb:hover {
 
 .sync-dot.online {
   background: var(--success);
+}
+
+.sync-dot.paused {
+  background: #ff9f0a;
+}
+
+.pause-label {
+  color: #ff9f0a;
+  white-space: nowrap;
+}
+
+.pause-label[hidden] {
+  display: none;
 }
 
 .footer-actions {

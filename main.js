@@ -10,6 +10,7 @@ const {
   globalShortcut,
   Menu,
   shell,
+  systemPreferences,
   Tray,
 } = require('electron');
 const path = require('path');
@@ -17,18 +18,24 @@ const fs = require('fs');
 const fsp = require('fs/promises');
 const os = require('os');
 const http = require('http');
+const dgram = require('dgram');
 const crypto = require('crypto');
 const { pathToFileURL, fileURLToPath } = require('url');
 const { execFile } = require('child_process');
+const { Readable, Transform } = require('stream');
+const { pipeline } = require('stream/promises');
 const { promisify } = require('util');
 const execFileAsync = promisify(execFile);
 
-// secretToken の定数時間比較。長さが違う場合は timingSafeEqual に渡す前に弾く。
-function tokensMatch(provided, expected) {
-  const a = Buffer.from(String(provided || ''), 'utf8');
-  const b = Buffer.from(String(expected || ''), 'utf8');
-  return a.length > 0 && b.length > 0 && a.length === b.length && crypto.timingSafeEqual(a, b);
-}
+const {
+  tokensMatch,
+  tokenIdentifierOf,
+  sanitizeSyncFileName,
+  extractFileUrlPaths,
+  extractWindowsAbsolutePaths,
+  syncMetadata,
+  compareVersions,
+} = require('./lib/sync-utils');
 
 // 開発時 (`npm start` / `electron .`) はインストール済みの本番 Bridge と userData
 // (設定・sync-config.json 等) を共有すると requestSingleInstanceLock が競合し、
@@ -58,6 +65,48 @@ const MAX_PENDING_ITEMS = 200;
 function pushPending(queue, item) {
   queue.push(item);
   if (queue.length > MAX_PENDING_ITEMS) queue.shift(); // 最古から追い出す
+}
+
+// ---- 一時停止 (メニューバーから切り替える。セッション限りで、再起動すると解除される) ----
+let clipboardPaused = false; // クリップボードの監視を止める (履歴に載らず、同期もされない)
+let syncPaused = false; // ほかのデバイスとの送受信を止める (監視と履歴はそのまま)
+
+function setClipboardPaused(paused) {
+  clipboardPaused = Boolean(paused);
+  lastSyncStatusKey = ''; // フッターの表示を即時更新させる
+  broadcastSyncStatus();
+}
+
+function setSyncPaused(paused) {
+  syncPaused = Boolean(paused);
+  lastSyncStatusKey = '';
+  broadcastSyncStatus();
+}
+
+// ---- 診断ログ (userData/bridge.log) ----
+// 「同期がつながらない」ときに見る場所。同期・発見・ダウンロード・監視の出来事だけを 1 行ずつ追記する。
+// 1MB を超えたら .1 に退避して書き直す (2 世代まで)
+const LOG_MAX_BYTES = 1024 * 1024;
+
+function logPath() {
+  return path.join(app.getPath('userData'), 'bridge.log');
+}
+
+function logEvent(category, message) {
+  const line = `${new Date().toISOString()}\t[${category}]\t${message}\n`;
+  try {
+    const dest = logPath();
+    let size = 0;
+    try {
+      size = fs.statSync(dest).size;
+    } catch {
+      size = 0;
+    }
+    if (size > LOG_MAX_BYTES) fs.renameSync(dest, `${dest}.1`);
+    fs.appendFileSync(dest, line);
+  } catch {
+    // ログが書けなくても本体の動作には影響させない
+  }
 }
 
 // ---- 右端への常駐 & スプリングによるスライド開閉 ----
@@ -489,6 +538,19 @@ function buildTrayMenu() {
     },
     { type: 'separator' },
     {
+      label: 'クリップボードの監視を一時停止',
+      type: 'checkbox',
+      checked: clipboardPaused,
+      click: (item) => setClipboardPaused(item.checked),
+    },
+    {
+      label: 'ほかのデバイスとの同期を一時停止',
+      type: 'checkbox',
+      checked: syncPaused,
+      click: (item) => setSyncPaused(item.checked),
+    },
+    { type: 'separator' },
+    {
       label: 'ログイン時に起動',
       type: 'checkbox',
       checked: app.getLoginItemSettings().openAtLogin,
@@ -503,6 +565,7 @@ function buildTrayMenu() {
         if (canSendToRenderer()) win.webContents.send('open-settings');
       },
     },
+    { label: 'アップデートを確認…', click: () => checkForUpdates({ manual: true }) },
     { type: 'separator' },
     { label: 'Bridge を終了', accelerator: 'CommandOrControl+Q', click: () => app.quit() },
   ]);
@@ -549,6 +612,8 @@ function createWindow() {
 
   win.webContents.on('did-finish-load', () => {
     rendererReady = true;
+    // まず前回の履歴を復元し、その上に起動中に届いた分を重ねる
+    restoreHistoryToRenderer();
     // 起動前に URL スキームで届いていた分をまとめて流し込む
     while (pendingFiles.length > 0) {
       win.webContents.send('add-file', pendingFiles.shift());
@@ -617,7 +682,11 @@ function reserveDest(dir, name) {
   return dest;
 }
 
-// http/https の URL を userData/downloads/ にダウンロードしてローカルパスを返す
+// ダウンロードの上限。これを超える Content-Length / 実転送量は中断する (ディスク保護)
+const MAX_DOWNLOAD_BYTES = 2 * 1024 * 1024 * 1024;
+
+// http/https の URL を userData/downloads/ にダウンロードしてローカルパスを返す。
+// 本文はメモリに載せず createWriteStream へ流す (大きなファイルでも同期の /file と同じ挙動)
 async function downloadToLocal(url) {
   if (!/^https?:\/\//i.test(url)) {
     throw new Error('http/https の URL のみダウンロードできます');
@@ -627,7 +696,16 @@ async function downloadToLocal(url) {
   if (!res.ok) {
     throw new Error(`ダウンロード失敗: HTTP ${res.status}`);
   }
-  const buf = Buffer.from(await res.arrayBuffer());
+  const mime = (res.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
+  // Web ページそのもの (HTML) を「ファイル」として保存しても使い道がない。
+  // リンクのドロップ先が画像やファイルでなくページだった場合はここで止める
+  if (mime === 'text/html' || mime === 'application/xhtml+xml') {
+    throw new Error('Web ページはダウンロードできません (画像やファイルへの直リンクのみ)');
+  }
+  const declared = Number(res.headers.get('content-length')) || 0;
+  if (declared > MAX_DOWNLOAD_BYTES) {
+    throw new Error('ファイルが大きすぎます');
+  }
 
   // ファイル名は URL のパス末尾から決め、使えない文字は除去する
   let name = '';
@@ -640,18 +718,41 @@ async function downloadToLocal(url) {
   if (!name) name = `download-${Date.now()}`;
 
   // 拡張子がなければ Content-Type から補完する (例: image/jpeg → .jpg)
-  const mime = (res.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
   if (!path.extname(name) && EXT_BY_MIME[mime]) name += EXT_BY_MIME[mime];
 
   const dir = downloadDir();
   await fsp.mkdir(dir, { recursive: true });
   const dest = reserveDest(dir, name);
-  await fsp.writeFile(dest, buf);
+
+  if (!res.body) {
+    await fsp.writeFile(dest, Buffer.from(await res.arrayBuffer()));
+    return { path: dest, name: path.basename(dest) };
+  }
+
+  let received = 0;
+  const limiter = new Transform({
+    transform(chunk, _enc, cb) {
+      received += chunk.length;
+      if (received > MAX_DOWNLOAD_BYTES) cb(new Error('ファイルが大きすぎます'));
+      else cb(null, chunk);
+    },
+  });
+  try {
+    await pipeline(Readable.fromWeb(res.body), limiter, fs.createWriteStream(dest));
+  } catch (err) {
+    await fsp.unlink(dest).catch(() => {}); // 途中まで書いた欠損ファイルは残さない
+    throw err;
+  }
 
   return { path: dest, name: path.basename(dest) };
 }
 
-ipcMain.handle('download-url', (_event, url) => downloadToLocal(url));
+ipcMain.handle('download-url', (_event, url) =>
+  downloadToLocal(url).catch((err) => {
+    logEvent('download', `失敗: ${url} (${err.message})`);
+    throw err;
+  })
+);
 
 // ---- 3. bridge:// URL のパースとリストへの格納 ----
 
@@ -680,6 +781,29 @@ function sendFileToRenderer(filePath, origin) {
     pushPending(pendingFiles, payload);
   }
 }
+
+// bridge://add?path= で要求されたローカルファイルの追加を、Renderer のトーストで確認してから行う。
+// 確認待ちのパスだけを受け付ける (Renderer からの任意パス追加は許さない)
+const pendingAddConfirmations = new Set();
+const ADD_CONFIRM_TIMEOUT_MS = 15000;
+
+function requestAddConfirmation(filePath) {
+  if (!filePath || !fs.existsSync(filePath)) return;
+  pendingAddConfirmations.add(filePath);
+  setTimeout(() => pendingAddConfirmations.delete(filePath), ADD_CONFIRM_TIMEOUT_MS);
+  if (!canSendToRenderer()) return;
+  if (win.isMinimized()) win.restore();
+  placeOnCursorDisplay(expanded);
+  win.show();
+  expandShelter({ focus: true });
+  win.webContents.send('confirm-add-file', { path: filePath, name: path.basename(filePath) });
+}
+
+ipcMain.on('confirm-add-file', (_event, filePath) => {
+  if (typeof filePath !== 'string' || !pendingAddConfirmations.has(filePath)) return;
+  pendingAddConfirmations.delete(filePath);
+  sendFileToRenderer(filePath);
+});
 
 // URL でないテキストは .txt として保存してから追加する
 async function saveTextAsFile(text) {
@@ -723,7 +847,9 @@ async function handleBridgeUrl(rawUrl) {
 
   try {
     if (filePath) {
-      sendFileToRenderer(filePath);
+      // ローカルパスの取り込みは、Web ページのリンクなどからも発火しうる。
+      // 黙って載せる (= 同期で全デバイスへ配る) のではなく、ユーザーに一度確認する
+      requestAddConfirmation(filePath);
     } else if (text && /^https?:\/\//i.test(text.trim())) {
       const saved = await downloadToLocal(text.trim());
       sendFileToRenderer(saved.path);
@@ -822,6 +948,24 @@ async function getFileKindLabel(filePath) {
 
 ipcMain.handle('get-file-kind', (_event, filePath) => getFileKindLabel(filePath));
 
+// ---- 元ファイルの存在確認 (移動・削除されたファイルの検知) ----
+ipcMain.handle('stat-paths', async (_event, paths) => {
+  const missing = [];
+  if (!Array.isArray(paths)) return missing;
+  await Promise.all(
+    paths
+      .filter((p) => typeof p === 'string')
+      .map(async (p) => {
+        try {
+          await fsp.access(p);
+        } catch {
+          missing.push(p);
+        }
+      })
+  );
+  return missing;
+});
+
 // ---- コンテキストメニューのアクション ----
 ipcMain.on('reveal-in-finder', (_event, filePath) => {
   if (typeof filePath === 'string' && fs.existsSync(filePath)) shell.showItemInFolder(filePath);
@@ -830,6 +974,10 @@ ipcMain.on('open-file', (_event, filePath) => {
   if (typeof filePath === 'string' && fs.existsSync(filePath)) {
     shell.openPath(filePath).catch((err) => console.error('ファイルを開けません:', filePath, err));
   }
+});
+ipcMain.on('open-external', (_event, url) => {
+  if (typeof url !== 'string' || !/^https?:\/\//i.test(url)) return;
+  shell.openExternal(url).catch((err) => console.error('リンクを開けません:', url, err));
 });
 ipcMain.on('clipboard-copy-plain', (_event, text) => {
   if (typeof text !== 'string') return;
@@ -978,9 +1126,21 @@ function pushClipHistory(entry) {
 }
 
 // 画像の同一判定キー (サイズ + ピクセルの MD5)。Bridge 自身の書き戻し検知スルーにも使う
+// 大きな画像でも一定コストで済むよう、ビットマップ全体ではなく等間隔サンプル (最大 256KB) をハッシュする
+const IMAGE_HASH_SAMPLE_BYTES = 256 * 1024;
 function imageKey(image) {
   const { width, height } = image.getSize();
-  return `${width}x${height}:${crypto.createHash('md5').update(image.toBitmap()).digest('hex')}`;
+  const bitmap = image.toBitmap();
+  const hash = crypto.createHash('md5');
+  if (bitmap.length <= IMAGE_HASH_SAMPLE_BYTES) {
+    hash.update(bitmap);
+  } else {
+    const stride = Math.ceil(bitmap.length / IMAGE_HASH_SAMPLE_BYTES);
+    const sample = Buffer.alloc(Math.ceil(bitmap.length / stride));
+    for (let i = 0, j = 0; i < bitmap.length; i += stride, j++) sample[j] = bitmap[i];
+    hash.update(sample);
+  }
+  return `${width}x${height}:${bitmap.length}:${hash.digest('hex')}`;
 }
 
 // コピーされた画像は即ファイル化しておく (サムネイル表示とドラッグアウトを既存フローに乗せるため)
@@ -1050,33 +1210,6 @@ function readCopiedFilePathsMac() {
   return paths;
 }
 
-// テキストの中から file:// URL を探して絶対パスへ変換する (Windows/Mac 共通のパーサー)
-function extractFileUrlPaths(text) {
-  const paths = [];
-  if (!text) return paths;
-  for (const m of text.matchAll(/file:\/\/\/?[^\s"'<>]+/gi)) {
-    try {
-      const p = fileURLToPath(m[0]);
-      if (p) paths.push(p);
-    } catch {
-      // URL として不正な断片はスキップ
-    }
-  }
-  return paths;
-}
-
-// テキストの中から "C:\..." 形式の Windows 絶対パスを探す (エクスプローラーが
-// CF_HDROP のみを載せて file:// 表現を持たない場合の最終フォールバック用)
-function extractWindowsAbsolutePaths(text) {
-  const paths = [];
-  if (!text) return paths;
-  for (const m of text.matchAll(/[A-Za-z]:\\[^\r\n"<>|?*]+/g)) {
-    const p = m[0].trim().replace(/[.,;:]+$/, '');
-    if (p) paths.push(p);
-  }
-  return paths;
-}
-
 // Windows のエクスプローラーで「ファイル自体」がコピーされているか調べ、絶対パスの配列を返す。
 // 実機検証の結果、エクスプローラーの Ctrl+C は availableFormats() に text/uri-list を含めるものの
 // read/readBuffer で読むと空文字になり (Electron/Chromium 側の Windows 実装の制約)、
@@ -1137,10 +1270,65 @@ function readCopiedFilePaths() {
   return process.platform === 'win32' ? readCopiedFilePathsWindows() : readCopiedFilePathsMac();
 }
 
+// パスワードマネージャー等が「履歴ツールは無視して」と宣言するときに付けるフォーマット。
+// macOS: nspasteboard.org の慣習 (1Password / Bitwarden / KeePassXC 等が採用)
+// Windows: Windows 10 のクリップボード履歴を除外するための登録フォーマット
+const CONCEALED_FORMATS = [
+  'org.nspasteboard.ConcealedType',
+  'org.nspasteboard.TransientType',
+  'org.nspasteboard.AutoGeneratedType',
+  'ExcludeClipboardContentFromMonitorProcessing',
+  'CanIncludeInClipboardHistory', // Windows: 値 0 なら除外だが、付いている時点で「履歴に載せないで」の意図とみなす
+];
+
+function clipboardIsConcealed() {
+  for (const format of CONCEALED_FORMATS) {
+    try {
+      if (clipboard.has(format)) return true;
+    } catch {
+      // 未知のフォーマット名で例外になる環境では「隠されていない」扱い
+    }
+  }
+  return false;
+}
+
+// 画像の「変わったかどうか」を、デコードもハッシュもせずに判定するための安価な署名。
+// フォーマット一覧 + テキスト + 画像データの長さ (macOS: TIFF / Windows: PNG 形式があればそれ) で、
+// 何も変わっていなければ readImage() すら呼ばない (スクリーンショットが載ったまま放置されても CPU を使わない)
+function clipboardImageSignature(formats) {
+  let length = 0;
+  try {
+    const buf = clipboard.readBuffer(process.platform === 'darwin' ? 'public.tiff' : 'PNG');
+    length = buf ? buf.length : 0;
+  } catch {
+    length = 0;
+  }
+  return `${formats.join(',')}|${length}`;
+}
+let lastImageSignature = '';
+
 async function pollClipboard() {
   if (clipboardPolling) return; // 画像保存中に次のポーリングが重ならないようにする
   clipboardPolling = true;
   try {
+    // 「監視を一時停止」中は履歴に載せない。基準値だけ追従させ、再開した瞬間に
+    // 停止中にコピーした内容がまとめて載ることを防ぐ
+    if (clipboardPaused) {
+      lastClipText = clipboard.readText();
+      lastClipFileKey = readCopiedFilePaths().join('\n');
+      const formats = clipboard.availableFormats();
+      lastImageSignature = formats.some((f) => f.startsWith('image/')) ? clipboardImageSignature(formats) : '';
+      return;
+    }
+    // パスワードマネージャー等からの「隠された」コピーは履歴に残さず、同期もしない。
+    // 基準値だけ更新して、次に普通のコピーが来たときに正しく差分検知できるようにする
+    if (clipboardIsConcealed()) {
+      lastClipText = clipboard.readText();
+      lastClipFileKey = '';
+      lastImageSignature = '';
+      return;
+    }
+
     // ファイル: Finder で ⌘C されたファイルを最優先で検知し、リストへ自動追加する。
     // ファイルコピー時はパス文字列などの付随テキストも載るため、その tick の
     // テキスト/画像判定はスキップして誤検知 (偽のテキスト履歴) を防ぐ
@@ -1160,22 +1348,16 @@ async function pollClipboard() {
     lastClipFileKey = '';
 
     // テキスト: 前回と異なる非空テキストなら履歴へ。
-    // 生テキスト (クリックで即ペースト用) を保持しつつ、裏で snippet_[タイムスタンプ].txt も
-    // 同時生成してドラッグアウト用のファイルパスを持たせる (データの二刀流)
+    // ドラッグアウト用の .txt はここでは作らず、実際にドラッグ / プレビューされたときに
+    // 初めて生成する (コピーのたびにディスクへ書かない)
     const text = clipboard.readText();
     if (text !== lastClipText) {
       lastClipText = text;
       if (text && text.trim()) {
-        let snippetPath = null;
-        try {
-          snippetPath = await saveSnippetAsFile(text);
-        } catch (err) {
-          console.error('スニペットファイルの生成に失敗 (生テキストのみで履歴に残す):', err);
-        }
         const entry = {
           type: 'clipboard-text',
           text,
-          path: snippetPath,
+          path: null,
           timestamp: Date.now(),
           fromDevice: deviceName,
           fromPlatform: process.platform,
@@ -1184,13 +1366,19 @@ async function pollClipboard() {
         pushClipHistory(entry);
         sendClipboardItem(entry);
         // 同期台帳へ登録し、オンラインの他拠点へ即時プッシュする
-        registerLocalSyncEntry({ type: 'text', text, path: snippetPath, timestamp: entry.timestamp });
+        registerLocalSyncEntry({ type: 'text', text, timestamp: entry.timestamp });
       }
     }
 
     // 画像: 形式チェックを先に行い、画像が無いときの readImage デコードを避ける
-    const hasImage = clipboard.availableFormats().some((f) => f.startsWith('image/'));
+    const formats = clipboard.availableFormats();
+    const hasImage = formats.some((f) => f.startsWith('image/'));
     if (hasImage) {
+      // 安価な署名が前回と同じなら、デコードもハッシュもせずに終える
+      const signature = clipboardImageSignature(formats);
+      if (signature === lastImageSignature) return;
+      lastImageSignature = signature;
+
       const image = clipboard.readImage();
       if (!image.isEmpty()) {
         const key = imageKey(image);
@@ -1219,6 +1407,7 @@ async function pollClipboard() {
       }
     } else {
       lastClipImageKey = '';
+      lastImageSignature = '';
     }
   } catch (err) {
     console.error('クリップボード監視に失敗:', err);
@@ -1232,8 +1421,12 @@ function startClipboardWatcher() {
   // 初期読み取りが環境依存で失敗しても、監視の定期実行そのものは必ず開始する
   try {
     lastClipText = clipboard.readText();
-    const image = clipboard.readImage();
-    lastClipImageKey = image.isEmpty() ? '' : imageKey(image);
+    const formats = clipboard.availableFormats();
+    if (formats.some((f) => f.startsWith('image/'))) {
+      lastImageSignature = clipboardImageSignature(formats);
+      const image = clipboard.readImage();
+      lastClipImageKey = image.isEmpty() ? '' : imageKey(image);
+    }
     lastClipFileKey = readCopiedFilePaths().join('\n');
   } catch (err) {
     console.error('クリップボードの初期読み取りに失敗:', err);
@@ -1243,10 +1436,15 @@ function startClipboardWatcher() {
 
 // ---- クリップボード履歴の再利用 (クリックでコピー & 自動格納) ----
 
-ipcMain.on('clipboard-write-text', (_event, text) => {
+function writeTextToClipboard(text) {
   clipboard.writeText(text); // 生のテキストデータを OS に書き戻す → 即ペースト可能
   lastClipText = text; // 自分で書き戻した分は監視でスルーする
   lastClipFileKey = '';
+  lastImageSignature = '';
+}
+
+ipcMain.on('clipboard-write-text', (_event, text) => {
+  if (typeof text === 'string') writeTextToClipboard(text);
 });
 
 // Windows のクリップボードへ「本物のファイル」として書き込む (CF_HDROP)。
@@ -1261,16 +1459,16 @@ function writeFilesToWindowsClipboard(paths) {
   return execFileAsync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script]);
 }
 
-// ファイルアイテムのクリック: パスを OS の「ファイル形式」でクリップボードへ。
+// パスを OS の「ファイル形式」でクリップボードへ。
 // mac: public.file-url / Windows: CF_HDROP。それぞれ ⌘V・Ctrl+V で本物のファイルとして複製・ペーストされる
-ipcMain.on('clipboard-write-file', async (_event, filePath) => {
-  if (!filePath || !fs.existsSync(filePath)) return;
+async function writeFileToClipboard(filePath) {
+  if (!filePath || !fs.existsSync(filePath)) return false;
   if (process.platform === 'win32') {
     try {
       await writeFilesToWindowsClipboard([filePath]);
     } catch (err) {
       console.error('Windows クリップボードへのファイル書き込みに失敗:', err);
-      return;
+      return false;
     }
   } else {
     clipboard.writeBuffer('public.file-url', Buffer.from(pathToFileURL(filePath).toString(), 'utf8'));
@@ -1279,35 +1477,152 @@ ipcMain.on('clipboard-write-file', async (_event, filePath) => {
   lastClipFileKey = filePath;
   lastClipText = clipboard.readText();
   lastClipImageKey = '';
+  lastImageSignature = '';
+  return true;
+}
+
+ipcMain.on('clipboard-write-file', (_event, filePath) => {
+  writeFileToClipboard(filePath);
 });
 
-ipcMain.on('clipboard-write-image', (_event, filePath) => {
+function writeImageToClipboard(filePath) {
   const image = nativeImage.createFromPath(filePath);
-  if (image.isEmpty()) return;
+  if (image.isEmpty()) return false;
   clipboard.writeImage(image);
   // 書き戻し後のクリップボードを読み直して基準値にする (エンコード差分による再検知を防ぐ)
   const readBack = clipboard.readImage();
   lastClipImageKey = readBack.isEmpty() ? '' : imageKey(readBack);
+  const formats = clipboard.availableFormats();
+  lastImageSignature = formats.some((f) => f.startsWith('image/')) ? clipboardImageSignature(formats) : '';
   lastClipText = clipboard.readText();
   lastClipFileKey = '';
+  return true;
+}
+
+ipcMain.on('clipboard-write-image', (_event, filePath) => {
+  if (typeof filePath === 'string') writeImageToClipboard(filePath);
 });
 
-// テキスト履歴のドラッグアウト: 検知時に裏で生成済みの snippet_*.txt をそのまま OS ネイティブドラッグに乗せる。
-// (生成に失敗していた等でパスが無い場合のみ、その場で .txt に書き出すフォールバック)
-ipcMain.on('drag-clipboard-text', async (event, payload) => {
+// テキスト履歴の実体ファイルは遅延生成: 既に作ってあればそれを、無ければその場で snippet_*.txt を書く
+async function ensureSnippetFile(payload) {
+  let dest = payload && payload.path;
+  if (dest && fs.existsSync(dest)) return dest;
+  const text = payload && payload.text;
+  if (!text) return null;
+  return saveSnippetAsFile(text);
+}
+
+ipcMain.handle('ensure-clipboard-text-file', (_event, payload) => ensureSnippetFile(payload));
+
+ipcMain.handle('drag-clipboard-text', async (event, payload) => {
   try {
-    let dest = payload && payload.path;
-    if (!dest || !fs.existsSync(dest)) {
-      const text = payload && payload.text;
-      if (!text) return;
-      dest = await saveSnippetAsFile(text);
-    }
+    const dest = await ensureSnippetFile(payload);
+    if (!dest) return null;
     const icon = await app.getFileIcon(dest);
     event.sender.startDrag({ files: [dest], icon });
+    return dest;
   } catch (err) {
     console.error('クリップボードテキストのドラッグアウトに失敗:', err);
+    return null;
   }
 });
+
+// ---- 履歴の永続化 (userData/history.json) ----
+// 表示リストの真実は Renderer が持つため、Renderer から届いた「保存用の一覧」をそのまま書く。
+// 裏生成ファイルの追跡 (sessionTempFiles) も一緒に保存し、再起動後も上限あふれ時の削除対象にする
+
+function historyPath() {
+  return path.join(app.getPath('userData'), 'history.json');
+}
+
+let latestHistoryPayload = null; // Renderer から最後に届いた一覧 (クラッシュ復帰・終了時の書き出しに使う)
+let historyWriteTimer = null;
+
+function historyFileContents() {
+  return JSON.stringify({
+    version: 1,
+    savedAt: Date.now(),
+    items: latestHistoryPayload ? latestHistoryPayload.items : [],
+    tempFiles: [...sessionTempFiles],
+  });
+}
+
+// 書き込みは一時ファイル + rename で原子的に行い、途中でプロセスが落ちても壊れた JSON を残さない
+function writeHistoryNow() {
+  historyWriteTimer = null;
+  if (!latestHistoryPayload) return;
+  const dest = historyPath();
+  const tmp = `${dest}.tmp`;
+  try {
+    fs.writeFileSync(tmp, historyFileContents());
+    fs.renameSync(tmp, dest);
+  } catch (err) {
+    console.error('履歴の保存に失敗:', err);
+  }
+}
+
+function scheduleHistoryWrite() {
+  if (historyWriteTimer) clearTimeout(historyWriteTimer);
+  historyWriteTimer = setTimeout(writeHistoryNow, 500);
+}
+
+ipcMain.on('persist-items', (_event, payload) => {
+  if (!payload || !Array.isArray(payload.items)) return;
+  latestHistoryPayload = { items: payload.items };
+  scheduleHistoryWrite();
+});
+
+function readHistoryFromDisk() {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(historyPath(), 'utf8'));
+    if (!parsed || typeof parsed !== 'object') return null;
+    return {
+      items: Array.isArray(parsed.items) ? parsed.items : [],
+      tempFiles: Array.isArray(parsed.tempFiles) ? parsed.tempFiles.filter((p) => typeof p === 'string') : [],
+    };
+  } catch {
+    return null; // 初回起動・壊れている場合は空から始める
+  }
+}
+
+// 前回の終了 (またはクラッシュ) 時点の一覧を Renderer へ流し込む。
+// 同じセッション内の Renderer 再起動なら、ディスクではなくメモリ上の最新一覧から復元する
+function restoreHistoryToRenderer() {
+  let items;
+  if (latestHistoryPayload) {
+    items = latestHistoryPayload.items;
+  } else {
+    const disk = readHistoryFromDisk();
+    if (!disk) return;
+    items = disk.items;
+    for (const p of disk.tempFiles) {
+      if (fs.existsSync(p)) sessionTempFiles.add(p);
+    }
+    sweepOrphanTempFiles(new Set([...disk.tempFiles, ...items.map((it) => it.path).filter(Boolean)]));
+  }
+  if (items.length > 0 && canSendToRenderer()) win.webContents.send('restore-items', items);
+}
+
+// 前回クラッシュ等で履歴に残らなかった裏生成ファイル (clipboard_*.png / snippet_*.txt) を起動時に片付ける。
+// ユーザーがドロップした実ファイルや Web ダウンロードはこの命名ではないため対象にならない
+function sweepOrphanTempFiles(keep) {
+  let names;
+  try {
+    names = fs.readdirSync(downloadDir());
+  } catch {
+    return;
+  }
+  for (const name of names) {
+    if (!/^(clipboard_\d+|snippet_\d+)(-\d+)?\.(png|txt)$/.test(name)) continue;
+    const full = path.join(downloadDir(), name);
+    if (keep.has(full)) continue;
+    try {
+      fs.unlinkSync(full);
+    } catch {
+      // 消せなくても続行
+    }
+  }
+}
 
 // ---- 一時ファイルの自動クリーンアップ (ディスク保護) ----
 
@@ -1341,6 +1656,9 @@ ipcMain.on('delete-temp-file', (_event, filePath) => {
 // will-quit 内は非同期処理を待たずにプロセスが落ちうるため同期 API で確実に消す
 app.on('will-quit', () => {
   globalShortcut.unregisterAll();
+  if (popupAlive()) popupWin.destroy();
+  // 最後の一覧を必ず書き出してから、リストに残っていない裏生成ファイルを掃除する
+  if (historyWriteTimer) clearTimeout(historyWriteTimer);
   for (const p of sessionTempFiles) {
     if (retainedPaths.has(p)) continue;
     try {
@@ -1349,7 +1667,10 @@ app.on('will-quit', () => {
       // 既に削除済み・アクセス不可などは無視 (掃除が目的なので失敗しても続行)
     }
   }
-  sessionTempFiles.clear();
+  for (const p of [...sessionTempFiles]) {
+    if (!retainedPaths.has(p)) sessionTempFiles.delete(p);
+  }
+  writeHistoryNow();
 });
 
 // ---- マルチデバイス全自動同期 (軽量 HTTP サーバー + ピア発見 + 差分同期) ----
@@ -1375,7 +1696,6 @@ let myIconType = null;
 
 const DEFAULT_SYNC_PORT = 9095;
 const SYNC_POLL_MS = 20 * 1000; // 既知ピアへの差分ポーリング間隔 (再接続の自動検知を兼ねる)
-const SUBNET_SCAN_MS = 5 * 60 * 1000; // 同一セグメントの再スキャン間隔 (Wi-Fi 切り替え等に追従)
 const PROBE_TIMEOUT_MS = 800;
 const SYNC_BODY_LIMIT = 10 * 1024 * 1024;
 const MAX_SYNC_STORE = 500;
@@ -1439,6 +1759,7 @@ function loadSyncConfig() {
     if (typeof parsed.iconType === 'string' && ALLOWED_ICON_TYPES.includes(parsed.iconType)) {
       myIconType = parsed.iconType;
     }
+    if (typeof parsed.autoPaste === 'boolean') autoPasteEnabled = parsed.autoPaste;
   }
 
   // secretToken が未設定なら暗号学的に安全なランダムキーを自動生成して設定ファイルへ書き戻す。
@@ -1464,20 +1785,6 @@ function pushSyncEntry(entry) {
   if (syncStore.length > MAX_SYNC_STORE) syncStore.splice(0, syncStore.length - MAX_SYNC_STORE);
 }
 
-// ピアへ送るメタデータ (実体ファイルは含めず、hasFile なら /file?id= で別途転送する)
-function syncMetadata(entry) {
-  return {
-    id: entry.id,
-    type: entry.type,
-    name: entry.name,
-    text: entry.type === 'text' ? entry.text : null,
-    timestamp: entry.timestamp,
-    fromDevice: entry.fromDevice,
-    fromPlatform: entry.fromPlatform,
-    hasFile: entry.type !== 'text' && !!entry.path,
-  };
-}
-
 // パスがフォルダかどうかの安全判定 (存在しない・stat 失敗は「フォルダではない」扱い)
 function isDirectorySafe(p) {
   try {
@@ -1489,6 +1796,7 @@ function isDirectorySafe(p) {
 
 // 自分のデバイスで生まれたアイテムを台帳へ登録し、オンラインのピアへ即時プッシュする
 function registerLocalSyncEntry({ type, name, text, path: filePath, timestamp }) {
+  if (syncPaused) return null; // 一時停止中に生まれたアイテムは、再開後も同期しない (意図的)
   // 同期トリガーの最終関門: フォルダは台帳登録もピアへのプッシュも行わず完全スキップする
   if (type !== 'text' && filePath && isDirectorySafe(filePath)) return null;
   const entry = {
@@ -1535,9 +1843,12 @@ function addPeer(host, port, device, iconType) {
       iconType: iconType || null,
       online: false,
       lastSyncedTs: 0,
+      lastSyncedAt: 0, // 最後にポーリング / 受信が成功した時刻 (ローカル時計)
+      lastError: null, // 最後の失敗理由 (設定シートの診断表示用)
       syncing: false,
     };
     knownPeers.set(key, peer);
+    logEvent('peer', `発見: ${device || '(名前未取得)'} ${key}`);
     // 発見した瞬間に一度差分同期を走らせる (帰宅直後の取り込みを最速化)
     pollPeer(peer);
   } else {
@@ -1609,11 +1920,6 @@ function httpPostJson(host, port, pathName, payload, timeoutMs = 3000) {
 }
 
 // 他拠点由来のファイル名は OS を跨ぐため、Windows で使えない文字を除去してから保存する
-function sanitizeSyncFileName(name) {
-  const cleaned = String(name || '').replace(/[/\\:*?"<>|]/g, '_').trim();
-  return cleaned || `synced-${Date.now()}`;
-}
-
 // ピアの /file?id= から実体ファイルをローカルの一時保存フォルダへバックグラウンド転送する。
 // 一括読み込みせず createWriteStream へパイプするため、数 GB のファイルでもメモリを圧迫しない
 function downloadEntryFile(peer, entry) {
@@ -1694,12 +2000,6 @@ async function importRemoteEntry(meta, peer) {
   if (meta.type === 'text') {
     rememberSyncId(entry.id);
     if (!entry.text.trim()) return true;
-    // ドラッグアウト用に snippet ファイルも裏生成しておく (失敗しても本文だけで取り込む)
-    try {
-      entry.path = await saveSnippetAsFile(entry.text);
-    } catch {
-      entry.path = null;
-    }
     pushSyncEntry(entry);
     sendClipboardItem({
       type: 'clipboard-text',
@@ -1724,6 +2024,7 @@ async function importRemoteEntry(meta, peer) {
       entry.path = await downloadEntryFile(peer, entry);
     } catch (err) {
       console.error('同期ファイルの転送に失敗 (次回ポーリングで再試行):', entry.name, err.message);
+      logEvent('sync', `受信失敗: ${entry.name} from ${peer.device || peer.host} (${err.message})`);
       return false;
     }
     rememberSyncId(entry.id);
@@ -1757,7 +2058,10 @@ async function pollPeer(peer) {
   try {
     const data = await httpGetJson(peer.host, peer.port, `/items?since=${peer.lastSyncedTs}`, 5000);
     if (!data || data.app !== 'bridge' || !Array.isArray(data.items)) return;
+    if (!peer.online) logEvent('peer', `オンライン: ${peer.device || peer.host}`);
     peer.online = true;
+    peer.lastSyncedAt = Date.now();
+    peer.lastError = null;
     if (data.device) peer.device = data.device;
     if (data.iconType) peer.iconType = data.iconType;
     // lastSyncedTs は「ピア側の時計で付いたタイムスタンプ」の最大値なので、
@@ -1765,23 +2069,29 @@ async function pollPeer(peer) {
     const sorted = data.items.slice().sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
     for (const meta of sorted) {
       const ok = await importRemoteEntry(meta, peer);
-      if (!ok) break; // 転送失敗地点で止め、タイムスタンプを進めず次回に再取得する
+      if (!ok) {
+        peer.lastError = `ファイル転送に失敗: ${meta.name || meta.id}`;
+        break; // 転送失敗地点で止め、タイムスタンプを進めず次回に再取得する
+      }
       peer.lastSyncedTs = Math.max(peer.lastSyncedTs, Number(meta.timestamp) || 0);
     }
-  } catch {
+  } catch (err) {
+    if (peer.online) logEvent('peer', `オフライン: ${peer.device || peer.host} (${err && err.message})`);
     peer.online = false; // 外出中などで到達不能。lastSyncedTs は保持し、再接続時に差分だけ取り込む
+    peer.lastError = err && err.message === 'HTTP 401' ? '同期キーが一致しません' : err && err.message ? err.message : '到達できません';
   } finally {
     peer.syncing = false;
   }
 }
 
 function pollAllPeers() {
+  if (syncPaused) return;
   for (const peer of knownPeers.values()) pollPeer(peer);
 }
 
 // 新着アイテムが発生した瞬間、オンラインの全ピアへメタデータを即時プッシュする
 function pushEntriesToPeers(entries) {
-  if (entries.length === 0 || knownPeers.size === 0) return;
+  if (syncPaused || entries.length === 0 || knownPeers.size === 0) return;
   const payload = {
     app: 'bridge',
     device: deviceName,
@@ -1792,8 +2102,10 @@ function pushEntriesToPeers(entries) {
   };
   for (const peer of knownPeers.values()) {
     if (!peer.online) continue; // オフラインのピアへは再接続後の差分ポーリングで届く
-    httpPostJson(peer.host, peer.port, '/push', payload).catch(() => {
+    httpPostJson(peer.host, peer.port, '/push', payload).catch((err) => {
+      if (peer.online) logEvent('peer', `プッシュ失敗: ${peer.device || peer.host} (${err && err.message})`);
       peer.online = false;
+      peer.lastError = err && err.message ? err.message : 'プッシュに失敗';
     });
   }
 }
@@ -1828,6 +2140,12 @@ function startSyncServer() {
     // 他人の Bridge が居ても、クリップボード履歴やファイルが混線・漏洩することはない
     if (!isAuthorizedRequest(req)) {
       res.writeHead(401);
+      res.end();
+      return;
+    }
+    // 同期の一時停止中は /ping 以外を受け付けない (相手は次回のポーリングで取りに来る)
+    if (syncPaused && !(req.method === 'GET' && String(req.url).startsWith('/ping'))) {
+      res.writeHead(503);
       res.end();
       return;
     }
@@ -1923,6 +2241,7 @@ function startSyncServer() {
                 iconType: payload.iconType || null,
               };
             peer.online = true;
+            peer.lastSyncedAt = Date.now();
             const sorted = payload.items.slice().sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
             for (const meta of sorted) await importRemoteEntry(meta, peer);
             respondJson(res, { ok: true });
@@ -1947,19 +2266,109 @@ function startSyncServer() {
     }
   });
 
-  server.on('error', (err) => console.error('同期サーバーの起動に失敗:', err.message));
+  server.on('error', (err) => {
+    console.error('同期サーバーの起動に失敗:', err.message);
+    logEvent('server', `起動失敗 (ポート ${syncConfig.port}): ${err.message}`);
+  });
   // 不正なリクエストや接続途中のソケット異常は該当ソケットだけを破棄し、サーバーを守る
   server.on('clientError', (_err, socket) => socket.destroy());
-  server.listen(syncConfig.port, '0.0.0.0');
+  server.listen(syncConfig.port, '0.0.0.0', () => logEvent('server', `待ち受け開始: ポート ${syncConfig.port}`));
 }
 
-// ---- 同一セグメントの簡易スキャン (静的設定なしでもピアを自動発見する) ----
+// ---- ピア発見: UDP マルチキャストの自己紹介 (依存パッケージなし、node:dgram) ----
+// 各デバイスは定期的に「Bridge がここにいます」をマルチキャストで流し、受け取った側が
+// HTTP で握手する。/24 全ホストへの HTTP スキャンと違い、ネットワークに静かで、
+// 同期キーの一致 (ハッシュの先頭だけ) を先に確かめてから接続する
+const DISCOVERY_GROUP = '239.255.77.77';
+const DISCOVERY_PORT = 9096;
+const DISCOVERY_ANNOUNCE_MS = 30 * 1000;
+let discoverySocket = null;
 
+function tokenIdentifier() {
+  return tokenIdentifierOf(syncConfig.secretToken);
+}
+
+function discoveryPayload() {
+  return Buffer.from(
+    JSON.stringify({
+      app: 'bridge',
+      v: 1,
+      port: syncConfig.port,
+      device: deviceName,
+      platform: process.platform,
+      iconType: myIconType,
+      tokenId: tokenIdentifier(),
+    })
+  );
+}
+
+function announcePresence(targetHost, targetPort) {
+  if (!discoverySocket || !syncConfig.autoScan || syncPaused) return;
+  const payload = discoveryPayload();
+  discoverySocket.send(payload, targetPort || DISCOVERY_PORT, targetHost || DISCOVERY_GROUP, () => {});
+}
+
+function startDiscovery() {
+  if (discoverySocket) return;
+  try {
+    discoverySocket = dgram.createSocket({ type: 'udp4', reuseAddr: true });
+  } catch (err) {
+    logEvent('discovery', `ソケット作成に失敗: ${err.message}`);
+    return;
+  }
+  discoverySocket.on('error', (err) => {
+    logEvent('discovery', `エラー: ${err.message}`);
+  });
+  discoverySocket.on('message', (msg, rinfo) => {
+    if (!syncConfig.autoScan || syncPaused) return;
+    let info;
+    try {
+      info = JSON.parse(msg.toString('utf8'));
+    } catch {
+      return;
+    }
+    if (!info || info.app !== 'bridge' || info.tokenId !== tokenIdentifier()) return;
+    const host = rinfo.address;
+    if (localAddresses().has(host) && Number(info.port) === syncConfig.port) return; // 自分の自己紹介
+    const peer = addPeer(host, info.port, info.device, info.iconType);
+    if (!peer) return;
+    // 相手が起動直後なら、こちらの存在も直接返してすぐに双方向にする
+    announcePresence(host, rinfo.port);
+  });
+  discoverySocket.bind(DISCOVERY_PORT, '0.0.0.0', () => {
+    try {
+      discoverySocket.setMulticastTTL(1); // 同一セグメントの外へは出さない
+      discoverySocket.setMulticastLoopback(true);
+      for (const list of Object.values(os.networkInterfaces() || {})) {
+        for (const a of list || []) {
+          if (a.family !== 'IPv4' || a.internal) continue;
+          try {
+            discoverySocket.addMembership(DISCOVERY_GROUP, a.address);
+          } catch {
+            // 参加できないインターフェース (VPN 等) は無視
+          }
+        }
+      }
+      logEvent('discovery', `マルチキャスト待ち受け開始: ${DISCOVERY_GROUP}:${DISCOVERY_PORT}`);
+    } catch (err) {
+      logEvent('discovery', `マルチキャスト設定に失敗: ${err.message}`);
+    }
+    // 起動直後は短い間隔で数回名乗り、その後は定期的に
+    announcePresence();
+    setTimeout(announcePresence, 2000);
+    setTimeout(announcePresence, 6000);
+    setInterval(announcePresence, DISCOVERY_ANNOUNCE_MS);
+  });
+}
+
+// ---- 同一セグメントの HTTP スキャン (マルチキャストが通らないネットワーク向けの手動フォールバック) ----
+// 起動時に 1 度だけ (誰も見つかっていなければ) と、設定シートの「いま探す」で実行する
 let subnetScanRunning = false;
 
 async function scanSubnetForPeers() {
-  if (!syncConfig.autoScan || subnetScanRunning) return;
+  if (subnetScanRunning) return;
   subnetScanRunning = true;
+  logEvent('discovery', 'サブネットスキャン開始');
   try {
     const self = localAddresses();
     const targets = new Set();
@@ -1977,37 +2386,59 @@ async function scanSubnetForPeers() {
 
     const hosts = [...targets];
     const CONCURRENCY = 32;
+    let found = 0;
     for (let i = 0; i < hosts.length; i += CONCURRENCY) {
       await Promise.all(
         hosts.slice(i, i + CONCURRENCY).map(async (host) => {
           try {
             const info = await httpGetJson(host, syncConfig.port, '/ping');
-            if (info && info.app === 'bridge') addPeer(host, info.port, info.device, info.iconType);
+            if (info && info.app === 'bridge') {
+              addPeer(host, info.port, info.device, info.iconType);
+              found++;
+            }
           } catch {
             // Bridge が居ないホスト・応答なしは無視
           }
         })
       );
     }
+    logEvent('discovery', `サブネットスキャン完了: ${found} 台`);
   } catch (err) {
-    // ネットワークインターフェースの列挙失敗などでスキャンが落ちても、
-    // 未処理の Promise 拒否にせず次回の定期スキャンに委ねる
     console.error('サブネットスキャンに失敗:', err);
+    logEvent('discovery', `サブネットスキャン失敗: ${err.message}`);
   } finally {
     subnetScanRunning = false;
   }
 }
 
+ipcMain.handle('scan-peers-now', async () => {
+  announcePresence();
+  await scanSubnetForPeers();
+  pollAllPeers();
+  lastSyncStatusKey = '';
+  return syncStatusSnapshot();
+});
+
+ipcMain.on('reveal-log', () => {
+  const dest = logPath();
+  if (!fs.existsSync(dest)) logEvent('app', 'ログを表示');
+  shell.showItemInFolder(dest);
+});
+
 function startDeviceSync() {
   loadSyncConfig();
+  logEvent('app', `起動: ${deviceName} (${process.platform}) v${app.getVersion()}`);
   startSyncServer();
   for (const raw of syncConfig.peers) {
     const [host, port] = raw.split(':');
     if (host && host.trim()) addPeer(host.trim(), port);
   }
-  scanSubnetForPeers();
+  if (syncConfig.autoScan) startDiscovery();
+  // マルチキャストが届かないネットワーク (ゲスト Wi-Fi 等) のため、起動後しばらく誰も見つからなければ 1 度だけスキャンする
+  setTimeout(() => {
+    if (syncConfig.autoScan && knownPeers.size === 0) scanSubnetForPeers();
+  }, 15000);
   setInterval(pollAllPeers, SYNC_POLL_MS);
-  setInterval(scanSubnetForPeers, SUBNET_SCAN_MS);
 }
 
 // Renderer が「ローカル / 他拠点」バッジを出し分けるための自分自身の情報
@@ -2022,8 +2453,15 @@ function syncStatusSnapshot() {
     port: p.port,
     online: Boolean(p.online),
     iconType: p.iconType || null,
+    lastSyncedAt: p.lastSyncedAt || 0,
+    lastError: p.lastError || null,
   }));
-  return { peers, onlineCount: peers.filter((p) => p.online).length };
+  return {
+    peers,
+    onlineCount: peers.filter((p) => p.online).length,
+    clipboardPaused,
+    syncPaused,
+  };
 }
 
 let lastSyncStatusKey = '';
@@ -2050,6 +2488,9 @@ ipcMain.handle('get-settings', () => ({
   port: syncConfig.port,
   openAtLogin: app.getLoginItemSettings().openAtLogin,
   hotkeyLabel: TOGGLE_SHORTCUT_LABEL,
+  pasteHotkeyLabel: PASTE_SHORTCUT_LABEL,
+  autoPaste: autoPasteEnabled,
+  version: app.getVersion(),
 }));
 
 ipcMain.handle('save-settings', (_event, incoming) => {
@@ -2082,6 +2523,10 @@ ipcMain.handle('save-settings', (_event, incoming) => {
   if (typeof incoming.openAtLogin === 'boolean') {
     app.setLoginItemSettings({ openAtLogin: incoming.openAtLogin });
   }
+  if (typeof incoming.autoPaste === 'boolean') {
+    autoPasteEnabled = incoming.autoPaste;
+    next.autoPaste = autoPasteEnabled;
+  }
 
   let existing = {};
   try {
@@ -2103,7 +2548,11 @@ ipcMain.handle('save-settings', (_event, incoming) => {
     console.error('設定の保存に失敗:', err);
     return { ok: false };
   }
-  if (syncConfig.autoScan) scanSubnetForPeers();
+  logEvent('app', '設定を保存');
+  if (syncConfig.autoScan) {
+    startDiscovery();
+    announcePresence();
+  }
   pollAllPeers();
   lastSyncStatusKey = '';
   return { ok: true };
@@ -2184,6 +2633,172 @@ ipcMain.on('sync-register-file', (_event, payload) => {
   });
 });
 
+// ---- ペースト用ポップアップ (⌘⇧V でカーソルの近くに履歴を出し、選ぶと即ペースト) ----
+// シェルフを開いてクリックするより 1 手少ない「その場でペースト」の導線。
+// 一覧のデータは Renderer から永続化のために届いている latestHistoryPayload を使う
+const POPUP_WIDTH = 300;
+const POPUP_HEIGHT = 380;
+const PASTE_SHORTCUT = 'CommandOrControl+Shift+V';
+const PASTE_SHORTCUT_LABEL = process.platform === 'darwin' ? '⌘⇧V' : 'Ctrl+Shift+V';
+let popupWin = null;
+let autoPasteEnabled = true; // 設定 (sync-config.json の autoPaste)
+
+function popupAlive() {
+  return popupWin !== null && !popupWin.isDestroyed();
+}
+
+function createPopupWindow() {
+  popupWin = new BrowserWindow({
+    width: POPUP_WIDTH,
+    height: POPUP_HEIGHT,
+    show: false,
+    frame: false,
+    resizable: false,
+    movable: false,
+    minimizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    skipTaskbar: true,
+    alwaysOnTop: true,
+    ...(process.platform === 'darwin' ? { type: 'panel', vibrancy: 'popover', visualEffectState: 'active' } : {}),
+    backgroundMaterial: 'acrylic',
+    backgroundColor: '#00000000',
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+  popupWin.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  popupWin.loadFile('popup.html');
+  popupWin.on('blur', () => hidePastePopup());
+  popupWin.on('closed', () => {
+    popupWin = null;
+  });
+}
+
+// ポップアップに出す一覧。テキスト / 画像 / (実体のある) ファイルを新しい順に、ピン留めを先頭に
+function popupItems() {
+  const items = latestHistoryPayload ? latestHistoryPayload.items : [];
+  return items
+    .filter((it) => it && (it.kind === 'clip-text' ? typeof it.text === 'string' : Boolean(it.path)))
+    .slice()
+    .sort((a, b) => {
+      if (Boolean(a.pinned) !== Boolean(b.pinned)) return a.pinned ? -1 : 1;
+      return (b.timestamp || 0) - (a.timestamp || 0);
+    })
+    .slice(0, 60)
+    .map((it) => ({
+      kind: it.kind,
+      text: it.text || null,
+      path: it.path || null,
+      name: it.name || '',
+      isImage: Boolean(it.isImage),
+      timestamp: it.timestamp,
+      pinned: Boolean(it.pinned),
+    }));
+}
+
+function showPastePopup() {
+  if (!popupAlive()) createPopupWindow();
+  const cursor = screen.getCursorScreenPoint();
+  const area = screen.getDisplayNearestPoint(cursor).workArea;
+  // カーソルのすぐ右下。画面からはみ出すなら内側へ寄せる
+  const x = Math.max(area.x, Math.min(cursor.x + 8, area.x + area.width - POPUP_WIDTH));
+  const y = Math.max(area.y, Math.min(cursor.y + 8, area.y + area.height - POPUP_HEIGHT));
+  popupWin.setBounds({ x, y, width: POPUP_WIDTH, height: POPUP_HEIGHT }, false);
+  const send = () => {
+    if (!popupAlive()) return;
+    popupWin.webContents.send('popup-items', { items: popupItems(), autoPaste: autoPasteEnabled });
+    popupWin.show();
+    popupWin.focus();
+  };
+  if (popupWin.webContents.isLoading()) popupWin.webContents.once('did-finish-load', send);
+  else send();
+}
+
+function hidePastePopup() {
+  if (popupAlive() && popupWin.isVisible()) popupWin.hide();
+}
+
+function togglePastePopup() {
+  if (popupAlive() && popupWin.isVisible()) hidePastePopup();
+  else showPastePopup();
+}
+
+// 選択後に前面アプリへ ⌘V / Ctrl+V を送る。macOS はアクセシビリティの許可が必要で、
+// 無ければ初回だけ OS の許可ダイアログを出し、その回はコピーだけで終える
+function sendPasteKeystroke() {
+  if (process.platform === 'darwin') {
+    if (!systemPreferences.isTrustedAccessibilityClient(false)) {
+      systemPreferences.isTrustedAccessibilityClient(true); // 許可ダイアログを出す
+      return false;
+    }
+    execFile('osascript', ['-e', 'tell application "System Events" to keystroke "v" using command down'], () => {});
+    return true;
+  }
+  if (process.platform === 'win32') {
+    execFile(
+      'powershell.exe',
+      ['-NoProfile', '-NonInteractive', '-Command', 'Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait("^v")'],
+      { windowsHide: true },
+      () => {}
+    );
+    return true;
+  }
+  return false;
+}
+
+ipcMain.on('popup-choose', async (_event, choice) => {
+  if (!choice || typeof choice !== 'object') return;
+  let ok = false;
+  if (choice.kind === 'clip-text' && typeof choice.text === 'string') {
+    writeTextToClipboard(choice.text);
+    ok = true;
+  } else if (choice.kind === 'clip-image' && typeof choice.path === 'string') {
+    ok = writeImageToClipboard(choice.path);
+  } else if (choice.kind === 'file' && typeof choice.path === 'string') {
+    ok = await writeFileToClipboard(choice.path);
+  }
+  hidePastePopup();
+  if (!ok) return;
+  // ポップアップが閉じて前のアプリに入力が戻るのを待ってからキーを送る
+  if (autoPasteEnabled) setTimeout(sendPasteKeystroke, 120);
+});
+
+ipcMain.on('popup-close', () => hidePastePopup());
+
+// ---- アップデートの確認 (GitHub Releases の最新タグとバージョンを比べるだけ。自動更新はしない) ----
+const UPDATE_CHECK_URL = 'https://api.github.com/repos/haruhito767676/bridge/releases/latest';
+const UPDATE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
+let notifiedUpdateVersion = null;
+
+async function checkForUpdates({ manual = false } = {}) {
+  try {
+    const res = await net.fetch(UPDATE_CHECK_URL, {
+      headers: { Accept: 'application/vnd.github+json', 'User-Agent': `bridge/${app.getVersion()}` },
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const release = await res.json();
+    const latest = String(release.tag_name || '').replace(/^v/, '');
+    if (latest && compareVersions(latest, app.getVersion()) > 0) {
+      if (!manual && notifiedUpdateVersion === latest) return;
+      notifiedUpdateVersion = latest;
+      logEvent('update', `新しいバージョン: ${latest}`);
+      if (canSendToRenderer()) {
+        placeOnCursorDisplay(expanded);
+        expandShelter({ focus: true });
+        win.webContents.send('update-available', { version: latest, url: release.html_url });
+      }
+    } else if (manual && canSendToRenderer()) {
+      win.webContents.send('update-none', { version: app.getVersion() });
+    }
+  } catch (err) {
+    logEvent('update', `確認に失敗: ${err.message}`);
+    if (manual && canSendToRenderer()) win.webContents.send('update-none', { version: app.getVersion(), error: true });
+  }
+}
+
 // ---- グローバルホットキー (パネルの表示/非表示トグル) ----
 // ホバー展開は「マウスが右端に行ったついで」の受動的な導線なので、意図して呼び出す主導線として
 // ホットキーを用意する。ホットキーで開いたときだけ検索バーにフォーカスし、そのまま打ち始められる。
@@ -2199,6 +2814,8 @@ function registerToggleShortcut() {
       toggleShelter();
     });
     if (!ok) console.error('ホットキーの登録に失敗 (他のアプリが使用中):', TOGGLE_SHORTCUT);
+    const okPaste = globalShortcut.register(PASTE_SHORTCUT, () => togglePastePopup());
+    if (!okPaste) console.error('ホットキーの登録に失敗 (他のアプリが使用中):', PASTE_SHORTCUT);
   } catch (err) {
     console.error('ホットキーの登録に失敗:', err);
   }
@@ -2214,6 +2831,11 @@ app.whenReady().then(() => {
   startClipboardWatcher();
   startEdgeRevealWatcher();
   startDeviceSync();
+  createPopupWindow(); // 初回の ⌘⇧V で待たせないよう先に読み込んでおく
+  if (app.isPackaged) {
+    setTimeout(() => checkForUpdates(), 6 * 60 * 60 * 1000);
+    setInterval(() => checkForUpdates(), UPDATE_CHECK_INTERVAL_MS);
+  }
 
   // 開発用: BRIDGE_DEV_SEED=1 で起動すると、ダミーのアイテムを流し込んで展開し、
   // ウインドウ座標を標準出力へ出す (見た目の確認・スクリーンショット用。パッケージ版では無効)
@@ -2222,6 +2844,7 @@ app.whenReady().then(() => {
       setTimeout(() => {
         if (!winAlive()) return;
         const seedFile = (name) => win.webContents.send('add-file', addFilePayload(path.join(__dirname, name)));
+        if (process.env.BRIDGE_DEV_SEED !== 'restore') {
         seedFile('icon.png');
         seedFile('README.md');
         win.webContents.send('add-file', {
@@ -2242,9 +2865,17 @@ app.whenReady().then(() => {
           fromDevice: 'MacBook',
           fromPlatform: 'darwin',
         });
+        }
         devHoldOpen = true;
         expandShelter();
         if (process.env.BRIDGE_DEV_SEED === 'settings') win.webContents.send('open-settings');
+        if (process.env.BRIDGE_DEV_SEED === 'popup') {
+          // 永続化の一覧が届いてからポップアップを出し、その座標を出力する
+          setTimeout(() => {
+            showPastePopup();
+            setTimeout(() => console.log('POPUP_BOUNDS ' + JSON.stringify(popupWin.getBounds())), 600);
+          }, 1200);
+        }
         if (process.env.BRIDGE_DEV_SEED === 'collapse') {
           // 格納アニメーションの途中と終了後の矩形を出力する (画面外スライドの検証用)
           setTimeout(() => {

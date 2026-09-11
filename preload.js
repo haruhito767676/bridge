@@ -62,8 +62,10 @@ contextBridge.exposeInMainWorld('bridge', {
   // ファイルアイテムのクリックで「OS のファイル形式」としてセット (Finder で ⌘V → 本物のファイルを複製)
   writeClipboardFile: (filePath) => ipcRenderer.send('clipboard-write-file', filePath),
 
-  // テキスト履歴を生成済みの .txt (無ければその場で生成) で OS ネイティブドラッグアウトする
-  dragClipboardText: (payload) => ipcRenderer.send('drag-clipboard-text', payload),
+  // テキスト履歴を .txt (無ければその場で生成) で OS ネイティブドラッグアウトし、生成したパスを返す
+  dragClipboardText: (payload) => ipcRenderer.invoke('drag-clipboard-text', payload),
+  // テキスト履歴の実体ファイルを (無ければ生成して) 返す。クイックルック用
+  ensureClipboardTextFile: (payload) => ipcRenderer.invoke('ensure-clipboard-text-file', payload),
 
   // 履歴の上限あふれでリストから消えた裏生成ファイル (clipboard_*.png) をディスクから削除する
   deleteTempFile: (filePath) => ipcRenderer.send('delete-temp-file', filePath),
@@ -71,9 +73,23 @@ contextBridge.exposeInMainWorld('bridge', {
   // 終了時クリーンアップの判定用に、現在リストに保持しているパス一覧を Main へ共有する
   reportRetainedPaths: (paths) => ipcRenderer.send('report-retained-paths', paths),
 
+  // 履歴の永続化: 保存用の一覧を Main へ渡す / 起動時に前回の一覧を受け取る
+  persistItems: (items) => ipcRenderer.send('persist-items', { items }),
+  onRestoreItems: (callback) =>
+    ipcRenderer.on('restore-items', (_event, items) => callback(Array.isArray(items) ? items : [])),
+
+  // 渡したパスのうち存在しないものを返す (移動・削除されたファイルの検知)
+  statPaths: (paths) => ipcRenderer.invoke('stat-paths', paths),
+
+  // bridge://add?path= の確認。Main からの問い合わせと、ユーザーが「追加」を押したときの応答
+  onConfirmAddFile: (callback) =>
+    ipcRenderer.on('confirm-add-file', (_event, info) => callback(info)),
+  confirmAddFile: (filePath) => ipcRenderer.send('confirm-add-file', filePath),
+
   // コンテキストメニューのアクション
   revealInFinder: (filePath) => ipcRenderer.send('reveal-in-finder', filePath),
   openFile: (filePath) => ipcRenderer.send('open-file', filePath),
+  openExternal: (url) => ipcRenderer.send('open-external', url),
   // テキストをそのままクリップボードへ (パスのコピーなど。履歴の書き戻しとは区別する)
   copyPlainText: (text) => ipcRenderer.send('clipboard-copy-plain', text),
 
@@ -81,9 +97,22 @@ contextBridge.exposeInMainWorld('bridge', {
   getSyncStatus: () => ipcRenderer.invoke('get-sync-status'),
   onSyncStatus: (callback) => ipcRenderer.on('sync-status', (_event, status) => callback(status)),
 
-  // 設定 (デバイス名・種類・同期キー・自動スキャン・手動ピア・ログイン時起動)
+  // 設定シートの「いま探す」(マルチキャストで名乗り + サブネットスキャン) と「ログを表示」
+  scanPeersNow: () => ipcRenderer.invoke('scan-peers-now'),
+  revealLog: () => ipcRenderer.send('reveal-log'),
+
+  // 設定 (デバイス名・同期キー・自動発見・手動ピア・ログイン時起動)
   getSettings: () => ipcRenderer.invoke('get-settings'),
   saveSettings: (settings) => ipcRenderer.invoke('save-settings', settings),
   // メニューバーから「設定…」が選ばれたとき
   onOpenSettings: (callback) => ipcRenderer.on('open-settings', () => callback()),
+
+  // アップデートの確認結果
+  onUpdateAvailable: (callback) => ipcRenderer.on('update-available', (_event, info) => callback(info)),
+  onUpdateNone: (callback) => ipcRenderer.on('update-none', (_event, info) => callback(info)),
+
+  // ペースト用ポップアップ (popup.html 専用)
+  onPopupItems: (callback) => ipcRenderer.on('popup-items', (_event, payload) => callback(payload)),
+  popupChoose: (choice) => ipcRenderer.send('popup-choose', choice),
+  popupClose: () => ipcRenderer.send('popup-close'),
 });
