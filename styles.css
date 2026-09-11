@@ -341,7 +341,12 @@ body.drag-mode #shelf-footer {
   flex-direction: column;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 10px 12px 10px 4px;
+  /* オーバーレイスクロールバーは padding を無視して枠のすぐ内側に描画されるため、
+     見た目の右インセットは変えずに margin 分だけ枠 (= 画面端) から離す。
+     ホバー展開時カーソルが画面端に乗っているため、スクロールバーがその直下にあると
+     AppKit がホバー時の太い幅で描画してしまう (通常スクロール時は細い) のを避ける */
+  margin-right: 6px;
+  padding: 10px 6px 10px 4px;
   outline: none;
 }
 
