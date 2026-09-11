@@ -90,6 +90,8 @@ contextBridge.exposeInMainWorld('bridge', {
   revealInFinder: (filePath) => ipcRenderer.send('reveal-in-finder', filePath),
   openFile: (filePath) => ipcRenderer.send('open-file', filePath),
   openExternal: (url) => ipcRenderer.send('open-external', url),
+  openAccessibilitySettings: () => ipcRenderer.send('open-accessibility-settings'),
+  onPastePermissionNeeded: (callback) => ipcRenderer.on('paste-permission-needed', () => callback()),
   // テキストをそのままクリップボードへ (パスのコピーなど。履歴の書き戻しとは区別する)
   copyPlainText: (text) => ipcRenderer.send('clipboard-copy-plain', text),
 

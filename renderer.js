@@ -327,6 +327,8 @@ let dragDepth = 0; // dragenter/dragleave は子要素でも発火するため�
 
 function setDragMode(on) {
   document.body.classList.toggle('drag-mode', on);
+  // 空のときは見出しを「ここにドロップ」に変える (リストがあるときは枠の光だけで示す)
+  if (items.length === 0) emptyLabel.textContent = on ? 'ここにドロップ' : 'ここにファイルをドロップ';
 }
 
 document.addEventListener('mouseleave', () => window.bridge.collapseShelter());
@@ -442,6 +444,7 @@ function addLocalFile(filePath, fileName, origin, sourceApp) {
     fromPlatform: origin ? origin.fromPlatform : null,
     sourceApp: sourceApp || null,
   };
+  item.entering = true; // 追加直後だけ「上から滑り込む」アニメーションを付ける
   items.unshift(item); // タイムライン表示のため最新を先頭へ
   trimFileHistory(); // 上限あふれの最古アイテムを外し、同期由来の一時ファイル実体もお掃除する
 
@@ -476,6 +479,7 @@ function addPendingItem(name, work) {
     timestamp: Date.now(),
     fromDevice: null, // 自分のデバイス生まれとして扱う
     fromPlatform: null,
+    entering: true,
   };
   items.unshift(item);
   trimFileHistory();
@@ -723,6 +727,7 @@ window.bridge.onClipboardItem((data) => {
     fromDevice: data.fromDevice || null,
     fromPlatform: data.fromPlatform || null,
     sourceApp: data.sourceApp || null,
+    entering: true,
   };
   items.unshift(item);
   trimClipHistory();
@@ -1403,6 +1408,10 @@ function render() {
     if (item.removing) li.classList.add('removing');
     if (item.downloading) li.classList.add('downloading');
     if (item.missing) li.classList.add('missing');
+    if (item.entering) {
+      li.classList.add('entering');
+      item.entering = false; // 次の再描画からは通常の行として扱う
+    }
     li.draggable = !item.removing && !item.downloading;
     li.addEventListener('click', (e) => onItemClick(e, item));
     li.addEventListener('dragstart', (e) => onItemDragStart(e, item));
@@ -1778,6 +1787,19 @@ settingTokenCopy.addEventListener('click', () => {
   showToast({ icon: 'check', title: '同期キーをコピーしました', durationMs: 1800 });
 });
 window.bridge.onOpenSettings(() => openSettings());
+
+// 自動ペーストにアクセシビリティの許可が無いとき (macOS)
+window.bridge.onPastePermissionNeeded(() => {
+  showToast({
+    icon: 'warning',
+    title: '自動ペーストには許可が必要です',
+    sub: 'システム設定 > プライバシーとセキュリティ > アクセシビリティ で Bridge をオンにしてください',
+    accent: 'amber',
+    actionLabel: '設定を開く',
+    onAction: () => window.bridge.openAccessibilitySettings(),
+    durationMs: 12000,
+  });
+});
 
 // ---- アップデートの通知 ----
 window.bridge.onUpdateAvailable(({ version, url }) => {

@@ -288,7 +288,10 @@ function placeOnCursorDisplay(shown) {
 // 格納時には必ず元のアプリへ返す (クリックでコピー → そのまま ⌘V できる状態にする)
 function releaseFocus() {
   if (!winAlive() || !win.isFocused()) return;
-  win.blur();
+  // blur() (orderBack) ではキーウインドウを手放さないため、一度隠して非アクティブで出し直す。
+  // 常に表示されているつまみが 1 フレーム消えるだけで、次のキー入力は元のアプリへ戻る
+  win.hide();
+  win.showInactive();
 }
 
 // focus: true は明示的な呼び出し (ホットキー等)。展開後に検索バーへフォーカスする
@@ -973,6 +976,12 @@ ipcMain.on('reveal-in-finder', (_event, filePath) => {
 ipcMain.on('open-file', (_event, filePath) => {
   if (typeof filePath === 'string' && fs.existsSync(filePath)) {
     shell.openPath(filePath).catch((err) => console.error('ファイルを開けません:', filePath, err));
+  }
+});
+// macOS の「アクセシビリティ」設定ペインを開く (自動ペーストの許可用)
+ipcMain.on('open-accessibility-settings', () => {
+  if (process.platform === 'darwin') {
+    shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility').catch(() => {});
   }
 });
 ipcMain.on('open-external', (_event, url) => {
@@ -2731,10 +2740,31 @@ function togglePastePopup() {
 function sendPasteKeystroke() {
   if (process.platform === 'darwin') {
     if (!systemPreferences.isTrustedAccessibilityClient(false)) {
+      logEvent('paste', 'アクセシビリティ未許可のため ⌘V を送れません');
       systemPreferences.isTrustedAccessibilityClient(true); // 許可ダイアログを出す
+      if (canSendToRenderer()) win.webContents.send('paste-permission-needed');
       return false;
     }
-    execFile('osascript', ['-e', 'tell application "System Events" to keystroke "v" using command down'], () => {});
+    // 診断用に「どのアプリのどのウインドウへ送ったか」を残す (つながらない報告の切り分けに使う)
+    execFile(
+      'osascript',
+      [
+        '-e',
+        'tell application "System Events"',
+        '-e',
+        'set frontApp to name of first application process whose frontmost is true',
+        '-e',
+        'keystroke "v" using command down',
+        '-e',
+        'return frontApp',
+        '-e',
+        'end tell',
+      ],
+      (err, stdout, stderr) => {
+        if (err) logEvent('paste', `⌘V の送信に失敗: ${(stderr || err.message || '').trim()}`);
+        else logEvent('paste', `⌘V を送信: 前面アプリ=${String(stdout).trim()} (Bridge がキー=${winAlive() && win.isFocused()})`);
+      }
+    );
     return true;
   }
   if (process.platform === 'win32') {
@@ -2762,8 +2792,10 @@ ipcMain.on('popup-choose', async (_event, choice) => {
   }
   hidePastePopup();
   if (!ok) return;
+  // シェルフがキーウインドウのままだと ⌘V が Bridge 自身に届くので、先に返しておく
+  releaseFocus();
   // ポップアップが閉じて前のアプリに入力が戻るのを待ってからキーを送る
-  if (autoPasteEnabled) setTimeout(sendPasteKeystroke, 120);
+  if (autoPasteEnabled) setTimeout(sendPasteKeystroke, 150);
 });
 
 ipcMain.on('popup-close', () => hidePastePopup());
@@ -2869,11 +2901,29 @@ app.whenReady().then(() => {
         devHoldOpen = true;
         expandShelter();
         if (process.env.BRIDGE_DEV_SEED === 'settings') win.webContents.send('open-settings');
+        if (process.env.BRIDGE_DEV_SEED === 'keystroke') {
+          // ⌘V 送信の自己テスト: 自分の検索欄をキーにして送り、入ったかを読む (他アプリには影響しない)
+          setTimeout(() => {
+            expandShelter({ focus: true });
+            setTimeout(() => {
+              writeTextToClipboard('bridge-paste-test');
+              console.log('KEYSTROKE_SENT ' + sendPasteKeystroke());
+              setTimeout(() => {
+                win.webContents.executeJavaScript('document.getElementById("search-bar").value').then((v) => {
+                  console.log('KEYSTROKE_RESULT ' + JSON.stringify(v) + ' focused=' + win.isFocused());
+                });
+              }, 900);
+            }, 400);
+          }, 1200);
+        }
         if (process.env.BRIDGE_DEV_SEED === 'popup') {
           // 永続化の一覧が届いてからポップアップを出し、その座標を出力する
           setTimeout(() => {
             showPastePopup();
-            setTimeout(() => console.log('POPUP_BOUNDS ' + JSON.stringify(popupWin.getBounds())), 600);
+            setTimeout(() => {
+              console.log('POPUP_BOUNDS ' + JSON.stringify(popupWin.getBounds()));
+              console.log('AX_TRUSTED ' + systemPreferences.isTrustedAccessibilityClient(false));
+            }, 600);
           }, 1200);
         }
         if (process.env.BRIDGE_DEV_SEED === 'collapse') {
