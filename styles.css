@@ -22,6 +22,7 @@
   --fill: rgba(120, 120, 128, 0.1);
   --fill-hover: rgba(120, 120, 128, 0.18);
   --fill-strong: rgba(120, 120, 128, 0.24);
+  --search-fill: rgba(0, 0, 0, 0.05); /* Finder の検索欄と同じ、やや濃いめの地 */
   --divider: rgba(60, 60, 67, 0.12);
   --popover-bg: rgba(246, 246, 246, 0.94);
   --popover-border: rgba(0, 0, 0, 0.1);
@@ -44,6 +45,7 @@
     --fill: rgba(120, 120, 128, 0.2);
     --fill-hover: rgba(120, 120, 128, 0.3);
     --fill-strong: rgba(120, 120, 128, 0.4);
+    --search-fill: rgba(0, 0, 0, 0.25);
     --divider: rgba(235, 235, 245, 0.12);
     --popover-bg: rgba(44, 44, 46, 0.94);
     --popover-border: rgba(255, 255, 255, 0.12);
@@ -187,25 +189,27 @@ body.drag-mode #shelf-footer {
   margin: 12px 12px 0 0;
 }
 
+/* Finder の検索欄をそのまま模倣する: 完全なピル形状 + ゆったりしたアイコン間隔 + 濃いめの地 */
 #search-field {
   display: flex;
   align-items: center;
   gap: 6px;
-  height: 28px;
-  padding: 0 8px 0 26px;
-  background-color: var(--fill);
-  border-radius: var(--radius-m);
-  /* 左端の虫眼鏡 */
+  height: 30px;
+  padding: 0 12px 0 32px;
+  background-color: var(--search-fill);
+  border-radius: 999px;
+  /* 左端の虫眼鏡。Finder と同じくアイコンとテキストの間にゆとりを持たせる */
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23898989' stroke-width='2.5' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
-  background-position: 8px center;
-  background-size: 13px 13px;
+  background-position: 12px center;
+  background-size: 14px 14px;
   transition: box-shadow 0.15s, background-color 0.15s;
 }
 
+/* Finder と同じ、はっきりした太さのリング + ごく薄い外側のにじみ */
 #search-field:focus-within {
-  background-color: var(--fill-hover);
-  box-shadow: 0 0 0 3px var(--accent-tint), 0 0 0 1px var(--accent);
+  background-color: var(--search-fill);
+  box-shadow: 0 0 0 3px var(--accent), 0 0 5px 1px var(--accent-tint);
 }
 
 #search-bar {
@@ -219,6 +223,7 @@ body.drag-mode #shelf-footer {
   background: transparent;
   border: none;
   outline: none;
+  caret-color: var(--accent); /* Finder と同じ、アクセント色のカーソル */
   /* body の user-select: none を上書きして入力・テキスト選択を可能にする */
   user-select: text;
   -webkit-user-select: text;
@@ -1063,7 +1068,7 @@ body.settings-open #shelf-footer {
 }
 
 .text-field:focus {
-  box-shadow: 0 0 0 3px var(--accent-tint), 0 0 0 1px var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
 }
 
 .text-field[readonly] {
