@@ -2,12 +2,16 @@
 // { kind, path, name, text, icon, isImage, downloading, removing, timestamp, fileKind, fromDevice, fromPlatform, sourceApp }
 // fileKind: kind === 'file' のアイテムに非同期で付与される Finder 純正の種類名 (例:「PDF書類」「フォルダ」)
 // fromDevice: 出身デバイス名。null / 自分のデバイス名なら「ローカル」、他拠点から同期されたものはその拠点名
-// fromPlatform: 出身デバイスの OS ('darwin' | 'win32' 等)。バッジの色分けに使う
+// fromPlatform: 出身デバイスの OS ('darwin' | 'win32' 等)
 // sourceApp: コピー時にフロントにあったアプリの { name, icon(data URL) }。ローカルのクリップボード
 //            履歴 (clip-text/clip-image) にのみ付与され、他拠点から同期されたものには乗らない
 const items = [];
 const selectedItems = new Set();
 let lastSelectedIndex = null;
+
+const PLATFORM = window.bridge.platform || 'darwin';
+const IS_MAC = PLATFORM === 'darwin';
+document.body.classList.add(`platform-${PLATFORM}`);
 
 const dropZone = document.getElementById('drop-zone');
 const listEl = document.getElementById('file-list');
@@ -15,12 +19,45 @@ const emptyEl = document.getElementById('empty-state');
 const emptyLabel = emptyEl.querySelector('.empty-label');
 const emptySub = emptyEl.querySelector('.empty-sub');
 const countEl = document.getElementById('item-count');
+const syncDot = document.getElementById('sync-dot');
 const clearBtn = document.getElementById('clear-button');
+const settingsBtn = document.getElementById('settings-button');
 const searchBar = document.getElementById('search-bar');
 const suggestEl = document.getElementById('search-suggest');
 const badgeEl = document.getElementById('filter-badge');
 const badgeLabel = document.getElementById('filter-badge-label');
 const badgeRemove = document.getElementById('filter-badge-remove');
+const contextMenuEl = document.getElementById('context-menu');
+
+// アイテム → 描画中の <li>。矩形選択・キーボード移動・コピー確認の表示に使う
+const itemElements = new Map();
+
+// ---- SVG グリフ (SF Symbols 相当の線画。絵文字は使わない) ----
+
+const GLYPHS = {
+  clipboard:
+    '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="12" height="14" rx="2.5"/><path d="M7.5 4V3.5A1.5 1.5 0 0 1 9 2h2a1.5 1.5 0 0 1 1.5 1.5V4M7.5 9.5h5M7.5 13h3.5"/></svg>',
+  xmark:
+    '<svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 1 1 0 14A7 7 0 0 1 8 1zm-2.2 3.9a.65.65 0 0 0-.9.9L7.1 8l-2.2 2.2a.65.65 0 1 0 .9.9L8 8.9l2.2 2.2a.65.65 0 1 0 .9-.9L8.9 8l2.2-2.2a.65.65 0 1 0-.9-.9L8 7.1 5.8 4.9z"/></svg>',
+  check:
+    '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.2 3.2L13 5"/></svg>',
+  trash:
+    '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 4h11M6 4V2.8A.8.8 0 0 1 6.8 2h2.4a.8.8 0 0 1 .8.8V4M4 4l.7 9a1 1 0 0 0 1 .9h4.6a1 1 0 0 0 1-.9L12 4M6.6 7v4.2M9.4 7v4.2"/></svg>',
+  warning:
+    '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2.2 14.3 13H1.7L8 2.2zM8 6.5v3M8 11.6v.1"/></svg>',
+  info:
+    '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6.3"/><path d="M8 7.2v4M8 5v.1"/></svg>',
+  laptop:
+    '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3.5" width="10" height="7" rx="1"/><path d="M1.5 12.5h13"/></svg>',
+  desktop:
+    '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="12" height="8" rx="1"/><path d="M6 13.5h4M8 11v2.5"/></svg>',
+};
+
+function glyph(name) {
+  const span = document.createElement('span');
+  span.innerHTML = GLYPHS[name] || '';
+  return span.firstElementChild;
+}
 
 // ---- 自分のデバイス情報 (出身デバイスバッジの「ローカル / 拠点名」判定に使う) ----
 
@@ -35,24 +72,29 @@ window.bridge
   })
   .catch(() => {}); // 取得に失敗してもバッジ判定が「すべて外部扱い」になるだけで動作は続く
 
-// ---- スマート検索 (フィルターバッジ + サジェスト + インクリメンタル絞り込み) ----
+// ---- スマート検索 (フィルタートークン + サジェスト + インクリメンタル絞り込み) ----
 
 // 現在表示中のアイテム (検索フィルター適用後、items と同じく最新順)。
-// render() が更新し、矩形選択・Shift 範囲選択・⌘A の添字は常にこの配列を基準にする
+// render() が更新し、矩形選択・Shift 範囲選択・⌘A・キーボード移動の添字は常にこの配列を基準にする
 let visibleItems = [];
 let searchQuery = '';
 
-// 種別フィルターは「Tab / Enter でバッジ化が確定したときだけ」有効になるモードフラグで持つ。
+// 種別フィルターは「Tab / Enter でトークン化が確定したときだけ」有効になるモードフラグで持つ。
 // 生の入力文字列に ":file" 等がたまたま含まれていてもフィルターとは解釈しない (誤検知の完全回避)
 let filterMode = null; // 'file' | 'clip' | null
 
+// 表示は常に時刻の新しい順。他拠点から古いアイテムが後から届いても、日付セクションの並びが崩れない
+function sortedByTime(list) {
+  return list.slice().sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+}
+
 function filterItems() {
   const keyword = searchQuery.trim().toLowerCase();
-  // バッジ未確定の ":xxx" 入力中はコマンド候補の打鍵途中なので、キーワードとして絞り込まない
+  // トークン未確定の ":xxx" 入力中はコマンド候補の打鍵途中なので、キーワードとして絞り込まない
   const pendingCommand = !filterMode && keyword.startsWith(':');
-  if (!filterMode && (!keyword || pendingCommand)) return items.slice();
+  if (!filterMode && (!keyword || pendingCommand)) return sortedByTime(items);
 
-  return items.filter((item) => {
+  return sortedByTime(items).filter((item) => {
     if (filterMode === 'file' && item.kind !== 'file') return false;
     if (filterMode === 'clip' && item.kind === 'file') return false;
     if (!keyword || pendingCommand) return true;
@@ -68,17 +110,17 @@ function filterItems() {
 // ---- サジェスト (「:」入力で file / clip を検索窓直下に浮き出させる) ----
 
 const FILTER_SUGGESTIONS = [
-  { mode: 'file', label: 'file' }, // 一時保存ファイル (.user-dropped) のみ
-  { mode: 'clip', label: 'clip' }, // クリップボード履歴 (.clipboard-history) のみ
+  { mode: 'file', label: 'file', hint: 'ファイルだけ' },
+  { mode: 'clip', label: 'clip', hint: 'クリップボード履歴だけ' },
 ];
-// バッジ内表示名: コマンド文字列ではなく名詞に変換 (内部の filterMode フラグはコマンド名のまま保持)
+// トークン内表示名: コマンド文字列ではなく名詞に変換 (内部の filterMode フラグはコマンド名のまま保持)
 const FILTER_BADGE_LABELS = {
   file: 'ファイル',
   clip: 'クリップボード',
 };
 let suggestIndex = -1; // Tab / ↑↓ キーで動くハイライト位置。-1 は「未選択」(Enter は通常の文字検索として扱う)
 
-// 現在の入力に対して表示すべき候補。バッジ確定済み、または「:」始まりでなければ空
+// 現在の入力に対して表示すべき候補。トークン確定済み、または「:」始まりでなければ空
 function currentSuggestions() {
   if (filterMode) return [];
   const value = searchBar.value;
@@ -97,7 +139,12 @@ function renderSuggest() {
   if (suggestIndex >= matches.length) suggestIndex = 0;
   matches.forEach((s, i) => {
     const li = document.createElement('li');
-    li.textContent = s.label; // 絵文字などの装飾なし、テキストのみ
+    li.setAttribute('role', 'option');
+    li.textContent = s.label;
+    const hint = document.createElement('span');
+    hint.className = 'suggest-hint';
+    hint.textContent = s.hint;
+    li.appendChild(hint);
     if (i === suggestIndex) li.classList.add('active');
     // click だと先に blur が走ってサジェストが消えるため mousedown で確定する
     li.addEventListener('mousedown', (e) => {
@@ -109,14 +156,11 @@ function renderSuggest() {
   suggestEl.hidden = false;
 }
 
-// サジェストの確定: 入力中の ":xxx" を検索窓左端のテキストバッジへ吸着させる。
+// サジェストの確定: 入力中の ":xxx" を検索窓左端のトークンへ吸着させる。
 // ":file foo" のように後続キーワードが打たれていればそれは入力欄に残し、続けて絞り込める
 function commitFilter(mode) {
   filterMode = mode;
   badgeLabel.textContent = FILTER_BADGE_LABELS[mode];
-  badgeEl.classList.add('search-badge');
-  badgeEl.classList.toggle('badge-file', mode === 'file');
-  badgeEl.classList.toggle('badge-clip', mode === 'clip');
   badgeEl.hidden = false;
   const v = searchBar.value;
   searchBar.value = v.startsWith(':') ? v.replace(/^:\S*\s*/, '') : v;
@@ -134,7 +178,6 @@ function clearFilterBadge() {
   filterMode = null;
   badgeEl.hidden = true;
   badgeLabel.textContent = '';
-  badgeEl.classList.remove('search-badge', 'badge-file', 'badge-clip');
   suggestIndex = -1;
   selectedItems.clear();
   lastSelectedIndex = null;
@@ -142,14 +185,13 @@ function clearFilterBadge() {
   render();
 }
 
-// 検索窓・バッジ・サジェスト・選択状態をまとめて初期状態へ戻す (全リスト表示に復帰)
+// 検索窓・トークン・サジェスト・選択状態をまとめて初期状態へ戻す (全リスト表示に復帰)
 function resetSearchState() {
   searchBar.value = '';
   searchQuery = '';
   filterMode = null;
   badgeEl.hidden = true;
   badgeLabel.textContent = '';
-  badgeEl.classList.remove('search-badge', 'badge-file', 'badge-clip');
   suggestIndex = -1;
   suggestEl.hidden = true;
   suggestEl.textContent = '';
@@ -185,7 +227,6 @@ searchBar.addEventListener('keydown', (e) => {
   const matches = currentSuggestions();
 
   // サジェスト表示中: Tab / ↑↓ でハイライトを順番に移動。Enter はハイライト済みの項目がある時だけ確定する
-  // (何も選択されていない状態の Enter はここでは何もせず、通常の文字検索として扱われる)
   if (matches.length > 0 && !suggestEl.hidden) {
     if (e.key === 'Tab' || e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       e.preventDefault();
@@ -205,17 +246,37 @@ searchBar.addEventListener('keydown', (e) => {
     }
   }
 
-  // 入力欄が空の状態での Backspace はバッジの消去
+  // 入力欄が空の状態での Backspace はトークンの消去
   if (e.key === 'Backspace' && filterMode && searchBar.value === '') {
     e.preventDefault();
     clearFilterBadge();
     return;
   }
 
-  // Esc で検索・バッジを完全クリアしてリスト全体へ戻る
+  // Spotlight と同じく、検索欄にいたまま ↑↓ で結果を選び、Enter で先頭 (または選択中) をコピーする
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    moveSelection(e.key === 'ArrowDown' ? 1 : -1, e.shiftKey);
+    return;
+  }
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    const target = selectedItems.size > 0 ? [...selectedItems][0] : visibleItems[0];
+    if (!target) return;
+    if (e.metaKey || e.ctrlKey) revealItem(target);
+    else copyItemToClipboard(target);
+    return;
+  }
+
+  // Esc: 検索中なら検索をクリア、何も入力していなければパネルを閉じる
   if (e.key === 'Escape') {
-    resetSearchState();
-    searchBar.blur();
+    e.preventDefault();
+    if (searchBar.value || filterMode) {
+      resetSearchState();
+    } else {
+      searchBar.blur();
+      window.bridge.collapseShelterNow();
+    }
   }
 });
 
@@ -245,9 +306,9 @@ function toFileUrl(filePath) {
 document.addEventListener('dragover', (e) => e.preventDefault());
 document.addEventListener('drop', (e) => e.preventDefault());
 
-// ---- つまみホバー / ドラッグ進入でシェルターを開き、外れたら閉じる ----
-// 通常ホバー時はタイムラインリスト、外部ドラッグ進入時は「ドロップモード」
-// (履歴を薄くしてドロップエリアを最前面に強調) へ自動で切り替える
+// ---- 開閉のトリガー ----
+// ホバーによる展開は Main 側のカーソル監視 (右端への滞留判定) が担う。
+// Renderer 側は「明確に意図のある操作」(つまみのクリック・ファイルのドラッグ進入) だけ即時に開く
 
 let draggingOut = false; // 自リストからのネイティブドラッグアウト中はドロップモードにしない
 let dragDepth = 0; // dragenter/dragleave は子要素でも発火するため深さを数える
@@ -256,21 +317,10 @@ function setDragMode(on) {
   document.body.classList.toggle('drag-mode', on);
 }
 
-document.addEventListener('mouseenter', () => window.bridge.expandShelter());
 document.addEventListener('mouseleave', () => window.bridge.collapseShelter());
 
-// つまみ自体は 15px の薄い帯だけなので、初見では「クリックで展開できる」と
-// 気づきにくい。少し粘ってホバーし続けたときだけ控えめな説明を出す
 const handleEl = document.getElementById('handle');
-let handleHintTimer = null;
-
-handleEl.addEventListener('mouseenter', () => {
-  handleHintTimer = setTimeout(() => showTooltip(handleEl, 'クリックで展開', 'right'), 600);
-});
-handleEl.addEventListener('mouseleave', () => {
-  clearTimeout(handleHintTimer);
-  hideTooltip();
-});
+handleEl.addEventListener('click', () => window.bridge.expandShelter());
 
 document.addEventListener('dragenter', () => {
   if (draggingOut) return;
@@ -300,14 +350,7 @@ document.addEventListener('mousemove', (e) => {
   if (draggingOut && e.buttons === 0) draggingOut = false;
 });
 
-dropZone.addEventListener('dragover', (e) => {
-  e.preventDefault();
-  dropZone.classList.add('drag-over');
-});
-
-dropZone.addEventListener('dragleave', () => {
-  dropZone.classList.remove('drag-over');
-});
+dropZone.addEventListener('dragover', (e) => e.preventDefault());
 
 // ---- ハブ (ファイルアイテム) の最大保持数と自動お掃除 (ガベージコレクション) ----
 
@@ -327,8 +370,6 @@ function trimFileHistory() {
 
 // ---- 重複コピーのスタック化 (同一内容の再コピーはカードを増やさず最上位へ引き上げる) ----
 
-// match に一致する既存カードがあれば、新規追加せずリスト最上位へ移動して時刻だけを更新する。
-// 引き上げが起きたら true を返す (呼び出し側は新規カードの追加をスキップする)
 function bumpExistingItem(match, timestamp) {
   const index = items.findIndex(match);
   if (index === -1) return false;
@@ -349,6 +390,19 @@ function attachFileKind(item, filePath) {
       render();
     })
     .catch(() => {}); // 取得失敗時は「ファイル」の暫定表示のまま
+}
+
+function attachFileIcon(item, filePath) {
+  if (item.isImage) return; // 画像はファイル自体をサムネイル表示するのでアイコン取得は不要
+  window.bridge
+    .getFileIcon(filePath)
+    .then((dataUrl) => {
+      if (dataUrl) {
+        item.icon = dataUrl;
+        render();
+      }
+    })
+    .catch(() => {}); // アイコン取得失敗はアイコンなし表示のまま続行
 }
 
 // ローカルファイルをリストへ追加する共通処理。
@@ -380,21 +434,9 @@ function addLocalFile(filePath, fileName, origin, sourceApp) {
   trimFileHistory(); // 上限あふれの最古アイテムを外し、同期由来の一時ファイル実体もお掃除する
 
   // 自分のデバイスで生まれたファイルだけを同期台帳へ登録する (他拠点由来の再登録ループを防ぐ)
-  // (フォルダは Main 側の登録処理で除外されるため、ここでは判定しない)
   if (!item.fromDevice) window.bridge.registerSyncFile(filePath, item.name);
 
-  // 画像はファイル自体をサムネイル表示するのでアイコン取得は不要
-  if (!item.isImage) {
-    window.bridge
-      .getFileIcon(filePath)
-      .then((dataUrl) => {
-        if (dataUrl) {
-          item.icon = dataUrl;
-          render();
-        }
-      })
-      .catch(() => {}); // アイコン取得失敗はアイコンなし表示のまま続行
-  }
+  attachFileIcon(item, filePath);
   attachFileKind(item, filePath);
   render();
 }
@@ -425,115 +467,62 @@ function extractWebUrl(dataTransfer) {
   return m ? m[0] : null;
 }
 
-// Web からドロップされた URL を Main プロセスでダウンロードして追加する
-function addWebUrl(url) {
-  // ダウンロード中のプレースホルダを先に表示する
+// 「保存中」のプレースホルダを先頭に置き、実体が確定したらファイルアイテムへ昇格させる共通処理
+function addPendingItem(name, work) {
   const item = {
     kind: 'file',
     path: null,
-    name: url,
+    name,
     text: null,
     icon: null,
     isImage: false,
     downloading: true,
     removing: false,
     timestamp: Date.now(),
-    fromDevice: null, // Web からのダウンロードは自分のデバイス生まれとして扱う
+    fromDevice: null, // 自分のデバイス生まれとして扱う
     fromPlatform: null,
   };
   items.unshift(item);
   trimFileHistory();
   render();
 
-  window.bridge
-    .downloadUrl(url)
-    .then(({ path, name }) => {
-      if (item.removing) return; // ダウンロード中に × で消された
+  work()
+    .then(({ path, name: resolvedName }) => {
+      if (item.removing) return; // 処理中に × で消された
       if (items.some((other) => other !== item && other.path === path)) {
         removeItem(item); // 既に同じファイルがある
         return;
       }
       item.path = path;
-      item.name = name;
+      item.name = resolvedName || path.split(/[\\/]/).pop();
       item.downloading = false;
       item.isImage = isImagePath(path);
-      window.bridge.registerSyncFile(path, name); // 実体が確定した時点で同期台帳へ登録
-      if (!item.isImage) {
-        window.bridge
-          .getFileIcon(path)
-          .then((dataUrl) => {
-            if (dataUrl) {
-              item.icon = dataUrl;
-              render();
-            }
-          })
-          .catch(() => {}); // アイコン取得失敗はアイコンなし表示のまま続行
-      }
+      window.bridge.registerSyncFile(path, item.name); // 実体が確定した時点で同期台帳へ登録
+      attachFileIcon(item, path);
       attachFileKind(item, path);
       render();
     })
     .catch((err) => {
-      console.error('ダウンロード失敗:', url, err);
-      item.name = 'ダウンロード失敗';
-      render();
-      setTimeout(() => fadeOutAndRemove(item), 1500);
+      console.error('アイテムの追加に失敗:', name, err);
+      removeItem(item);
+      showToast({ icon: 'warning', title: '追加できませんでした', sub: name, accent: 'red' });
     });
+}
+
+// Web からドロップされた URL を Main プロセスでダウンロードして追加する
+function addWebUrl(url) {
+  addPendingItem(url, () => window.bridge.downloadUrl(url));
 }
 
 // ドラッグされた選択テキストを Main プロセスで snippet_[タイムスタンプ].txt として保存し追加する
 function addTextSnippet(text) {
-  const item = {
-    kind: 'file',
-    path: null,
-    name: 'テキストを保存中…',
-    text: null,
-    icon: null,
-    isImage: false,
-    downloading: true,
-    removing: false,
-    timestamp: Date.now(),
-    fromDevice: null, // ドラッグされた選択テキストは自分のデバイス生まれとして扱う
-    fromPlatform: null,
-  };
-  items.unshift(item);
-  trimFileHistory();
-  render();
-
-  window.bridge
-    .saveTextSnippet(text)
-    .then((path) => {
-      if (item.removing) return; // 保存中に × で消された
-      if (items.some((other) => other !== item && other.path === path)) {
-        removeItem(item); // 既に同じファイルがある
-        return;
-      }
-      item.path = path;
-      item.name = path.split(/[\\/]/).pop();
-      item.downloading = false;
-      window.bridge.registerSyncFile(path, item.name); // 実体が確定した時点で同期台帳へ登録
-      window.bridge
-        .getFileIcon(path)
-        .then((dataUrl) => {
-          if (dataUrl) {
-            item.icon = dataUrl;
-            render();
-          }
-        })
-        .catch(() => {}); // アイコン取得失敗はアイコンなし表示のまま続行
-      attachFileKind(item, path);
-      render();
-    })
-    .catch((err) => {
-      console.error('テキストの保存に失敗:', err);
-      item.name = '保存に失敗';
-      render();
-      setTimeout(() => fadeOutAndRemove(item), 1500);
-    });
+  addPendingItem('テキストを保存中', () =>
+    window.bridge.saveTextSnippet(text).then((path) => ({ path, name: null }))
+  );
 }
 
 dropZone.addEventListener('drop', (e) => {
   e.preventDefault();
-  dropZone.classList.remove('drag-over');
 
   // まずローカルファイル (Finder からのドロップ)
   let addedFile = false;
@@ -569,11 +558,27 @@ window.bridge.onAddFile((payload) => {
   }
 });
 
-// ウインドウが展開されるたびに検索状態 (文字列・バッジ・サジェスト・選択) を完全リセットして
-// 最新の全リスト表示へ戻し、そのまま打ち始められるよう検索バーへ自動フォーカスする
-window.bridge.onShelterExpanded(() => {
-  resetSearchState();
-  searchBar.focus();
+// ウインドウが展開されるたびに検索状態 (文字列・トークン・サジェスト・選択) をリセットして
+// 最新の全リスト表示へ戻す。ホットキー等の明示的な呼び出しのときだけ検索バーへフォーカスする
+// (ホバー展開でフォーカスを奪うと、作業中のアプリへのキー入力が乗っ取られてしまう)
+window.bridge.onShelterExpanded(({ focus }) => {
+  // アニメーション開始と同時にリストを組み直すとコマ落ちするため、状態が残っているときだけリセットする
+  if (searchBar.value || filterMode || selectedItems.size > 0) resetSearchState();
+  closeContextMenu();
+  dropZone.scrollTop = 0; // 開いたときは常に最新 (先頭) から
+  if (focus) searchBar.focus();
+});
+
+// 格納時は選択・フォーカス・ツールチップを片付け、次に開いたとき古い状態が残らないようにする
+window.bridge.onShelterCollapsed(() => {
+  hideTooltip();
+  closeContextMenu();
+  closeSettings();
+  if (selectedItems.size > 0) {
+    resetSelectionAndFocus();
+  } else if (document.activeElement && typeof document.activeElement.blur === 'function') {
+    document.activeElement.blur();
+  }
 });
 
 // ---- 短命な通知 (クリアの取り消しなど) ----
@@ -597,9 +602,11 @@ function hideControlToast() {
   controlToastActionHandler = null;
 }
 
+// icon: GLYPHS のキー ('trash' | 'check' | 'warning' | 'info')
 // accent: 'neutral' (情報) | 'amber' (システム設定での許可が要る) | 'red' (失敗・削除など後戻りが要る操作)
 function showToast({ icon = '', title, sub = '', actionLabel = null, onAction = null, accent = 'neutral', durationMs = 4000 }) {
-  controlToastIcon.textContent = icon;
+  controlToastIcon.textContent = '';
+  if (icon && GLYPHS[icon]) controlToastIcon.appendChild(glyph(icon));
   controlToastTitle.textContent = title;
   controlToastSub.textContent = sub;
   if (actionLabel) {
@@ -618,8 +625,6 @@ function showToast({ icon = '', title, sub = '', actionLabel = null, onAction = 
   controlToastTimer = setTimeout(hideControlToast, durationMs);
 }
 
-// アクションボタンはクリックでハンドラを実行してから閉じる。トースト本体側のクリックは
-// 内容を確認し終えた際にタイマーを待たず自分の判断で閉じるための従来通りの挙動を維持する
 controlToastAction.addEventListener('click', (e) => {
   e.stopPropagation(); // 親の #control-toast click (即時クローズ) に伝播させない
   const handler = controlToastActionHandler;
@@ -643,8 +648,7 @@ function trimClipHistory() {
     items.splice(items.indexOf(extra), 1);
     selectedItems.delete(extra);
     // 上限あふれで履歴から消える裏生成ファイル (clipboard_*.png / snippet_*.txt) や
-    // 他拠点から同期された一時ファイルは、Main 側に依頼して fs.unlinkSync で
-    // ディスクからも完全削除し、ストレージを圧迫しない
+    // 他拠点から同期された一時ファイルは、Main 側に依頼してディスクからも完全削除する
     if (extra.path) window.bridge.deleteTempFile(extra.path);
   }
 }
@@ -652,8 +656,7 @@ function trimClipHistory() {
 window.bridge.onClipboardItem((data) => {
   if (!data) return;
   const isImage = data.type === 'clipboard-image';
-  // 想定外のペイロード (画像なのに path が無い / テキストなのに本文が無い) は、
-  // サムネイル表示もドラッグアウトもできず後続処理で例外になるため読み飛ばす
+  // 想定外のペイロード (画像なのに path が無い / テキストなのに本文が無い) は読み飛ばす
   if (isImage ? !data.path : typeof data.text !== 'string') return;
 
   // 重複コピー: 同じ内容 (テキストは全文一致、画像は同一ファイル名) の履歴が既にあれば
@@ -715,6 +718,23 @@ function fadeOutAndRemove(item) {
   setTimeout(() => removeItem(item), 200);
 }
 
+function removeSelectedItems() {
+  const targets = [...selectedItems];
+  if (targets.length === 0) return;
+  // 削除後は次の行 (無ければ手前の行) を選択して、⌫ の連打で順に消していけるようにする
+  const firstIndex = Math.min(...targets.map((it) => visibleItems.indexOf(it)).filter((i) => i >= 0));
+  for (const it of targets) fadeOutAndRemove(it);
+  setTimeout(() => {
+    const next = visibleItems[Math.min(firstIndex, visibleItems.length - 1)];
+    selectedItems.clear();
+    if (next) {
+      selectedItems.add(next);
+      lastSelectedIndex = visibleItems.indexOf(next);
+    }
+    render();
+  }, 210);
+}
+
 // ---- 3. ファイルを外へ引き出す（Bridge → Finder 等、複数選択の一括ドラッグアウトに対応）----
 
 function onItemDragStart(e, item) {
@@ -725,14 +745,13 @@ function onItemDragStart(e, item) {
   // クリップボード履歴はファイルとしてドラッグアウト (履歴なのでリストには残す)
   if (item.kind === 'clip-text') {
     draggingOut = true;
-    // 検知時に裏で生成済みの snippet_*.txt のパスで startDrag (無ければ Main 側で生成)
     window.bridge.dragClipboardText({ text: item.text, path: item.path });
     return;
   }
   if (item.kind === 'clip-image') {
     if (!item.path) return;
     draggingOut = true;
-    window.bridge.startDrag([item.path]); // 検知時に保存済みの .png をそのままドラッグ
+    window.bridge.startDrag([item.path]);
     return;
   }
 
@@ -758,10 +777,9 @@ function onItemDragStart(e, item) {
   }
 }
 
-// ---- 4. 選択（複数選択対応）+ スペースキーでクイックルック ----
+// ---- 4. 選択（複数選択対応）・コピー・クイックルック ----
 
-// OS へデータを書き戻してウインドウが閉じる直前に、選択状態とフォーカスを完全にリセットする。
-// これをしないと次にウインドウが開いたとき古いハイライトが残ってしまう
+// OS へデータを書き戻してウインドウが閉じる直前に、選択状態とフォーカスを完全にリセットする
 function resetSelectionAndFocus() {
   selectedItems.clear();
   lastSelectedIndex = null;
@@ -771,20 +789,55 @@ function resetSelectionAndFocus() {
   render();
 }
 
+// アイテムを OS クリップボードへコピーできれば true。コピー自体は即座に行い (すぐ ⌘V できる)、
+// 行にチェックマークを一瞬見せてからパネルを格納する
+const COPIED_FEEDBACK_MS = 320;
+
+function copyItemToClipboard(item) {
+  if (item.kind === 'clip-text') {
+    window.bridge.writeClipboardText(item.text); // 生テキストを書き戻し → 即ペースト可能
+  } else if (item.kind === 'clip-image' && item.path) {
+    window.bridge.writeClipboardImage(item.path);
+  } else if (item.kind === 'file' && item.path && !item.downloading) {
+    // ファイルは「OS のファイル形式」でセットし、Finder で ⌘V → 本物のファイルとして複製
+    window.bridge.writeClipboardFile(item.path);
+  } else {
+    return false; // ダウンロード中などコピーできないアイテムは何もしない
+  }
+  showCopiedFeedback(item);
+  return true;
+}
+
+function showCopiedFeedback(item) {
+  const li = itemElements.get(item);
+  if (li) {
+    li.classList.add('copied');
+    const mark = document.createElement('div');
+    mark.className = 'copied-mark';
+    mark.appendChild(glyph('check'));
+    li.appendChild(mark);
+  }
+  hideTooltip();
+  closeContextMenu();
+  setTimeout(() => {
+    resetSelectionAndFocus();
+    window.bridge.collapseShelterNow();
+  }, COPIED_FEEDBACK_MS);
+}
+
+function previewItem(item) {
+  if (item && item.path) window.bridge.previewFile(item.path, item.name);
+}
+
+function revealItem(item) {
+  if (item && item.path) window.bridge.revealInFinder(item.path);
+}
+
 function onItemClick(e, item) {
+  closeContextMenu();
   // 通常クリック (⌘/Shift なし) は「OS クリップボードへコピー & 自動格納」
   if (!e.metaKey && !e.ctrlKey && !e.shiftKey) {
-    if (item.kind === 'clip-text') {
-      window.bridge.writeClipboardText(item.text); // 生テキストを書き戻し → 即ペースト可能
-    } else if (item.kind === 'clip-image' && item.path) {
-      window.bridge.writeClipboardImage(item.path);
-    } else if (item.kind === 'file' && item.path && !item.downloading) {
-      // ファイルは「OS のファイル形式」でセットし、Finder で ⌘V → 本物のファイルとして複製
-      window.bridge.writeClipboardFile(item.path);
-    } else {
-      return; // ダウンロード中などコピーできないアイテムは何もしない
-    }
-    resetSelectionAndFocus();
+    copyItemToClipboard(item);
     return;
   }
 
@@ -795,8 +848,7 @@ function onItemClick(e, item) {
     if (selectedItems.has(item)) selectedItems.delete(item);
     else selectedItems.add(item);
   } else if (e.shiftKey && lastSelectedIndex !== null) {
-    // Shift+クリックで範囲選択。アイテム削除で lastSelectedIndex が現在のリスト長を
-    // 超えている場合があるため、範囲外の添字 (undefined) は選択に混ぜない
+    // Shift+クリックで範囲選択
     const [start, end] = [lastSelectedIndex, index].sort((a, b) => a - b);
     selectedItems.clear();
     for (let i = start; i <= end; i++) {
@@ -810,12 +862,52 @@ function onItemClick(e, item) {
   render();
 }
 
+// ↑↓ でカーソル行を動かす (Shift で範囲を伸ばす)。選択が無ければ先頭 / 末尾から始める
+function moveSelection(delta, extend) {
+  if (visibleItems.length === 0) return;
+  let index;
+  if (lastSelectedIndex === null || selectedItems.size === 0) {
+    index = delta > 0 ? 0 : visibleItems.length - 1;
+  } else {
+    index = Math.max(0, Math.min(visibleItems.length - 1, lastSelectedIndex + delta));
+  }
+  const anchor = extend && selectedItems.size > 0 ? [...selectedItems].map((it) => visibleItems.indexOf(it)) : null;
+  selectedItems.clear();
+  if (anchor) {
+    const [start, end] = [Math.min(...anchor, index), Math.max(...anchor, index)];
+    for (let i = start; i <= end; i++) selectedItems.add(visibleItems[i]);
+  } else {
+    selectedItems.add(visibleItems[index]);
+  }
+  lastSelectedIndex = index;
+  render();
+  const li = itemElements.get(visibleItems[index]);
+  if (li) li.scrollIntoView({ block: 'nearest' });
+}
+
 document.addEventListener('keydown', (e) => {
-  // 検索バーへの入力中はリスト操作のショートカット (⌘A / Space) を奪わない
+  // 設定シートやテキスト入力中はリスト操作のショートカットを奪わない
   if (e.target === searchBar) return;
+  if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+    if (e.key === 'Escape') closeSettings();
+    return;
+  }
+
+  if (!contextMenuEl.hidden && e.key === 'Escape') {
+    e.preventDefault();
+    closeContextMenu();
+    return;
+  }
+
+  if (!settingsSheet.hidden) {
+    if (e.key === 'Escape') closeSettings();
+    return;
+  }
+
+  const cmd = e.metaKey || e.ctrlKey;
 
   // ⌘+A (Mac) / Ctrl+A (Win) で表示中の全アイテムを選択 (検索中は絞り込み結果のみ)
-  if ((e.metaKey || e.ctrlKey) && e.code === 'KeyA') {
+  if (cmd && e.code === 'KeyA') {
     if (visibleItems.length === 0) return;
     e.preventDefault();
     selectedItems.clear();
@@ -824,21 +916,62 @@ document.addEventListener('keydown', (e) => {
     return;
   }
 
-  if (e.code !== 'Space' || selectedItems.size === 0) return;
-  const item = [...selectedItems][0];
-  if (!item.path) return;
-  e.preventDefault();
-  window.bridge.previewFile(item.path, item.name);
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    moveSelection(e.key === 'ArrowDown' ? 1 : -1, e.shiftKey);
+    return;
+  }
+
+  if (e.key === 'Escape') {
+    e.preventDefault();
+    if (selectedItems.size > 0) {
+      selectedItems.clear();
+      render();
+    } else {
+      window.bridge.collapseShelterNow();
+    }
+    return;
+  }
+
+  const first = selectedItems.size > 0 ? [...selectedItems][0] : null;
+
+  if (e.key === 'Enter') {
+    const target = first || visibleItems[0];
+    if (!target) return;
+    e.preventDefault();
+    if (cmd) revealItem(target);
+    else copyItemToClipboard(target);
+    return;
+  }
+
+  if ((e.key === 'Backspace' || e.key === 'Delete') && selectedItems.size > 0) {
+    e.preventDefault();
+    removeSelectedItems();
+    return;
+  }
+
+  // 「/」または ⌘F で検索へ
+  if ((cmd && e.code === 'KeyF') || e.key === '/') {
+    e.preventDefault();
+    searchBar.focus();
+    return;
+  }
+
+  if (e.code === 'Space' && first) {
+    e.preventDefault();
+    previewItem(first);
+  }
 });
 
 // 何もない場所をクリックしたら選択解除（矩形選択直後のクリックでは解除しない）
 let suppressEmptyClick = false;
 dropZone.addEventListener('click', (e) => {
+  closeContextMenu();
   if (suppressEmptyClick) {
     suppressEmptyClick = false;
     return;
   }
-  if (e.target === dropZone || e.target === listEl) {
+  if (e.target === dropZone || e.target === listEl || e.target.classList.contains('section-header')) {
     selectedItems.clear();
     render();
   }
@@ -866,8 +999,8 @@ function rectsIntersect(a, b) {
 
 dropZone.addEventListener('mousedown', (e) => {
   if (e.button !== 0) return;
-  // ファイルアイテムや操作ボタン上でのドラッグは対象外（ドラッグ移動/選択と衝突するため）
-  if (e.target.closest('.file-item') || e.target.closest('#clear-button')) return;
+  // アイテム上でのドラッグは対象外（ドラッグ移動/選択と衝突するため）
+  if (e.target.closest('.file-item')) return;
 
   dragStart = { x: e.clientX, y: e.clientY };
   dragMoved = false;
@@ -884,6 +1017,7 @@ dropZone.addEventListener('mousedown', (e) => {
   selectionBox.style.width = '0px';
   selectionBox.style.height = '0px';
   selectionBox.hidden = false;
+  window.bridge.holdPointer(true); // 枠を引いている最中はカーソルが外へ出ても格納しない
 
   e.preventDefault();
 });
@@ -893,6 +1027,7 @@ function endRectangleSelection() {
   if (!dragStart) return;
   dragStart = null;
   dragBaseSelection = null;
+  window.bridge.holdPointer(false);
   if (selectionBox) selectionBox.hidden = true;
   // ドラッグして選択した直後に発火する click イベントで選択が消えないようにする
   if (dragMoved) suppressEmptyClick = true;
@@ -917,21 +1052,111 @@ document.addEventListener('mousemove', (e) => {
   selectionBox.style.width = `${pointerRect.right - pointerRect.left}px`;
   selectionBox.style.height = `${pointerRect.bottom - pointerRect.top}px`;
 
-  // 枠に触れたアイテムを選択に加える（ベース選択とマージ）。
-  // DOM の並びは検索フィルター適用後の表示中リストと 1:1 対応する
+  // 枠に触れたアイテムを選択に加える（ベース選択とマージ）
   selectedItems.clear();
   for (const item of dragBaseSelection) selectedItems.add(item);
-  visibleItems.forEach((item, i) => {
-    const li = listEl.children[i];
+  for (const item of visibleItems) {
+    const li = itemElements.get(item);
     if (li && rectsIntersect(pointerRect, li.getBoundingClientRect())) {
       selectedItems.add(item);
     }
-  });
+  }
 
   render();
 });
 
 document.addEventListener('mouseup', endRectangleSelection);
+
+// ---- 6. コンテキストメニュー (右クリック) ----
+
+function closeContextMenu() {
+  contextMenuEl.hidden = true;
+  contextMenuEl.textContent = '';
+}
+
+function openContextMenu(e, item) {
+  e.preventDefault();
+  closeContextMenu();
+  if (!selectedItems.has(item)) {
+    selectedItems.clear();
+    selectedItems.add(item);
+    lastSelectedIndex = visibleItems.indexOf(item);
+    render();
+  }
+  const mod = IS_MAC ? '⌘' : 'Ctrl+';
+  const entries = [
+    { label: 'コピー', shortcut: '⏎', run: () => copyItemToClipboard(item), enabled: !item.downloading },
+  ];
+  if (item.path) {
+    entries.push({ label: 'クイックルック', shortcut: 'Space', run: () => previewItem(item) });
+    entries.push({ type: 'separator' });
+    entries.push({
+      label: IS_MAC ? 'Finder で表示' : 'エクスプローラーで表示',
+      shortcut: `${mod}⏎`,
+      run: () => revealItem(item),
+    });
+    entries.push({ label: '開く', run: () => window.bridge.openFile(item.path) });
+    entries.push({
+      label: 'パスをコピー',
+      run: () => {
+        window.bridge.copyPlainText(item.path);
+        showToast({ icon: 'check', title: 'パスをコピーしました', durationMs: 1800 });
+      },
+    });
+  }
+  entries.push({ type: 'separator' });
+  entries.push({
+    label: selectedItems.size > 1 ? `${selectedItems.size} 個をリストから外す` : 'リストから外す',
+    shortcut: '⌫',
+    destructive: true,
+    run: () => removeSelectedItems(),
+  });
+
+  for (const entry of entries) {
+    const li = document.createElement('li');
+    if (entry.type === 'separator') {
+      li.className = 'separator';
+      contextMenuEl.appendChild(li);
+      continue;
+    }
+    li.setAttribute('role', 'menuitem');
+    li.textContent = entry.label;
+    if (entry.destructive) li.classList.add('destructive');
+    if (entry.shortcut) {
+      const s = document.createElement('span');
+      s.className = 'menu-shortcut';
+      s.textContent = entry.shortcut;
+      li.appendChild(s);
+    }
+    if (entry.enabled === false) {
+      li.style.opacity = '0.4';
+      li.style.pointerEvents = 'none';
+    }
+    li.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      closeContextMenu();
+      entry.run();
+    });
+    contextMenuEl.appendChild(li);
+  }
+
+  // 一度描画して実寸を測り、パネルからはみ出さない位置に置く
+  contextMenuEl.hidden = false;
+  const shellRect = document.getElementById('shell').getBoundingClientRect();
+  const menuRect = contextMenuEl.getBoundingClientRect();
+  let left = e.clientX - shellRect.left;
+  let top = e.clientY - shellRect.top;
+  if (left + menuRect.width > shellRect.width - 8) left = Math.max(8, shellRect.width - 8 - menuRect.width);
+  if (top + menuRect.height > shellRect.height - 8) top = Math.max(8, shellRect.height - 8 - menuRect.height);
+  contextMenuEl.style.left = `${left}px`;
+  contextMenuEl.style.top = `${top}px`;
+}
+
+document.addEventListener('mousedown', (e) => {
+  if (!contextMenuEl.hidden && !contextMenuEl.contains(e.target)) closeContextMenu();
+});
+dropZone.addEventListener('scroll', closeContextMenu);
+window.addEventListener('blur', closeContextMenu);
 
 // ---- 画面描画 ----
 
@@ -940,8 +1165,26 @@ function formatTime(timestamp) {
   return `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
-// ファイル名を「拡張子を除いた本体」と「拡張子」に分割する。
-// フォルダ/クリップボード履歴には使わない (拡張子を保護する意味がないため ext は空にする)
+// 日付セクションの見出し。「今日」「昨日」、それ以前は日付 (年が違えば年も付ける)
+const WEEKDAYS = ['日', '月', '火', '水', '木', '金', '土'];
+
+function dayKey(timestamp) {
+  const d = new Date(timestamp);
+  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+}
+
+function sectionLabel(timestamp) {
+  const now = new Date();
+  const d = new Date(timestamp);
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const diffDays = Math.floor((startOfToday - new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()) / 86400000);
+  if (diffDays <= 0) return '今日';
+  if (diffDays === 1) return '昨日';
+  const base = `${d.getMonth() + 1}月${d.getDate()}日 (${WEEKDAYS[d.getDay()]})`;
+  return d.getFullYear() === now.getFullYear() ? base : `${d.getFullYear()}年${base}`;
+}
+
+// ファイル名を「拡張子を除いた本体」と「拡張子」に分割する
 function splitNameExt(name) {
   const dotIndex = name.lastIndexOf('.');
   const hasExt = dotIndex > 0 && dotIndex < name.length - 1; // 先頭ドット(隠しファイル)は拡張子扱いしない
@@ -966,8 +1209,7 @@ function countUnits(text) {
   return total;
 }
 
-// 先頭 (fromEnd=true なら末尾) からカウント maxUnits 分の文字列を切り出す。
-// Array.from でコードポイント単位に扱い、サロゲートペア (絵文字等) を分断しない
+// 先頭 (fromEnd=true なら末尾) からカウント maxUnits 分の文字列を切り出す
 function sliceUnits(text, maxUnits, fromEnd) {
   const chars = Array.from(text);
   if (fromEnd) chars.reverse();
@@ -982,51 +1224,34 @@ function sliceUnits(text, maxUnits, fromEnd) {
   return out.join('');
 }
 
-// 本体 (拡張子除く) の合計カウントが 14 (全角7文字相当) 以内ならそのまま「名前 + 拡張子」。
-// 超える場合のみ:
-//   拡張子あり … 「先頭カウント8 + ⋯ + 末尾カウント4 + 拡張子」の 1 つの文字列に整形 (中央省略)
-//   拡張子なし (フォルダ等) … 先頭カウント14 で切って末尾に「...」(末尾省略)
-// 後から描画結果を測って削り直す補正は行わず、この一発整形だけで
-// デフォルトのシェルフ幅に確実に収まるカウント数にしてある
-const NAME_MAX_UNITS = 14;
-const NAME_HEAD_UNITS = 8;
-const NAME_TAIL_UNITS = 4;
+// 行の幅 (先頭スロットと削除ボタンを除いた約 220px) に収まるカウント数。
+// 拡張子ありは「先頭 + ⋯ + 末尾 + 拡張子」の中央省略、拡張子なし (フォルダ等) は末尾省略
+const NAME_MAX_UNITS = 30;
+const NAME_TAIL_UNITS = 6;
 
 function formatFileName(name, hasExt) {
   const { base, ext } = hasExt ? splitNameExt(name) : { base: name, ext: '' };
-  
-  // ❌ ここを共通の NAME_MAX_UNITS にするのをやめる
-  // if (countUnits(base) <= NAME_MAX_UNITS) return base + ext;
-
-  // 🟢 1. 拡張子がない（フォルダやクリップボード）場合：限界の「28」まで目一杯使う！
-  if (!ext) {
-    if (countUnits(base) <= 28) return base; // 28カウント以内ならそのまま表示
-    return sliceUnits(base, 28, false) + '...'; // 超えたら28で切って末尾「...」
-  }
-  
-  // 🟢 2. 拡張子がある（ファイル）場合：安全第一の「14」で中央省略する
-  if (countUnits(base) <= 14) return base + ext;
-  
-  return (
-    sliceUnits(base, 8, false) + '⋯' + sliceUnits(base, 4, true) + ext
-  );
+  if (countUnits(base) + countUnits(ext) <= NAME_MAX_UNITS) return base + ext;
+  if (!ext) return sliceUnits(base, NAME_MAX_UNITS - 1, false) + '…';
+  const headUnits = Math.max(4, NAME_MAX_UNITS - NAME_TAIL_UNITS - countUnits(ext) - 1);
+  return sliceUnits(base, headUnits, false) + '…' + sliceUnits(base, NAME_TAIL_UNITS, true) + ext;
 }
 
 // ---- カスタムツールチップ (Electron では OS 標準の title 属性が機能しないため自作) ----
 
-// 表示中のツールチップは常に 1 つ。mouseleave・再描画で確実に消す
 let tooltipEl = null;
+let tooltipTimer = null;
 
 function hideTooltip() {
+  clearTimeout(tooltipTimer);
+  tooltipTimer = null;
   if (tooltipEl) {
     tooltipEl.remove();
     tooltipEl = null;
   }
 }
 
-// placement: 'below' (カードのタイトル用、デフォルト) | 'right' (つまみのように
-// 縦長で高さいっぱいの要素の右側に、縦中央揃えで出したい場合)
-function showTooltip(target, text, placement = 'below') {
+function showTooltip(target, text) {
   hideTooltip();
   tooltipEl = document.createElement('div');
   tooltipEl.className = 'bridge-tooltip';
@@ -1035,59 +1260,83 @@ function showTooltip(target, text, placement = 'below') {
 
   const rect = target.getBoundingClientRect();
   const tipRect = tooltipEl.getBoundingClientRect();
-  let left;
-  let top;
-
-  if (placement === 'right') {
-    left = rect.right + 6;
-    top = Math.max(8, Math.min(window.innerHeight - 8 - tipRect.height, window.innerHeight / 2 - tipRect.height / 2));
-  } else {
-    // カード (タイトル要素) のすぐ下に出し、実寸を測ってから画面端からのはみ出しを補正する
-    left = rect.left;
-    top = rect.bottom + 6;
-    if (left + tipRect.width > window.innerWidth - 8) {
-      left = Math.max(8, window.innerWidth - 8 - tipRect.width);
-    }
-    if (top + tipRect.height > window.innerHeight - 8) {
-      top = rect.top - tipRect.height - 6; // 下に収まらないときだけ上に反転
-    }
+  // 行のすぐ下に出し、実寸を測ってから画面端からのはみ出しを補正する
+  let left = rect.left;
+  let top = rect.bottom + 6;
+  if (left + tipRect.width > window.innerWidth - 8) {
+    left = Math.max(8, window.innerWidth - 8 - tipRect.width);
+  }
+  if (top + tipRect.height > window.innerHeight - 8) {
+    top = rect.top - tipRect.height - 6; // 下に収まらないときだけ上に反転
   }
   tooltipEl.style.left = `${left}px`;
   tooltipEl.style.top = `${top}px`;
 }
 
-// ---- 出身デバイスバッジ (アイテムがどのデバイスで生まれたかを一目で示す) ----
-
-// fromDevice が空 (ローカル生成) または自分のデバイス名ならバッジは出さず null を返す。
-// 外部デバイスから同期されたものだけ拠点名 (例: "Win-PC", "MacBook") のバッジを作る
-function createDeviceBadge(item) {
-  if (!item.fromDevice || item.fromDevice === localDeviceName) return null;
-  const badge = document.createElement('div');
-  badge.className = 'device-badge device-remote';
-  badge.textContent = item.fromDevice;
-  // 出身デバイスの OS で色味を変える (Windows は青みがかった背景)
-  if (item.fromPlatform === 'win32') badge.classList.add('device-win');
-  else if (item.fromPlatform === 'darwin') badge.classList.add('device-mac');
-  return badge;
+// OS のツールチップと同じく、少し留まってから出す
+function scheduleTooltip(target, text) {
+  clearTimeout(tooltipTimer);
+  tooltipTimer = setTimeout(() => showTooltip(target, text), 700);
 }
 
-// ---- コピー元アプリバッジ (アプリ名 + アイコンだけ。ウインドウタイトルは持たない) ----
+// ---- 出身チップ (アプリ / デバイス) ----
 
-function createAppBadge(item) {
+function createChip(label, iconEl) {
+  const chip = document.createElement('div');
+  chip.className = 'origin-chip';
+  if (iconEl) chip.appendChild(iconEl);
+  const span = document.createElement('span');
+  span.textContent = label;
+  chip.appendChild(span);
+  return chip;
+}
+
+// fromDevice が空 (ローカル生成) または自分のデバイス名ならチップは出さず null を返す
+function createDeviceChip(item) {
+  if (!item.fromDevice || item.fromDevice === localDeviceName) return null;
+  const icon = glyph(item.fromPlatform === 'win32' ? 'desktop' : 'laptop');
+  return createChip(item.fromDevice, icon);
+}
+
+function createAppChip(item) {
   if (!item.sourceApp || !item.sourceApp.name) return null;
-  const badge = document.createElement('div');
-  badge.className = 'app-badge';
+  let icon = null;
   if (item.sourceApp.icon) {
-    const icon = document.createElement('img');
-    icon.className = 'app-badge-icon';
+    icon = document.createElement('img');
     icon.src = item.sourceApp.icon;
     icon.draggable = false;
-    badge.appendChild(icon);
+    icon.alt = '';
   }
-  const label = document.createElement('span');
-  label.textContent = item.sourceApp.name;
-  badge.appendChild(label);
-  return badge;
+  return createChip(item.sourceApp.name, icon);
+}
+
+function createLeading(item) {
+  const leading = document.createElement('div');
+  leading.className = 'item-leading';
+  if (item.downloading) {
+    const spinner = document.createElement('div');
+    spinner.className = 'spinner';
+    spinner.setAttribute('role', 'progressbar');
+    leading.appendChild(spinner);
+  } else if (item.kind === 'clip-text') {
+    const g = document.createElement('div');
+    g.className = 'clip-glyph';
+    g.appendChild(glyph('clipboard'));
+    leading.appendChild(g);
+  } else {
+    const img = document.createElement('img');
+    img.draggable = false;
+    img.alt = '';
+    if (item.isImage && item.path) {
+      img.className = 'file-icon thumbnail';
+      img.src = toFileUrl(item.path);
+    } else {
+      img.className = 'file-icon';
+      if (item.icon) img.src = item.icon;
+    }
+    leading.appendChild(img);
+  }
+  return leading;
 }
 
 function render() {
@@ -1095,101 +1344,86 @@ function render() {
   // 残骸ツールチップをここで必ず取り除く
   hideTooltip();
   listEl.textContent = '';
+  itemElements.clear();
   visibleItems = filterItems();
 
+  let currentDay = null;
   for (const item of visibleItems) {
+    // 日付が変わるところにセクション見出しを挟む
+    const key = item.timestamp ? dayKey(item.timestamp) : 'none';
+    if (key !== currentDay) {
+      currentDay = key;
+      const header = document.createElement('li');
+      header.className = 'section-header';
+      header.setAttribute('role', 'presentation');
+      header.textContent = item.timestamp ? sectionLabel(item.timestamp) : '';
+      listEl.appendChild(header);
+    }
+
     const li = document.createElement('li');
-    // 色分けクラスは必ずどちらか一方を付与する:
-    //   user-dropped (ゴールド)    … kind === 'file' = ユーザーが明示的に置いた本物のファイル
-    //                               (D&D・bridge://・Web ダウンロード・テキスト保存の完了後を含む)
-    //   clipboard-history (グリーン) … kind === 'clip-text' | 'clip-image' = コピー監視の自動ログ
-    //                               (裏で snippet_*.txt / .png のパスを持っていても履歴として扱う)
-    const isUserFile = item.kind === 'file';
-    li.classList.add('file-item', isUserFile ? 'user-dropped' : 'clipboard-history');
+    li.className = 'file-item';
+    li.setAttribute('role', 'option');
+    li.setAttribute('aria-selected', selectedItems.has(item) ? 'true' : 'false');
     if (selectedItems.has(item)) li.classList.add('selected');
     if (item.removing) li.classList.add('removing');
     if (item.downloading) li.classList.add('downloading');
     li.draggable = !item.removing && !item.downloading;
     li.addEventListener('click', (e) => onItemClick(e, item));
     li.addEventListener('dragstart', (e) => onItemDragStart(e, item));
+    li.addEventListener('contextmenu', (e) => openContextMenu(e, item));
 
-    // 左側: 種別バッジ or ファイルアイコン/サムネイル
-    if (item.kind === 'clip-text') {
-      const badge = document.createElement('div');
-      badge.className = 'clip-badge';
-      badge.textContent = '📋';
-      li.appendChild(badge);
-    } else {
-      const img = document.createElement('img');
-      img.draggable = false;
-      if (item.isImage && item.path) {
-        // 画像ファイルは OS アイコンではなく実物のサムネイルを表示
-        img.className = 'file-icon thumbnail';
-        img.src = toFileUrl(item.path);
-      } else {
-        img.className = 'file-icon';
-        if (item.icon) img.src = item.icon;
-      }
-      li.appendChild(img);
-    }
+    li.appendChild(createLeading(item));
 
-    // 中央: 名前 (テキスト履歴は冒頭プレビュー) + [バッジ+時刻] + 種別 の 3 段
+    // 中央: 名前 (テキスト履歴は冒頭プレビュー) + 「種別 · 時刻」 + 出身チップ
     const lines = document.createElement('div');
     lines.className = 'item-lines';
 
-    // タイトルは JS で整形済みの「1 つの文字列」を左詰めで表示する。
-    // 全角=2 / 半角=1 (英大文字は 2) の視覚幅カウントで 28 を超えるときだけ
-    // 「前半(14) ⋯ 後半(6) + 拡張子」の中央省略 (フォルダ等の拡張子なしは末尾を ... で省略)
     const titleEl = document.createElement('div');
     titleEl.className = 'item-title' + (item.kind === 'clip-text' ? ' clip-preview' : '');
-
     if (item.kind === 'clip-text') {
-      titleEl.textContent = item.name; // 冒頭プレビューは 2 行折り返し (CSS クランプ) のまま
+      titleEl.textContent = item.name;
+    } else if (item.downloading) {
+      titleEl.textContent = item.name;
     } else {
-      const isRealFile = isUserFile && item.fileKind !== 'フォルダ';
-      const prefix = item.downloading ? 'ダウンロード中… ' : '';
-      titleEl.textContent = prefix + formatFileName(item.name, isRealFile);
+      const isRealFile = item.kind === 'file' && item.fileKind !== 'フォルダ';
+      titleEl.textContent = formatFileName(item.name, isRealFile);
     }
 
-    // ホバーで全文 (クリップボードは本文全体) を自作ツールチップ表示。
-    // OS 標準の title 属性は Electron のウインドウ制約で機能しないため使わない
+    // ホバーで全文 (クリップボードは本文全体) をツールチップ表示
     const fullText = item.kind === 'clip-text' ? item.text : item.name;
-    titleEl.addEventListener('mouseenter', () => showTooltip(titleEl, fullText));
+    titleEl.addEventListener('mouseenter', () => scheduleTooltip(titleEl, fullText));
     titleEl.addEventListener('mouseleave', hideTooltip);
-
     lines.appendChild(titleEl);
 
-    // 1段目: 「種別名 · 時刻」 (例: "PNGファイル · 15:13")
     const kindLabel =
       item.kind === 'clip-text'
-        ? 'コピー'
+        ? 'テキスト'
         : item.kind === 'clip-image'
-          ? '画像コピー'
-          : item.fileKind || 'ファイル'; // Finder 純正の種類名 (取得前は「ファイル」で暫定表示)
+          ? '画像'
+          : item.downloading
+            ? '保存中'
+            : item.fileKind || 'ファイル'; // Finder 純正の種類名 (取得前は「ファイル」で暫定表示)
     const metaLine = document.createElement('div');
     metaLine.className = 'item-meta-line';
-    metaLine.textContent = item.timestamp
-      ? `${kindLabel} · ${formatTime(item.timestamp)}`
-      : kindLabel;
+    metaLine.textContent = item.timestamp ? `${kindLabel} · ${formatTime(item.timestamp)}` : kindLabel;
     lines.appendChild(metaLine);
 
-    // 2段目: 出身地バッジ (例: [Mac])。外部デバイス由来のアイテムだけ改行して表示し、
-    // ローカル生まれのものは行ごと DOM 生成をスキップしてカードの縦幅を詰める
-    const deviceBadge = createDeviceBadge(item);
-    const appBadge = createAppBadge(item);
-    if (deviceBadge || appBadge) {
+    const deviceChip = createDeviceChip(item);
+    const appChip = createAppChip(item);
+    if (deviceChip || appChip) {
       const badgeLine = document.createElement('div');
       badgeLine.className = 'item-badge-line';
-      if (appBadge) badgeLine.appendChild(appBadge);
-      if (deviceBadge) badgeLine.appendChild(deviceBadge);
+      if (appChip) badgeLine.appendChild(appChip);
+      if (deviceChip) badgeLine.appendChild(deviceChip);
       lines.appendChild(badgeLine);
     }
 
-    // ホバー時に現れる「×」ボタン
+    // ホバー時に現れる削除ボタン
     const removeBtn = document.createElement('button');
     removeBtn.className = 'remove-button';
-    removeBtn.title = 'リストから外す';
-    removeBtn.textContent = '×';
+    removeBtn.setAttribute('aria-label', 'リストから外す');
+    removeBtn.tabIndex = -1;
+    removeBtn.appendChild(glyph('xmark'));
     removeBtn.addEventListener('click', (e) => {
       e.stopPropagation(); // アイテムの選択を発火させない
       fadeOutAndRemove(item);
@@ -1197,15 +1431,14 @@ function render() {
 
     li.append(lines, removeBtn);
     listEl.appendChild(li);
+    itemElements.set(item, li);
   }
 
   const noItems = items.length === 0;
   const noVisible = visibleItems.length === 0;
 
-  // 検索で 0 件のときはプレースホルダの文言を切り替えて「該当なし」を伝える。
-  // クリップボード自動収集のヒントは「本当に何もない」ときだけの案内なので、
-  // 検索で絞り込んだ結果 0 件になっただけのときは引っ込める
-  emptyLabel.textContent = noItems ? 'ここにファイルをドロップ' : '一致するアイテムがありません';
+  // 検索で 0 件のときはプレースホルダの文言を切り替えて「該当なし」を伝える
+  emptyLabel.textContent = noItems ? 'ここにファイルをドロップ' : '一致するアイテムはありません';
   emptySub.hidden = !noItems;
   emptyEl.hidden = !noVisible;
   listEl.hidden = noVisible;
@@ -1221,6 +1454,14 @@ function render() {
   window.bridge.reportRetainedPaths(items.map((it) => it.path).filter(Boolean));
 }
 
+// 空状態のヒントはショートカットを OS に合わせて表記する
+{
+  emptySub.textContent = '';
+  const kbd = document.createElement('kbd');
+  kbd.textContent = IS_MAC ? '⌘C' : 'Ctrl+C';
+  emptySub.append(kbd, ' でコピーした内容も自動で並びます');
+}
+
 clearBtn.addEventListener('click', () => {
   if (items.length === 0) return;
   // 誤操作からの回復手段として、消した内容そのものをクロージャに保持して
@@ -1230,8 +1471,8 @@ clearBtn.addEventListener('click', () => {
   selectedItems.clear();
   render();
   showToast({
-    icon: '🗑️',
-    title: `${removed.length}件を削除しました`,
+    icon: 'trash',
+    title: `${removed.length} 個を消去しました`,
     actionLabel: '元に戻す',
     onAction: () => {
       items.unshift(...removed);
@@ -1240,5 +1481,133 @@ clearBtn.addEventListener('click', () => {
     durationMs: 5000,
   });
 });
+
+// ---- 7. 同期状態 (フッターのインジケーター) ----
+
+let syncStatus = { peers: [], onlineCount: 0 };
+
+function renderSyncStatus() {
+  const { peers, onlineCount } = syncStatus;
+  syncDot.hidden = peers.length === 0;
+  syncDot.classList.toggle('online', onlineCount > 0);
+  const names = peers.filter((p) => p.online).map((p) => p.device || p.host);
+  syncDot.title = onlineCount > 0 ? `${names.join('、')} と同期中` : 'ほかのデバイスが見つかりません';
+  renderPeerList();
+}
+
+window.bridge.onSyncStatus((status) => {
+  syncStatus = status || { peers: [], onlineCount: 0 };
+  renderSyncStatus();
+});
+window.bridge
+  .getSyncStatus()
+  .then((status) => {
+    syncStatus = status || { peers: [], onlineCount: 0 };
+    renderSyncStatus();
+  })
+  .catch(() => {});
+
+// ---- 8. 設定シート ----
+
+const settingsSheet = document.getElementById('settings-sheet');
+const settingDeviceName = document.getElementById('setting-device-name');
+const settingToken = document.getElementById('setting-token');
+const settingTokenCopy = document.getElementById('setting-token-copy');
+const settingAutoScan = document.getElementById('setting-autoscan');
+const settingPeers = document.getElementById('setting-peers');
+const settingPeerList = document.getElementById('setting-peer-list');
+const settingLogin = document.getElementById('setting-login');
+const settingHotkeyHelp = document.getElementById('setting-hotkey-help');
+
+function renderPeerList() {
+  settingPeerList.textContent = '';
+  const peers = syncStatus.peers || [];
+  if (peers.length === 0) {
+    const li = document.createElement('li');
+    li.className = 'peer-empty';
+    li.textContent = '同じネットワークに Bridge が見つかると、ここに表示されます。';
+    settingPeerList.appendChild(li);
+    return;
+  }
+  for (const peer of peers) {
+    const li = document.createElement('li');
+    const dot = document.createElement('span');
+    dot.className = 'sync-dot' + (peer.online ? ' online' : '');
+    const name = document.createElement('span');
+    name.className = 'peer-name';
+    name.textContent = peer.device || peer.host;
+    const addr = document.createElement('span');
+    addr.className = 'peer-addr';
+    addr.textContent = peer.online ? peer.host : 'オフライン';
+    li.append(dot, name, addr);
+    settingPeerList.appendChild(li);
+  }
+}
+
+async function openSettings() {
+  closeContextMenu();
+  hideTooltip();
+  try {
+    const s = await window.bridge.getSettings();
+    settingDeviceName.value = s.deviceName || '';
+    settingToken.value = s.secretToken || '';
+    settingAutoScan.checked = Boolean(s.autoScan);
+    settingPeers.value = (s.peers || []).join('\n');
+    settingLogin.checked = Boolean(s.openAtLogin);
+    settingHotkeyHelp.textContent = `${s.hotkeyLabel} でいつでもパネルを表示 / 非表示できます。`;
+  } catch (err) {
+    console.error('設定の読み込みに失敗:', err);
+  }
+  renderPeerList();
+  settingsSheet.hidden = false;
+  document.body.classList.add('settings-open');
+  settingDeviceName.focus();
+}
+
+function closeSettings() {
+  if (settingsSheet.hidden) return;
+  settingsSheet.hidden = true;
+  document.body.classList.remove('settings-open');
+  if (document.activeElement && typeof document.activeElement.blur === 'function') {
+    document.activeElement.blur();
+  }
+}
+
+async function saveSettings() {
+  const payload = {
+    deviceName: settingDeviceName.value,
+    secretToken: settingToken.value,
+    autoScan: settingAutoScan.checked,
+    peers: settingPeers.value.split(/\r?\n/).map((s) => s.trim()).filter(Boolean),
+    openAtLogin: settingLogin.checked,
+  };
+  try {
+    const result = await window.bridge.saveSettings(payload);
+    if (result && result.ok) {
+      closeSettings();
+      showToast({ icon: 'check', title: '設定を保存しました', durationMs: 2000 });
+      window.bridge.getDeviceInfo().then((info) => {
+        if (info && info.device) {
+          localDeviceName = info.device;
+          render();
+        }
+      });
+    } else {
+      showToast({ icon: 'warning', title: '設定を保存できませんでした', accent: 'red' });
+    }
+  } catch (err) {
+    console.error('設定の保存に失敗:', err);
+    showToast({ icon: 'warning', title: '設定を保存できませんでした', accent: 'red' });
+  }
+}
+
+settingsBtn.addEventListener('click', openSettings);
+document.getElementById('settings-back').addEventListener('click', closeSettings);
+document.getElementById('settings-save').addEventListener('click', saveSettings);
+settingTokenCopy.addEventListener('click', () => {
+  window.bridge.copyPlainText(settingToken.value);
+  showToast({ icon: 'check', title: '同期キーをコピーしました', durationMs: 1800 });
+});
+window.bridge.onOpenSettings(() => openSettings());
 
 render();

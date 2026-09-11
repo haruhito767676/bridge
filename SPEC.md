@@ -13,7 +13,7 @@
 │                                                                  │
 │  Main プロセス (main.js)                                          │
 │  ├─ ウインドウ管理 (右端ドック / スライド展開・格納 / マルチモニター)   │
-│  ├─ カーソル監視ポーリング (エッジ出現 / 離脱格納, 100ms)             │
+│  ├─ カーソル監視ポーリング (右端滞留で出現 / 離脱格納, 50ms)          │
 │  ├─ クリップボード監視 (テキスト / 画像 / ファイルコピー, 500ms)      │
 │  ├─ 一時ファイル管理 (生成・追跡・自動削除)                          │
 │  ├─ bridge:// URL スキームハンドラ                                 │
@@ -45,8 +45,9 @@
 
 1. シングルインスタンスロック取得（失敗時は何も起動せず `app.quit()`。第 2 インスタンスがウォッチャーや同期サーバーを一瞬でも起動しないようフラグでガード）
 2. `bridge://` プロトコルのデフォルトクライアント登録（開発時は `process.execPath` + エントリパス付き）
-3. `app.whenReady()` 後: `createWindow()` → `createTray()` → `startClipboardWatcher()` → `startEdgeRevealWatcher()` → `startDeviceSync()`
-4. Windows/Linux で `bridge://` から直接起動された場合は `process.argv` の URL を処理
+3. `app.whenReady()` 後: `app.dock.hide()`（macOS）→ `createWindow()` → `createTray()` → `registerToggleShortcut()` → `startClipboardWatcher()` → `startEdgeRevealWatcher()` → `startDeviceSync()`
+4. メニューバーアイコン: 左クリック = 表示 / 非表示のトグル、右クリック = メニュー（表示 / 隠す・ログイン時に起動・設定…・Bridge を終了）
+5. Windows/Linux で `bridge://` から直接起動された場合は `process.argv` の URL を処理
 
 ---
 
@@ -60,9 +61,11 @@
 | `TAB_WIDTH` | 15px | 格納時に画面端へ残す「つまみ」の幅 |
 | `SHELTER_HEIGHT` | 600px | 高さ（ディスプレイ作業領域より大きい場合は縮小） |
 
-- `BrowserWindow` オプション: `frame: false` / `resizable: false` / `alwaysOnTop: true` / `fullscreenable: false` / `vibrancy: 'under-window'`（macOS すりガラス）/ 背景透過
+- `BrowserWindow` オプション: `frame: false` / `resizable: false` / `alwaysOnTop: true` / `fullscreenable: false` / `vibrancy: 'sidebar'`（macOS すりガラス）/ `backgroundMaterial: 'acrylic'`（Windows 11）/ 背景透過。macOS では `type: 'panel'`（NSPanel）として生成し、クリックしても作業中のアプリを背面に下げない
+- macOS では `app.dock.hide()` によりメニューバー常駐のユーティリティとして振る舞う（Dock・⌘Tab に出ない）
 - `setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })` により仮想デスクトップ・フルスクリーンアプリ上でも追従
-- 配置は常に「**マウスカーソルがあるディスプレイ**の `workArea` 右端・垂直中央」。表示前に必ず `setBounds` で座標を確定し、OS の自動復元によるモニター跨ぎを防ぐ
+- 配置は常に「**マウスカーソルがあるディスプレイ**の `workArea` 右端・垂直中央」。表示前に必ず `placeDockInstantly` で座標を確定し、OS の自動復元によるモニター跨ぎを防ぐ
+- **開閉はスプリングアニメーション**（`animateDock`）: 通常は幅 320px を保ったまま画面外へスライド（移動のみなので Chromium の再レイアウト・再描画が起きない）し、格納が終わった時点で幅を `TAB_WIDTH` へ縮める。右隣にディスプレイがある場合（`hasDisplayToTheRight`）だけ、はみ出しが見えないよう右端固定の幅変更方式にフォールバックする。毎フレーム（60fps）`setBounds` し、減衰比 1.0 / 応答 0.32s の臨界減衰スプリングで、途中で目標が変わってもその場の値と速度から滑らかに反転する（中断可能）。Renderer 側は `#root` を右寄せ・固定幅 320px にしているため、幅が縮んでも中身は再レイアウトされない。`nativeTheme.getAnimationSettings().prefersReducedMotion` が真なら即時に切り替える
 
 ### 2.2 展開・格納の状態遷移
 
@@ -71,15 +74,17 @@
 ```
 
 **展開トリガー**
-- (a) Main のカーソルポーリング（100ms 間隔）が「任意のディスプレイの右端つまみゾーン」への**進入エッジ**を検知（居続けでは再展開しない）
-- (b) Renderer の `mouseenter` / `dragenter` → IPC `shelter-expand`
-- (c) `bridge://` 受信・`second-instance` などプログラム的表示
+- (a) Main のカーソルポーリング（50ms 間隔）が「任意のディスプレイの右端つまみゾーン」に **`EDGE_DWELL_MS`（250ms）以上滞留**したことを検知（通り過ぎ・一瞬の接触では開かない。展開後は居続けても再展開しない）
+- (b) Renderer のつまみクリック / `dragenter` → IPC `shelter-expand`（即時）
+- (c) グローバルホットキー（macOS: ⌥Space / Windows・Linux: Ctrl+Shift+Space）、メニューバーアイコンのクリック、`bridge://` 受信・`second-instance` などの明示的な呼び出し → `expandShelter({ focus: true })`
 
-展開時はカーソルのあるディスプレイをその都度再判定し、別ディスプレイにいた場合はアニメーションなしで隠れ位置へワープしてから展開する。最前面レベルは `floating`（`screen-saver` にすると OS のドラッグ中アイコン描画より手前に出てしまうため）。展開のたびに Renderer へ `shelter-expanded` を通知し、検索状態の完全リセット + 検索バーへの自動フォーカスを行わせる。
+展開時はカーソルのあるディスプレイをその都度再判定し、別ディスプレイにいた場合はアニメーションなしで隠れ位置へワープしてから展開する。最前面レベルは `floating`（`screen-saver` にすると OS のドラッグ中アイコン描画より手前に出てしまうため）。展開のたびに Renderer へ `shelter-expanded` (`{ focus }`) を通知し、検索状態のリセット（残っているときだけ）とスクロール位置の先頭復帰を行わせる。
+
+**フォーカス方針**: ホバー（a）(b) による展開では**キーボードフォーカスを奪わない**（作業中のアプリへの入力を乗っ取らない）。(c) の明示的な呼び出しのときだけ `win.focus()` し、Renderer は検索バーへフォーカスする。格納時は `releaseFocus()`（`win.blur()`）で元のアプリへ返し、履歴クリック後にそのまま ⌘V できる状態にする。
 
 **格納トリガー**
-- (d) Renderer の `mouseleave` / ウインドウ外への `dragleave` → IPC `shelter-collapse`（220ms のディレイ付き。ディレイ中の再展開でキャンセル）
-- (e) 即時格納 `collapseShelterNow()`: 履歴クリック（コピー完了 → 即ペーストへ移行させる）、および Main ポーリングによる強制格納（カーソルがウインドウ領域 + マージン 48px から完全離脱。Windows でのマウス高速移動による `mouseleave` 取りこぼし対策）。ただし展開直後 1 秒間（`EXPAND_GRACE_MS`）はプログラム的展開を誤って閉じないための猶予がある
+- (d) Renderer の `mouseleave` / ウインドウ外への `dragleave` → IPC `shelter-collapse`（220ms のディレイ付き。ディレイ中の再展開でキャンセル。発火時点でカーソルがまだウインドウ内なら空振りとみなして格納しない）
+- (e) 即時格納 `collapseShelterNow()`: 履歴クリック（Renderer がチェックマークを 320ms 見せてから `shelter-collapse-now`）、Esc、ホットキーのトグル、および Main ポーリングによる強制格納（カーソルがウインドウ領域 + マージン 48px から完全離脱。Windows でのマウス高速移動による `mouseleave` 取りこぼし対策）。ただし展開直後 1 秒間（`EXPAND_GRACE_MS`）の猶予、ウインドウにフォーカスがある間、Renderer が矩形選択でボタンを押し続けている間（`shelter-hold-pointer`）は強制格納しない
 
 ### 2.3 耐障害性
 
@@ -110,7 +115,7 @@
 }
 ```
 
-- `kind: 'file'`（ゴールド系カード）= ユーザーが明示的に置いた一時保存ファイル。`clip-*`（グリーン系カード）= コピー監視の自動ログ
+- `kind: 'file'` = ユーザーが明示的に置いた一時保存ファイル（先頭に OS のファイルアイコン / 画像サムネイル）。`clip-*` = コピー監視の自動ログ（先頭にクリップボードのグリフ）。表示は常に `timestamp` の新しい順に並べ替え、日付ごとに「今日 / 昨日 / M月D日」のセクション見出しを挟む（見出しは sticky にせず一緒にスクロールする）
 - **上限**: file 100 件 / clip-text 100 件 / clip-image 30 件。あふれた最古アイテムはリストから外し、裏生成ファイルなら Main へ実体削除を依頼する
 
 ### 3.2 重複スタック化
@@ -162,6 +167,12 @@
 | `dragClipboardText({ text, path })` | `drag-clipboard-text` | send | 生成済み snippet でドラッグアウト（無ければその場で生成） |
 | `deleteTempFile(path)` | `delete-temp-file` | send | 裏生成ファイルの実体削除。**`sessionTempFiles` に含まれるパスのみ削除**（ユーザー実ファイル保護）。同期台帳の該当 path も null 化 |
 | `reportRetainedPaths(paths)` | `report-retained-paths` | send | 現在リスト保持中のパス一覧（終了時クリーンアップの除外判定用、render のたびに送信） |
+| `collapseShelterNow()` | `shelter-collapse-now` | send | ディレイなしの即時格納（コピー確認表示後・Esc） |
+| `holdPointer(bool)` | `shelter-hold-pointer` | send | 矩形選択中は強制格納を保留 |
+| `revealInFinder(path)` / `openFile(path)` | `reveal-in-finder` / `open-file` | send | `shell.showItemInFolder` / `shell.openPath` |
+| `copyPlainText(text)` | `clipboard-copy-plain` | send | テキストをそのままクリップボードへ（履歴には載せない） |
+| `getSyncStatus()` | `get-sync-status` | invoke | 同期状態のスナップショット |
+| `getSettings()` / `saveSettings(s)` | `get-settings` / `save-settings` | invoke | 設定シート。デバイス名・同期キー・自動スキャン・手動ピア・ログイン時起動を `sync-config.json` へ書き戻し、メモリ上の状態にも即時反映 |
 
 ### Main → Renderer
 
@@ -169,7 +180,10 @@
 |---|---|---|
 | `onAddFile(cb)` | `add-file` | ファイル追加。payload: `{ path, name, fromDevice, fromPlatform }`（旧形式のパス文字列にも Renderer 側で後方互換対応） |
 | `onClipboardItem(cb)` | `clipboard-item` | クリップボード履歴。`{ type: 'clipboard-text'|'clipboard-image', text, path, timestamp, fromDevice, fromPlatform }` |
-| `onShelterExpanded(cb)` | `shelter-expanded` | 展開通知（検索リセット + 自動フォーカス） |
+| `onShelterExpanded(cb)` | `shelter-expanded` | 展開通知 `{ focus }`（検索リセット。`focus` が真のときだけ検索バーへフォーカス） |
+| `onShelterCollapsed(cb)` | `shelter-collapsed` | 格納通知（選択・ツールチップ・メニュー・設定シートを閉じる） |
+| `onSyncStatus(cb)` | `sync-status` | ピアのオンライン状態が変わったとき `{ peers: [{ device, host, port, online }], onlineCount }` |
+| `onOpenSettings(cb)` | `open-settings` | メニューバーの「設定…」 |
 
 ---
 
@@ -299,11 +313,12 @@ Main 側履歴 (`clipHistory`) の上限はテキスト 100 / 画像 30。**Main
 
 ### 9.1 スマート検索
 
-- 展開のたびに状態を完全リセットし検索バーへ自動フォーカス
-- `:` 入力で `file` / `clip` のサジェストを表示。Tab / ↑↓ でハイライト移動、Enter / mousedown で**バッジ化**（入力欄左端に吸着、後続キーワードは入力欄に残る）
+- 展開のたびに状態を完全リセット。ホットキー等の明示的な呼び出しのときだけ検索バーへ自動フォーカス（ホバー展開では奪わない）
+- 検索欄にいたまま ↑↓ で結果を選択、Enter で選択中（無ければ先頭）をコピー、⌘Enter で Finder に表示。Esc は入力があれば検索クリア、空ならパネルを閉じる
+- `:` 入力で `file` / `clip` のサジェストを表示。Tab / ↑↓ でハイライト移動、Enter / mousedown で**トークン化**（アクセント色のピルとして入力欄左端に吸着、後続キーワードは入力欄に残る）
 - フィルターは**バッジ確定時のみ**有効（生入力に `:file` が含まれていても解釈しない誤検知回避）。`file` = ファイルカードのみ / `clip` = クリップボード履歴のみ
 - キーワードはファイル名・パス・本文への部分一致（小文字化）
-- 空入力での Backspace = バッジ解除、Esc = 全リセット + blur
+- 空入力での Backspace = トークン解除
 
 ### 9.2 選択
 
@@ -311,7 +326,9 @@ Main 側履歴 (`clipHistory`) の上限はテキスト 100 / 画像 30。**Main
 - ⌘ / Ctrl + クリック = 個別トグル、Shift + クリック = 範囲選択、⌘ / Ctrl + A = 表示中全選択
 - 空白部の左ドラッグ = Finder ライクの矩形選択（修飾キー押下で既存選択へ追加）。ウインドウ外でボタンが離された場合も `e.buttons === 0` 検知で終了
 - 添字は常に**フィルター適用後の表示リスト** (`visibleItems`) 基準
-- Space = 先頭選択アイテムをクイックルック（macOS）
+- キーボード: ↑↓ で行移動（Shift で範囲）、Enter = コピー、⌘Enter = Finder に表示、Space = クイックルック（macOS）、⌫ / Delete = 選択をリストから外す（次の行を自動選択）、Esc = 選択解除 → パネルを閉じる、⌘F / `/` = 検索へ
+- 右クリック = コンテキストメニュー（コピー / クイックルック / Finder で表示 / 開く / パスをコピー / リストから外す）
+- クリック時のフィードバック: 押下で `scale(0.985)`、コピー後は行にチェックマークを 320ms 表示してから格納
 
 ### 9.3 ドラッグアウト
 
@@ -322,13 +339,20 @@ Main 側履歴 (`clipHistory`) の上限はテキスト 100 / 画像 30。**Main
 
 ### 9.4 表示
 
-- ファイル名整形（`formatFileName`）: 視覚幅カウント（全角・英大文字 = 2 / 半角 = 1）で、拡張子あり: 本体 14 超過時に「先頭 8 + `⋯` + 末尾 4 + 拡張子」の中央省略 / 拡張子なし（フォルダ等): 28 超過時に末尾 `...`。サロゲートペアはコードポイント単位で分断しない
-- カード配色: `user-dropped`（ゴールド）/ `clipboard-history`（グリーン）/ 選択中はブルーを `!important` で強制
-- メタ行: 「種類 · 時刻 (H:mm)」。種類は macOS では `mdls` の Finder 純正名、他は拡張子から生成
-- 出身デバイスバッジ: `fromDevice` が自デバイス名と異なる場合のみ表示。`win32` = 青系 / `darwin` = シルバー系
+- デザイントークン（`styles.css` 冒頭）: 地はニュートラルなマテリアル、強調はシステムアクセント 1 色（Chromium の `AccentColor`、非対応環境は `#0a84ff`）。角丸は 6 / 10 / 14px の 3 段、文字は 13px（本文）/ 11px（補助）の 2 段。アイコンは絵文字ではなくインライン SVG グリフ（`GLYPHS`）
+- 行: 種別を色ではなく先頭スロット（40px 固定）のグリフ / アイコンで示す。ホバーは薄い塗り、選択はアクセント塗り + 反転文字（Finder のリストと同じ）
+- ファイル名整形（`formatFileName`）: 視覚幅カウント（全角・英大文字 = 2 / 半角 = 1）で合計 30 を超えるとき、拡張子あり: 「先頭 + `…` + 末尾 6 + 拡張子」の中央省略 / 拡張子なし（フォルダ等）: 末尾 `…`。サロゲートペアはコードポイント単位で分断しない
+- メタ行: 「種類 · 時刻 (H:mm)」。種類は macOS では `mdls` の Finder 純正名、他は拡張子から生成。日付はセクション見出し（今日 / 昨日 / M月D日 (曜)）で示す
+- 出身チップ: コピー元アプリ（アイコン + 名前）と、`fromDevice` が自デバイス名と異なる場合の出身デバイス（ノート / デスクトップのグリフ + 名前）。いずれもニュートラルな小さなピル
+- ダウンロード / 保存の進行中は先頭スロットに不定スピナー
+- ポップオーバー（サジェスト・ツールチップ・トースト・コンテキストメニュー）はライト / ダーク両対応のトークン色。設定シートは本体と入れ替えて表示する（vibrancy 上では半透明レイヤーの重ね合わせが濁るため）
+- スクロールバーは macOS ではネイティブのオーバーレイをそのまま使う（`::-webkit-scrollbar` を触るとコンポジタ駆動のスクロールが効かなくなる）。Windows / Linux のみ細いバーに整える
+- macOS 以外と `prefers-reduced-transparency` では不透明の地 (`--panel-fallback`) を敷く。`prefers-reduced-motion` ではトランジションを止める
+- フッター: 同期状態ドット（ピアが 1 台以上オンラインで緑）+ 件数 / 「すべて消去」（取り消しトースト付き）/ 設定ボタン
 - 画像ファイルは OS アイコンではなく実物サムネイル（`file://` URL 化は Windows ドライブレター対応済み）
 - ツールチップは自作（Electron のフレームレス制約で OS 標準 `title` が機能しないため）。ホバーで全文表示、画面端で位置反転
-- ドラッグ進入中は `body.drag-mode` でドロップオーバーレイ表示 + 既存 UI を透過 30% に減光（`pointer-events: none` で OS ドラッグ描画を阻害しない）
+- ドラッグ進入中は `body.drag-mode` でドロップオーバーレイ（アクセント色の薄い塗り + 枠）表示 + 既存 UI を透過 25% に減光（`pointer-events: none` で OS ドラッグ描画を阻害しない）
+- アクセシビリティ: リストは `role="listbox"` / 行は `role="option"` + `aria-selected`、アイコンボタンには `aria-label`
 
 ### 9.5 セキュリティ
 
@@ -341,7 +365,10 @@ Main 側履歴 (`clipHistory`) の上限はテキスト 100 / 画像 30。**Main
 
 | 定数 | 値 | 用途 |
 |---|---|---|
-| `EDGE_POLL_MS` | 100ms | カーソル監視（エッジ出現 / 離脱格納） |
+| `EDGE_POLL_MS` | 50ms | カーソル監視（右端滞留 / 離脱格納） |
+| `EDGE_DWELL_MS` | 250ms | つまみゾーンに滞留してから展開するまでの時間 |
+| `SPRING_RESPONSE_S` / `SPRING_DAMPING_RATIO` | 0.32s / 1.0 | 開閉スプリングの応答 / 減衰比 |
+| `COPIED_FEEDBACK_MS` | 320ms | コピー後のチェックマーク表示（Renderer） |
 | `EXPANDED_EXIT_MARGIN` | 48px | 展開中の離脱判定マージン |
 | `EXPAND_GRACE_MS` | 1,000ms | プログラム的展開直後の格納猶予 |
 | 格納ディレイ | 220ms | `collapseShelter` のタイマー |
@@ -367,5 +394,6 @@ Main 側履歴 (`clipHistory`) の上限はテキスト 100 / 画像 30。**Main
 3. **クイックルック・`mdls` は macOS 専用**: 他 OS は拡張子ベース表示にフォールバック
 4. **履歴は永続化されない**: リスト・履歴はメモリ上のみで、再起動で消える（裏生成ファイルは終了時に掃除される）。永続化は現時点で非目標
 5. **サブネットスキャンは /24 固定**: それより広いネットワークのピアは `peers` への静的登録が必要
-6. `secretToken` の共有は手動運用（設定ファイルの値を各デバイスで揃える）
+6. `secretToken` の共有は手動運用（設定シートの「同期キー」をコピーして各デバイスに貼り付ける。ペアリングコード方式は非目標）
+7. `port` の変更は設定ファイルの直接編集が必要で、再起動後に反映される
 

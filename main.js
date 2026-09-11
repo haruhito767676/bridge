@@ -1,4 +1,17 @@
-const { app, BrowserWindow, ipcMain, net, screen, clipboard, nativeImage, Tray } = require('electron');
+const {
+  app,
+  BrowserWindow,
+  ipcMain,
+  net,
+  screen,
+  clipboard,
+  nativeImage,
+  nativeTheme,
+  globalShortcut,
+  Menu,
+  shell,
+  Tray,
+} = require('electron');
 const path = require('path');
 const fs = require('fs');
 const fsp = require('fs/promises');
@@ -47,7 +60,7 @@ function pushPending(queue, item) {
   if (queue.length > MAX_PENDING_ITEMS) queue.shift(); // 最古から追い出す
 }
 
-// ---- 右端への常駐 & スライド隠れ ----
+// ---- 右端への常駐 & スプリングによるスライド開閉 ----
 
 const SHELTER_WIDTH = 320; // シェルターウインドウの幅（開いたとき）
 const TAB_WIDTH = 15; // 隠れているときに画面端へ残す「つまみ」の幅
@@ -55,6 +68,11 @@ const SHELTER_HEIGHT = 600;
 
 let expanded = false;
 let collapseTimer = null;
+// Renderer が矩形選択などでマウスボタンを押し続けている間は、カーソルがウインドウの外へ
+// 出ても強制格納しない (選択操作の途中でパネルが消える事故を防ぐ)
+let rendererHoldsPointer = false;
+// 開発用 (BRIDGE_DEV_SEED): カーソル離脱による強制格納を止めて見た目を確認しやすくする
+let devHoldOpen = false;
 
 // 指定ディスプレイの右端中央を基準にドック位置を計算する
 function dockedBoundsForDisplay(display, shown) {
@@ -68,28 +86,164 @@ function dockedBoundsForDisplay(display, shown) {
   return { x, y, width: shown ? SHELTER_WIDTH : TAB_WIDTH, height };
 }
 
+// ---- 開閉アニメーションの方式 ----
+//   move:   幅 320px を保ったまま画面外へスライドする。ウインドウの「移動」だけなので
+//           Chromium の再レイアウト・再描画が発生せず軽い (通常はこちら)
+//   resize: 右端を固定して幅を変える。右隣にディスプレイがある構成では move だと
+//           はみ出した部分が隣のディスプレイに見えてしまうため、そのときだけ使う
+function hasDisplayToTheRight(display) {
+  const { x, y, width, height } = display.bounds;
+  const rightEdge = x + width;
+  return screen.getAllDisplays().some(
+    (d) =>
+      d.id !== display.id &&
+      Math.abs(d.bounds.x - rightEdge) <= 1 &&
+      d.bounds.y < y + height &&
+      d.bounds.y + d.bounds.height > y
+  );
+}
+
+function dockModeFor(display) {
+  return hasDisplayToTheRight(display) ? 'resize' : 'move';
+}
+
+// 展開量 t (0 = つまみだけ, 1 = 全開) に対応するウインドウ矩形。
+// Renderer 側は #root を右寄せ固定幅にしているため、どちらの方式でも中身は再レイアウトされない
+function boundsForProgress(display, t, mode) {
+  const closed = dockedBoundsForDisplay(display, false);
+  const rightEdge = closed.x + closed.width;
+  if (mode === 'resize') {
+    const width = Math.round(TAB_WIDTH + (SHELTER_WIDTH - TAB_WIDTH) * t);
+    return { x: rightEdge - width, y: closed.y, width, height: closed.height };
+  }
+  const x = Math.round(rightEdge - TAB_WIDTH - (SHELTER_WIDTH - TAB_WIDTH) * t);
+  return { x, y: closed.y, width: SHELTER_WIDTH, height: closed.height };
+}
+
 // 現在マウスがあるディスプレイを特定する
 function currentDisplay() {
   const cursor = screen.getCursorScreenPoint();
   return screen.getDisplayNearestPoint(cursor);
 }
 
+// ---- スプリングアニメーション (Apple の「減衰比 / 応答」パラメータ) ----
+// 毎フレーム「現在値と現在速度」から次の値を計算するため、途中で目標が変わっても
+// その場から滑らかに反転する (中断可能・速度連続)。macOS の setBounds(animate: true) は
+// 固定時間のイージングで中断できず、Windows では一切アニメーションしないため使わない
+const SPRING_RESPONSE_S = 0.32; // 目標に到達するおおよその時間 (秒)
+const SPRING_DAMPING_RATIO = 1.0; // 1.0 = 臨界減衰 (行き過ぎない)。ホバー起点の開閉なので弾ませない
+const SPRING_FRAME_MS = 1000 / 60;
+
+const dockSpring = {
+  value: 0, // 展開量 0..1
+  velocity: 0,
+  target: 0,
+  display: null,
+  mode: 'move',
+  timer: null,
+  lastTs: 0,
+};
+
+function prefersReducedMotion() {
+  try {
+    return nativeTheme.getAnimationSettings
+      ? nativeTheme.getAnimationSettings().prefersReducedMotion
+      : false;
+  } catch {
+    return false;
+  }
+}
+
+function stopDockSpring() {
+  if (dockSpring.timer) {
+    clearInterval(dockSpring.timer);
+    dockSpring.timer = null;
+  }
+}
+
+function stepDockSpring() {
+  if (!winAlive()) {
+    stopDockSpring();
+    return;
+  }
+  const now = Date.now();
+  const dt = Math.min((now - dockSpring.lastTs) / 1000, 0.05); // タブ切替等で止まっていた分は跳ばさない
+  dockSpring.lastTs = now;
+
+  const omega = (2 * Math.PI) / SPRING_RESPONSE_S;
+  const stiffness = omega * omega;
+  const damping = 2 * SPRING_DAMPING_RATIO * omega;
+  const displacement = dockSpring.value - dockSpring.target;
+  const accel = -stiffness * displacement - damping * dockSpring.velocity;
+  dockSpring.velocity += accel * dt;
+  dockSpring.value += dockSpring.velocity * dt;
+
+  const settled =
+    Math.abs(dockSpring.value - dockSpring.target) < 0.002 && Math.abs(dockSpring.velocity) < 0.02;
+  if (settled) {
+    dockSpring.value = dockSpring.target;
+    dockSpring.velocity = 0;
+    stopDockSpring();
+    // 格納が終わったら幅をつまみだけに縮める (画面外にはみ出したままにしない)
+    if (dockSpring.target === 0) {
+      win.setBounds(dockedBoundsForDisplay(dockSpring.display, false), false);
+      return;
+    }
+  }
+  const t = Math.max(0, Math.min(1, dockSpring.value));
+  win.setBounds(boundsForProgress(dockSpring.display, t, dockSpring.mode), false);
+}
+
+// 展開量を目標へ向けてスプリングで動かす。既に動いている途中なら目標だけ差し替える
+function animateDock(display, shown) {
+  if (!winAlive()) return;
+  dockSpring.display = display;
+  dockSpring.target = shown ? 1 : 0;
+  if (prefersReducedMotion()) {
+    placeDockInstantly(display, shown);
+    return;
+  }
+  if (!dockSpring.timer) {
+    dockSpring.mode = dockModeFor(display);
+    // 静止状態 (つまみ幅) から動き出すときは、先に一度だけ全幅へ広げてから移動を始める
+    if (dockSpring.mode === 'move' && win.getBounds().width !== SHELTER_WIDTH) {
+      win.setBounds(boundsForProgress(display, dockSpring.value, 'move'), false);
+    }
+    dockSpring.lastTs = Date.now();
+    dockSpring.timer = setInterval(stepDockSpring, SPRING_FRAME_MS);
+  }
+}
+
+// アニメーションなしで即座に指定状態へ配置する (ディスプレイ間のワープ・起動時)
+function placeDockInstantly(display, shown) {
+  if (!winAlive()) return;
+  stopDockSpring();
+  dockSpring.display = display;
+  dockSpring.value = shown ? 1 : 0;
+  dockSpring.target = dockSpring.value;
+  dockSpring.velocity = 0;
+  win.setBounds(dockedBoundsForDisplay(display, shown), false);
+}
+
 // ウインドウを表示 (show/focus) する直前に、カーソルのあるディスプレイの
-// workArea 基準で計算した右端座標へ setBounds で強制配置する。
+// workArea 基準で計算した右端座標へ強制配置する。
 // OS の自動配置に任せると復元時にモニターを跨ぐことがあるため、
 // 表示前に必ずこの関数で座標を確定させること
 function placeOnCursorDisplay(shown) {
-  if (!winAlive()) return;
-  win.setBounds(dockedBoundsForDisplay(currentDisplay(), shown), false);
+  placeDockInstantly(currentDisplay(), shown);
 }
 
-function applyDock(shown, display) {
-  if (!winAlive()) return;
-  // 第2引数 true で macOS ネイティブのスライドアニメーションがかかる
-  win.setBounds(dockedBoundsForDisplay(display, shown), true);
+// ---- フォーカス方針 ----
+// ホバーで開いたときはキーボードフォーカスを奪わない (作業中のアプリへの入力を乗っ取らない)。
+// ホットキー・メニューバー・bridge:// のような「明示的な呼び出し」のときだけフォーカスし、
+// 格納時には必ず元のアプリへ返す (クリックでコピー → そのまま ⌘V できる状態にする)
+function releaseFocus() {
+  if (!winAlive() || !win.isFocused()) return;
+  win.blur();
 }
 
-function expandShelter() {
+// focus: true は明示的な呼び出し (ホットキー等)。展開後に検索バーへフォーカスする
+function expandShelter({ focus = false } = {}) {
   if (!winAlive()) return;
   if (collapseTimer) {
     clearTimeout(collapseTimer);
@@ -103,22 +257,27 @@ function expandShelter() {
   const display = currentDisplay();
   const winDisplay = screen.getDisplayMatching(win.getBounds());
   const sameDisplay = display.id === winDisplay.id;
-  if (expanded && sameDisplay) return;
+  if (expanded && sameDisplay) {
+    if (focus) {
+      win.focus();
+      if (canSendToRenderer()) win.webContents.send('shelter-expanded', { focus: true });
+    }
+    return;
+  }
   expanded = true;
   lastExpandedAt = Date.now();
 
-  if (!sameDisplay) {
-    win.setBounds(dockedBoundsForDisplay(display, false), false);
-  }
-  applyDock(true, display);
+  if (!sameDisplay) placeDockInstantly(display, false);
+  animateDock(display, true);
 
   // screen-saver レベルだと OS 側のドラッグ中アイコン/カーソル描画より Bridge が
   // 手前に出てしまうため、通常の floating レベルに留めて OS 描画を Bridge より前面に保つ
   win.setAlwaysOnTop(true, 'floating');
   win.moveTop();
+  if (focus) win.focus();
 
-  // 展開のたびに Renderer へ通知し、検索状態の完全リセットと検索バーへの自動フォーカスを行わせる
-  if (canSendToRenderer()) win.webContents.send('shelter-expanded');
+  // 展開のたびに Renderer へ通知し、検索状態のリセット (明示的な呼び出しなら検索バーへのフォーカスも) を行わせる
+  if (canSendToRenderer()) win.webContents.send('shelter-expanded', { focus });
 }
 
 // 格納時に最前面レベルを通常の floating へ戻す (念のための明示的リセット)
@@ -126,16 +285,41 @@ function resetAlwaysOnTopLevel() {
   if (winAlive()) win.setAlwaysOnTop(true, 'floating');
 }
 
+// カーソルが展開中のウインドウ矩形の内側にあるか (マージンなし)
+function cursorInsideExpandedWindow(cursor) {
+  const b = dockedBoundsForDisplay(dockSpring.display || currentDisplay(), true);
+  return cursor.x >= b.x && cursor.x <= b.x + b.width && cursor.y >= b.y && cursor.y <= b.y + b.height;
+}
+
 function collapseShelter() {
   if (!winAlive()) return;
   if (collapseTimer) clearTimeout(collapseTimer);
   collapseTimer = setTimeout(() => {
     collapseTimer = null;
-    if (!expanded) return;
-    expanded = false;
-    applyDock(false, currentDisplay());
-    resetAlwaysOnTopLevel();
+    if (!expanded || devHoldOpen) return;
+    // Renderer の mouseleave はレイアウト変更などで空振りすることがあるため、
+    // 本当にカーソルがウインドウの外にあるときだけ格納する
+    if (cursorInsideExpandedWindow(screen.getCursorScreenPoint())) return;
+    collapseShelterNow();
   }, 220);
+}
+
+// 待たずに即座に格納する (履歴クリック後・カーソル離脱の強制回収・ホットキーのトグル)
+function collapseShelterNow() {
+  if (!winAlive() || devHoldOpen) return;
+  if (collapseTimer) {
+    clearTimeout(collapseTimer);
+    collapseTimer = null;
+  }
+  expanded = false;
+  releaseFocus();
+  animateDock(dockSpring.display || currentDisplay(), false);
+  if (canSendToRenderer()) win.webContents.send('shelter-collapsed');
+}
+
+function toggleShelter() {
+  if (expanded) collapseShelterNow();
+  else expandShelter({ focus: true });
 }
 
 // ---- どのモニターでも右端ホバーで出現させるグローバル監視 ----
@@ -144,8 +328,12 @@ function collapseShelter() {
 // ポーリングし、「任意のディスプレイの右端つまみ相当ゾーン」への進入を検知して
 // そのディスプレイへワープ & 展開する
 
-const EDGE_POLL_MS = 100;
-let cursorWasInTabZone = false;
+const EDGE_POLL_MS = 50;
+// つまみゾーンに「居続けた」時間がこの値を超えて初めて展開する。
+// 右端はウインドウの閉じるボタン・スクロールバー・通知センターのスワイプ起点と重なるため、
+// 通り過ぎただけ・一瞬触れただけでは開かない (Dock の自動表示と同じ考え方)
+const EDGE_DWELL_MS = 250;
+let tabZoneEnteredAt = null;
 
 // ---- 展開中の「カーソル離脱」強制格納 (Windows のマウス高速移動対策) ----
 // renderer の mouseleave はマウスの高速移動時に発火しないことがあり (特に Windows)、
@@ -161,7 +349,7 @@ let lastExpandedAt = 0;
 
 // カーソルが展開中ウインドウの領域 (+マージン) から完全に外れているか
 function cursorOutsideExpandedWindow(cursor) {
-  const b = win.getBounds();
+  const b = dockedBoundsForDisplay(dockSpring.display || currentDisplay(), true);
   return (
     cursor.x < b.x - EXPANDED_EXIT_MARGIN ||
     cursor.x > b.x + b.width + EXPANDED_EXIT_MARGIN ||
@@ -180,16 +368,29 @@ function pollCursorForEdgeReveal() {
   if (!winAlive()) return;
   const cursor = screen.getCursorScreenPoint();
   const inZone = cursorInTabZone(cursor, screen.getDisplayNearestPoint(cursor));
-  // 「ゾーン外 → ゾーン内」の進入エッジでのみ展開する。居続けで再展開しないため、
-  // クリップボード再利用直後の即時収納 (collapseShelterNow) と喧嘩しない
-  if (inZone && !cursorWasInTabZone) expandShelter();
-  cursorWasInTabZone = inZone;
+
+  if (inZone) {
+    if (tabZoneEnteredAt === null) tabZoneEnteredAt = Date.now();
+    // 滞留時間を満たしたときだけ展開する。展開後は居続けても再展開しないため、
+    // クリップボード再利用直後の即時収納 (collapseShelterNow) と喧嘩しない
+    if (!expanded && Date.now() - tabZoneEnteredAt >= EDGE_DWELL_MS) {
+      expandShelter();
+      tabZoneEnteredAt = Infinity; // このゾーン滞在中は二度と展開しない
+    }
+  } else {
+    tabZoneEnteredAt = null;
+  }
 
   // 展開中にカーソルがウインドウ領域から完全に外れたら強制格納する。
-  // mouseleave の取りこぼし (マウスの高速移動) をここで完全に回収する
+  // mouseleave の取りこぼし (マウスの高速移動) をここで完全に回収する。
+  // ウインドウにフォーカスがある (ホットキーで呼び出して操作中) 間と、
+  // Renderer がマウスボタンを押し続けている (矩形選択中) 間は格納しない
   if (
     expanded &&
     !inZone &&
+    !rendererHoldsPointer &&
+    !devHoldOpen &&
+    !win.isFocused() &&
     Date.now() - lastExpandedAt > EXPAND_GRACE_MS &&
     cursorOutsideExpandedWindow(cursor)
   ) {
@@ -200,7 +401,7 @@ function pollCursorForEdgeReveal() {
 function startEdgeRevealWatcher() {
   // 起動時点で既にゾーン内に居た場合は「進入済み」として扱い、勝手に開かないようにする
   const cursor = screen.getCursorScreenPoint();
-  cursorWasInTabZone = cursorInTabZone(cursor, screen.getDisplayNearestPoint(cursor));
+  if (cursorInTabZone(cursor, screen.getDisplayNearestPoint(cursor))) tabZoneEnteredAt = Infinity;
   setInterval(pollCursorForEdgeReveal, EDGE_POLL_MS);
 }
 
@@ -267,27 +468,70 @@ function createTray() {
     if (expanded) {
       collapseShelterNow();
     } else {
-      win.setBounds(dockedBoundsForDisplay(currentDisplay(), false), false);
-      expandShelter();
+      placeOnCursorDisplay(false);
+      expandShelter({ focus: true });
     }
   });
+  // 右クリック (Windows は左クリックでも) でメニュー。常駐アプリなので終了手段は必ずここに置く
+  tray.on('right-click', () => tray.popUpContextMenu(buildTrayMenu()));
+}
+
+function buildTrayMenu() {
+  return Menu.buildFromTemplate([
+    {
+      label: expanded ? 'Bridge を隠す' : 'Bridge を表示',
+      accelerator: TOGGLE_SHORTCUT,
+      click: () => {
+        if (!winAlive()) return;
+        if (!expanded) placeOnCursorDisplay(false);
+        toggleShelter();
+      },
+    },
+    { type: 'separator' },
+    {
+      label: 'ログイン時に起動',
+      type: 'checkbox',
+      checked: app.getLoginItemSettings().openAtLogin,
+      click: (item) => app.setLoginItemSettings({ openAtLogin: item.checked }),
+    },
+    {
+      label: '設定…',
+      click: () => {
+        if (!winAlive()) return;
+        placeOnCursorDisplay(expanded);
+        expandShelter({ focus: true });
+        if (canSendToRenderer()) win.webContents.send('open-settings');
+      },
+    },
+    { type: 'separator' },
+    { label: 'Bridge を終了', accelerator: 'CommandOrControl+Q', click: () => app.quit() },
+  ]);
 }
 
 function createWindow() {
   // 起動時は「つまみ」だけ見えている隠れ状態から始める。
   // 初期位置は「現在マウスカーソルがあるディスプレイ」の右端中央に厳密固定する
   // (プライマリ固定にすると、別モニターで作業中の起動時に意図しない画面へ出るため)
-  const bounds = dockedBoundsForDisplay(currentDisplay(), false);
+  const initialDisplay = currentDisplay();
+  const bounds = dockedBoundsForDisplay(initialDisplay, false);
+  dockSpring.display = initialDisplay;
 
   win = new BrowserWindow({
     ...bounds,
     resizable: false,
     alwaysOnTop: true,
     fullscreenable: false,
+    // macOS: NSPanel として生成する。パネルは「アプリを前面化せずにキー入力を受け取る」
+    // 補助ウインドウで、Spotlight や絵文字ピッカーと同じ振る舞いになる
+    // (クリックしても作業中のアプリが背面に下がらない)
+    ...(process.platform === 'darwin' ? { type: 'panel' } : {}),
     title: 'Bridge',
-    // Apple ライクなすりガラス背景 (macOS の vibrancy)
-    vibrancy: 'under-window',
+    // Apple ライクなすりガラス背景 (macOS の vibrancy)。
+    // sidebar はサイドバー用の明度が高めのマテリアルで、上に半透明のカードを重ねても濁りにくい
+    vibrancy: 'sidebar',
     visualEffectState: 'active',
+    // Windows 11: Acrylic (すりガラス)。非対応環境では Renderer 側の不透明フォールバックが効く
+    backgroundMaterial: 'acrylic',
     backgroundColor: '#00000000',
     // Mac 純正の信号機ボタン（赤・黄・緑）を含むタイトルバーを完全に消し、フレームレスにする
     frame: false,
@@ -430,8 +674,7 @@ function sendFileToRenderer(filePath, origin) {
     // show の前にカーソルのあるモニターへ強制配置し、OS の自動復元でモニターを跨ぐのを防ぐ
     placeOnCursorDisplay(expanded);
     win.show();
-    win.focus();
-    expandShelter();
+    expandShelter({ focus: true });
     win.webContents.send('add-file', payload);
   } else {
     pushPending(pendingFiles, payload);
@@ -505,7 +748,7 @@ app.on('second-instance', (_event, argv) => {
     // show の前にカーソルのあるモニターへ強制配置し、OS の自動復元でモニターを跨ぐのを防ぐ
     placeOnCursorDisplay(expanded);
     win.show();
-    win.focus();
+    expandShelter({ focus: true });
   }
   const url = argv.find((arg) => arg.startsWith('bridge://'));
   if (url) handleBridgeUrl(url).catch((err) => console.error('bridge:// の処理に失敗:', url, err));
@@ -529,6 +772,12 @@ ipcMain.on('ondragstart', async (event, payload) => {
 // ---- シェルターウインドウの開閉（つまみホバー / ドラッグ進入 / マウスアウト）----
 ipcMain.on('shelter-expand', () => expandShelter());
 ipcMain.on('shelter-collapse', () => collapseShelter());
+// 履歴クリックでコピー → Renderer がチェックマークを見せ終えてから即時格納を依頼する
+ipcMain.on('shelter-collapse-now', () => collapseShelterNow());
+// 矩形選択などでマウスボタンを押し続けている間は、カーソル離脱による強制格納を保留する
+ipcMain.on('shelter-hold-pointer', (_event, holding) => {
+  rendererHoldsPointer = Boolean(holding);
+});
 
 // ---- リスト表示用のファイルアイコン (Finder と同じ OS 標準アイコン) ----
 ipcMain.handle('get-file-icon', async (_event, filePath) => {
@@ -572,6 +821,22 @@ async function getFileKindLabel(filePath) {
 }
 
 ipcMain.handle('get-file-kind', (_event, filePath) => getFileKindLabel(filePath));
+
+// ---- コンテキストメニューのアクション ----
+ipcMain.on('reveal-in-finder', (_event, filePath) => {
+  if (typeof filePath === 'string' && fs.existsSync(filePath)) shell.showItemInFolder(filePath);
+});
+ipcMain.on('open-file', (_event, filePath) => {
+  if (typeof filePath === 'string' && fs.existsSync(filePath)) {
+    shell.openPath(filePath).catch((err) => console.error('ファイルを開けません:', filePath, err));
+  }
+});
+ipcMain.on('clipboard-copy-plain', (_event, text) => {
+  if (typeof text !== 'string') return;
+  clipboard.writeText(text);
+  lastClipText = text; // 自分で書いた分は履歴に載せない
+  lastClipFileKey = '';
+});
 
 // ---- スペースキーで Mac 純正クイックルック ----
 ipcMain.on('preview-file', (event, filePath, fileName) => {
@@ -978,23 +1243,10 @@ function startClipboardWatcher() {
 
 // ---- クリップボード履歴の再利用 (クリックでコピー & 自動格納) ----
 
-// クリック直後は待たずにウインドウを隠し、ユーザーがすぐ ⌘V でペーストできる状態にする
-function collapseShelterNow() {
-  if (!winAlive()) return;
-  if (collapseTimer) {
-    clearTimeout(collapseTimer);
-    collapseTimer = null;
-  }
-  expanded = false;
-  applyDock(false, currentDisplay());
-  resetAlwaysOnTopLevel();
-}
-
 ipcMain.on('clipboard-write-text', (_event, text) => {
   clipboard.writeText(text); // 生のテキストデータを OS に書き戻す → 即ペースト可能
   lastClipText = text; // 自分で書き戻した分は監視でスルーする
   lastClipFileKey = '';
-  collapseShelterNow(); // コピー完了 → 即座にウインドウを閉じてペーストへ移れるようにする
 });
 
 // Windows のクリップボードへ「本物のファイル」として書き込む (CF_HDROP)。
@@ -1027,7 +1279,6 @@ ipcMain.on('clipboard-write-file', async (_event, filePath) => {
   lastClipFileKey = filePath;
   lastClipText = clipboard.readText();
   lastClipImageKey = '';
-  collapseShelterNow();
 });
 
 ipcMain.on('clipboard-write-image', (_event, filePath) => {
@@ -1039,7 +1290,6 @@ ipcMain.on('clipboard-write-image', (_event, filePath) => {
   lastClipImageKey = readBack.isEmpty() ? '' : imageKey(readBack);
   lastClipText = clipboard.readText();
   lastClipFileKey = '';
-  collapseShelterNow();
 });
 
 // テキスト履歴のドラッグアウト: 検知時に裏で生成済みの snippet_*.txt をそのまま OS ネイティブドラッグに乗せる。
@@ -1090,6 +1340,7 @@ ipcMain.on('delete-temp-file', (_event, filePath) => {
 // 現在もリストに保持されていない (= 明示的に残す意思のない) 残骸をまとめて削除する。
 // will-quit 内は非同期処理を待たずにプロセスが落ちうるため同期 API で確実に消す
 app.on('will-quit', () => {
+  globalShortcut.unregisterAll();
   for (const p of sessionTempFiles) {
     if (retainedPaths.has(p)) continue;
     try {
@@ -1762,6 +2013,102 @@ function startDeviceSync() {
 // Renderer が「ローカル / 他拠点」バッジを出し分けるための自分自身の情報
 ipcMain.handle('get-device-info', () => ({ device: deviceName, platform: process.platform }));
 
+// ---- 同期状態の通知 (フッターのインジケーターと設定シートのピア一覧) ----
+
+function syncStatusSnapshot() {
+  const peers = [...knownPeers.values()].map((p) => ({
+    device: p.device || null,
+    host: p.host,
+    port: p.port,
+    online: Boolean(p.online),
+    iconType: p.iconType || null,
+  }));
+  return { peers, onlineCount: peers.filter((p) => p.online).length };
+}
+
+let lastSyncStatusKey = '';
+// ピアのオンライン/オフラインが変わったときだけ Renderer へ送る (ポーリングのたびには送らない)
+function broadcastSyncStatus() {
+  const snapshot = syncStatusSnapshot();
+  const key = JSON.stringify(snapshot);
+  if (key === lastSyncStatusKey) return;
+  lastSyncStatusKey = key;
+  if (canSendToRenderer()) win.webContents.send('sync-status', snapshot);
+}
+setInterval(broadcastSyncStatus, 2000);
+
+ipcMain.handle('get-sync-status', () => syncStatusSnapshot());
+
+// ---- 設定の読み書き (sync-config.json を GUI から編集する) ----
+
+ipcMain.handle('get-settings', () => ({
+  deviceName,
+  iconType: myIconType,
+  secretToken: syncConfig.secretToken,
+  autoScan: syncConfig.autoScan,
+  peers: syncConfig.peers.slice(),
+  port: syncConfig.port,
+  openAtLogin: app.getLoginItemSettings().openAtLogin,
+  hotkeyLabel: TOGGLE_SHORTCUT_LABEL,
+}));
+
+ipcMain.handle('save-settings', (_event, incoming) => {
+  if (!incoming || typeof incoming !== 'object') return { ok: false };
+  const next = {};
+  if (typeof incoming.deviceName === 'string' && incoming.deviceName.trim()) {
+    deviceName = incoming.deviceName.trim();
+    next.myDeviceName = deviceName;
+  }
+  if (typeof incoming.iconType === 'string' && ALLOWED_ICON_TYPES.includes(incoming.iconType)) {
+    myIconType = incoming.iconType;
+    next.iconType = myIconType;
+  }
+  if (typeof incoming.secretToken === 'string' && incoming.secretToken.trim()) {
+    syncConfig.secretToken = incoming.secretToken.trim();
+    // キーが変わったのでピアの到達状態をリセットし、次のポーリングで再判定させる
+    for (const peer of knownPeers.values()) peer.online = false;
+  }
+  if (typeof incoming.autoScan === 'boolean') syncConfig.autoScan = incoming.autoScan;
+  if (Array.isArray(incoming.peers)) {
+    syncConfig.peers = incoming.peers
+      .filter((p) => typeof p === 'string')
+      .map((p) => p.trim())
+      .filter(Boolean);
+    for (const raw of syncConfig.peers) {
+      const [host, port] = raw.split(':');
+      if (host) addPeer(host, port);
+    }
+  }
+  if (typeof incoming.openAtLogin === 'boolean') {
+    app.setLoginItemSettings({ openAtLogin: incoming.openAtLogin });
+  }
+
+  let existing = {};
+  try {
+    existing = JSON.parse(fs.readFileSync(syncConfigPath(), 'utf8')) || {};
+  } catch {
+    existing = {};
+  }
+  const out = {
+    ...existing,
+    ...next,
+    port: syncConfig.port,
+    peers: syncConfig.peers,
+    autoScan: syncConfig.autoScan,
+    secretToken: syncConfig.secretToken,
+  };
+  try {
+    fs.writeFileSync(syncConfigPath(), JSON.stringify(out, null, 2));
+  } catch (err) {
+    console.error('設定の保存に失敗:', err);
+    return { ok: false };
+  }
+  if (syncConfig.autoScan) scanSubnetForPeers();
+  pollAllPeers();
+  lastSyncStatusKey = '';
+  return { ok: true };
+});
+
 // ---- フォルダの自動 .zip 化 (フォルダ除外ガードのアップグレード) ----
 // /file はフォルダをストリーム配信できないため、フォルダは登録前に OS 標準コマンドで
 // 「フォルダ名.zip」へ裏圧縮し、その zip の実体を同期相手へストリーム転送する。
@@ -1837,13 +2184,97 @@ ipcMain.on('sync-register-file', (_event, payload) => {
   });
 });
 
+// ---- グローバルホットキー (パネルの表示/非表示トグル) ----
+// ホバー展開は「マウスが右端に行ったついで」の受動的な導線なので、意図して呼び出す主導線として
+// ホットキーを用意する。ホットキーで開いたときだけ検索バーにフォーカスし、そのまま打ち始められる。
+// macOS: ⌥Space (既定で未割り当て) / Windows・Linux: Ctrl+Shift+Space
+const TOGGLE_SHORTCUT = process.platform === 'darwin' ? 'Alt+Space' : 'Ctrl+Shift+Space';
+const TOGGLE_SHORTCUT_LABEL = process.platform === 'darwin' ? '⌥Space' : 'Ctrl+Shift+Space';
+
+function registerToggleShortcut() {
+  try {
+    const ok = globalShortcut.register(TOGGLE_SHORTCUT, () => {
+      if (!winAlive()) return;
+      if (!expanded) placeOnCursorDisplay(false);
+      toggleShelter();
+    });
+    if (!ok) console.error('ホットキーの登録に失敗 (他のアプリが使用中):', TOGGLE_SHORTCUT);
+  } catch (err) {
+    console.error('ホットキーの登録に失敗:', err);
+  }
+}
+
 app.whenReady().then(() => {
   if (!gotSingleInstanceLock) return; // 多重起動の第2インスタンスは何も起動せず quit を待つ
+  // メニューバー常駐のユーティリティなので Dock と ⌘Tab には出さない
+  if (process.platform === 'darwin' && app.dock) app.dock.hide();
   createWindow();
   createTray();
+  registerToggleShortcut();
   startClipboardWatcher();
   startEdgeRevealWatcher();
   startDeviceSync();
+
+  // 開発用: BRIDGE_DEV_SEED=1 で起動すると、ダミーのアイテムを流し込んで展開し、
+  // ウインドウ座標を標準出力へ出す (見た目の確認・スクリーンショット用。パッケージ版では無効)
+  if (!app.isPackaged && process.env.BRIDGE_DEV_SEED) {
+    win.webContents.once('did-finish-load', () => {
+      setTimeout(() => {
+        if (!winAlive()) return;
+        const seedFile = (name) => win.webContents.send('add-file', addFilePayload(path.join(__dirname, name)));
+        seedFile('icon.png');
+        seedFile('README.md');
+        win.webContents.send('add-file', {
+          ...addFilePayload(path.join(__dirname, 'SPEC.md')),
+          fromDevice: 'Win-Desk',
+          fromPlatform: 'win32',
+        });
+        win.webContents.send('clipboard-item', {
+          type: 'clipboard-text',
+          text: 'Apple らしさは見た目より先に「動き」で決まります。ここが今いちばん純正と差がある部分です。',
+          timestamp: Date.now() - 60000,
+          sourceApp: { name: 'Notes', icon: null },
+        });
+        win.webContents.send('clipboard-item', {
+          type: 'clipboard-text',
+          text: 'https://developer.apple.com/design/human-interface-guidelines/',
+          timestamp: Date.now() - 3600000 * 30,
+          fromDevice: 'MacBook',
+          fromPlatform: 'darwin',
+        });
+        devHoldOpen = true;
+        expandShelter();
+        if (process.env.BRIDGE_DEV_SEED === 'settings') win.webContents.send('open-settings');
+        if (process.env.BRIDGE_DEV_SEED === 'collapse') {
+          // 格納アニメーションの途中と終了後の矩形を出力する (画面外スライドの検証用)
+          setTimeout(() => {
+            devHoldOpen = false;
+            collapseShelterNow();
+            setTimeout(() => console.log('DEV_MID ' + JSON.stringify(win.getBounds())), 120);
+            setTimeout(() => console.log('DEV_END ' + JSON.stringify(win.getBounds())), 900);
+          }, 1200);
+        }
+        setTimeout(() => {
+          console.log('BRIDGE_BOUNDS ' + JSON.stringify(win.getBounds()) + ' visible=' + win.isVisible());
+          if (process.env.BRIDGE_DEV_EVAL) {
+            win.webContents.executeJavaScript(process.env.BRIDGE_DEV_EVAL).then((v) => console.log('BRIDGE_EVAL ' + JSON.stringify(v)));
+          }
+          // BRIDGE_DEV_SHOT=<path> なら Renderer の描画内容 (vibrancy 抜き) を PNG に保存する
+          if (process.env.BRIDGE_DEV_SHOT) {
+            win.webContents.capturePage().then((img) => {
+              fs.writeFileSync(process.env.BRIDGE_DEV_SHOT, img.toPNG());
+              console.log('BRIDGE_SHOT_SAVED');
+            });
+          }
+        }, 700);
+      }, 800);
+    });
+    // Renderer 側のエラーを標準出力へ流す
+    win.webContents.on('console-message', (details) => {
+      const level = details && details.level;
+      if (level === 'error' || level === 'warning') console.log('RENDERER ' + details.message);
+    });
+  }
 
   // Windows/Linux で bridge:// から直接起動された場合は argv に URL が入っている
   const initialUrl = process.argv.find((arg) => arg.startsWith('bridge://'));

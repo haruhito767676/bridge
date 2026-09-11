@@ -8,64 +8,135 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <!-- 隠れているときに画面端に残る「つまみ」。ホバー/ドラッグ進入でシェルターが開く -->
-  <div id="handle"></div>
+  <!-- ウインドウは右端に固定したまま「幅」だけがスプリングで変わる。
+       #root を右寄せの固定幅にしておくことで、幅が縮んでも中身は再レイアウトされず
+       左側から自然に隠れていく (つまみだけが最後まで残る) -->
+  <div id="root">
+  <!-- 隠れているときに画面端に残る「つまみ」。ホバー滞留/ドラッグ進入/クリックでシェルターが開く -->
+  <div id="handle" role="button" aria-label="Bridge を開く"></div>
 
   <div id="shell">
-    <!-- frame: false のためネイティブタイトルバーは無し。ウインドウのドラッグ移動領域を兼ねる -->
-    <header id="titlebar">Bridge</header>
-
-    <!-- スマート検索バー。
-         「:」入力で file / clip のサジェストが浮き出し、Tab / Enter でテキストバッジとして
-         左端に吸着 → バッジで種別を絞りつつ続けてキーワード検索できる -->
+    <!-- 検索フィールド。
+         「:」入力で file / clip のサジェストが浮き出し、Tab / Enter でトークンとして
+         左端に吸着 → トークンで種別を絞りつつ続けてキーワード検索できる -->
     <div id="search-area">
       <div id="search-field">
         <span id="filter-badge" hidden>
           <span id="filter-badge-label"></span>
-          <button id="filter-badge-remove" title="フィルターを解除" tabindex="-1">×</button>
+          <button id="filter-badge-remove" aria-label="フィルターを解除" tabindex="-1">
+            <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 3l6 6M9 3l-6 6"/></svg>
+          </button>
         </span>
-        <input id="search-bar" type="search" placeholder="アイテムを検索 ・「:」で絞り込み"
-               spellcheck="false" autocomplete="off" />
+        <input id="search-bar" type="search" placeholder="検索"
+               spellcheck="false" autocomplete="off" aria-label="アイテムを検索" />
       </div>
-      <ul id="search-suggest" hidden></ul>
+      <ul id="search-suggest" role="listbox" hidden></ul>
     </div>
 
-    <div id="drop-zone">
+    <div id="drop-zone" tabindex="0">
       <!-- 空のときのプレースホルダ -->
       <div id="empty-state">
         <svg id="drop-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor"
-             stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M24 8v20" />
-          <path d="M15 20l9 9 9-9" />
-          <path d="M8 32v4a4 4 0 0 0 4 4h24a4 4 0 0 0 4-4v-4" />
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M24 6v22" />
+          <path d="M16 20l8 8 8-8" />
+          <path d="M6 30v6a4 4 0 0 0 4 4h28a4 4 0 0 0 4-4v-6" />
+          <path d="M6 30h10l3 4h10l3-4h10" />
         </svg>
         <p class="empty-label">ここにファイルをドロップ</p>
-        <p class="empty-sub">⌘Cでコピーした内容も自動で並びます</p>
+        <p class="empty-sub">コピーした内容も自動で並びます</p>
       </div>
 
-      <!-- ドロップされたファイルのリスト -->
-      <ul id="file-list"></ul>
+      <!-- アイテムのリスト (日付セクション見出しを含む) -->
+      <ul id="file-list" role="listbox" aria-label="アイテム" aria-multiselectable="true"></ul>
     </div>
 
     <footer id="shelf-footer">
-      <span id="item-count"></span>
-      <button id="clear-button" title="すべてクリア">クリア</button>
+      <div class="footer-status">
+        <span id="sync-dot" class="sync-dot" hidden></span>
+        <span id="item-count"></span>
+      </div>
+      <div class="footer-actions">
+        <button id="clear-button" class="footer-button" hidden>すべて消去</button>
+        <button id="settings-button" class="footer-button" aria-label="設定">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="2.2"/><path d="M8 1.5v1.8M8 12.7v1.8M1.5 8h1.8M12.7 8h1.8M3.4 3.4l1.3 1.3M11.3 11.3l1.3 1.3M3.4 12.6l1.3-1.3M11.3 4.7l1.3-1.3"/></svg>
+        </button>
+      </div>
     </footer>
 
     <!-- 外部からのファイル/テキストのドラッグ進入時だけ最前面に現れるドロップエリア -->
     <div id="drop-overlay">
       <svg viewBox="0 0 48 48" fill="none" stroke="currentColor"
            stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M24 8v20" />
-        <path d="M15 20l9 9 9-9" />
-        <path d="M8 32v4a4 4 0 0 0 4 4h24a4 4 0 0 0 4-4v-4" />
+        <path d="M24 6v22" />
+        <path d="M16 20l8 8 8-8" />
+        <path d="M6 30v6a4 4 0 0 0 4 4h28a4 4 0 0 0 4-4v-6" />
       </svg>
       <p>ここにドロップして追加</p>
     </div>
 
-    <!-- クリアの取り消しなどの短命な通知。
-         用途ごとに文言・色・アクションボタンの有無を JS 側から差し替えて使い回す -->
-    <div id="control-toast" hidden>
+    <!-- 右クリックのコンテキストメニュー (renderer.js が中身を組み立てる) -->
+    <ul id="context-menu" role="menu" hidden></ul>
+
+    <!-- 設定シート (デバイス名 / 同期キー / ピア一覧) -->
+    <section id="settings-sheet" hidden aria-label="設定">
+      <div class="sheet-header">
+        <button id="settings-back" class="footer-button" aria-label="戻る">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3L5 8l5 5"/></svg>
+          戻る
+        </button>
+        <span class="sheet-title">設定</span>
+        <span class="sheet-spacer"></span>
+      </div>
+      <div class="sheet-body">
+        <div class="form-group">
+          <label class="form-label" for="setting-device-name">このデバイスの名前</label>
+          <input id="setting-device-name" class="text-field" type="text" spellcheck="false" autocomplete="off" />
+          <p class="form-help">ほかのデバイスに届いたアイテムにこの名前が表示されます。</p>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="setting-token">同期キー</label>
+          <div class="form-row">
+            <input id="setting-token" class="text-field" type="text" spellcheck="false" autocomplete="off" />
+            <button id="setting-token-copy" class="push-button" type="button">コピー</button>
+          </div>
+          <p class="form-help">同期したいデバイスすべてに同じキーを貼り付けてください。キーが違う相手とはつながりません。</p>
+        </div>
+
+        <div class="form-group">
+          <div class="form-row form-row-between">
+            <span class="form-label">同じネットワークのデバイスを自動で探す</span>
+            <input id="setting-autoscan" type="checkbox" />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="setting-peers">手動で追加するデバイス (IP アドレス、1 行に 1 つ)</label>
+          <textarea id="setting-peers" class="text-field text-area" rows="2" spellcheck="false"></textarea>
+        </div>
+
+        <div class="form-group">
+          <span class="form-label">接続中のデバイス</span>
+          <ul id="setting-peer-list" class="peer-list"></ul>
+        </div>
+
+        <div class="form-group">
+          <div class="form-row form-row-between">
+            <span class="form-label">ログイン時に Bridge を起動</span>
+            <input id="setting-login" type="checkbox" />
+          </div>
+          <p class="form-help" id="setting-hotkey-help"></p>
+        </div>
+
+        <div class="form-row form-row-end">
+          <button id="settings-save" class="push-button primary" type="button">保存</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- クリアの取り消しなどの短命な通知 -->
+    <div id="control-toast" hidden role="status">
       <span id="control-toast-icon" class="toast-icon"></span>
       <span class="toast-text">
         <span id="control-toast-title" class="toast-title"></span>
@@ -73,6 +144,7 @@
       </span>
       <button id="control-toast-action" class="toast-action" hidden></button>
     </div>
+  </div>
   </div>
 
   <script src="renderer.js"></script>

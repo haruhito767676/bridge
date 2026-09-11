@@ -1,6 +1,9 @@
 const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
 contextBridge.exposeInMainWorld('bridge', {
+  // 実行中の OS ('darwin' | 'win32' | 'linux')。キー表記やフォールバック背景の出し分けに使う
+  platform: process.platform,
+
   // Electron 32+ では File.path が廃止されたため、公式後継 API で絶対パスを取得する
   getPathForFile: (file) => webUtils.getPathForFile(file),
 
@@ -35,12 +38,19 @@ contextBridge.exposeInMainWorld('bridge', {
   previewFile: (filePath, fileName) =>
     ipcRenderer.send('preview-file', filePath, fileName),
 
-  // シェルターウインドウの開閉（つまみホバー / ドラッグ進入 / マウスアウト）
+  // シェルターウインドウの開閉（つまみクリック / ドラッグ進入 / マウスアウト）
   expandShelter: () => ipcRenderer.send('shelter-expand'),
   collapseShelter: () => ipcRenderer.send('shelter-collapse'),
+  // ディレイなしの即時格納 (コピー確認を見せ終えた後など)
+  collapseShelterNow: () => ipcRenderer.send('shelter-collapse-now'),
+  // 矩形選択などでマウスボタンを押し続けている間、カーソル離脱による強制格納を保留させる
+  holdPointer: (holding) => ipcRenderer.send('shelter-hold-pointer', holding),
 
-  // ウインドウが展開された瞬間の通知 (検索状態のリセット & 検索バーへの自動フォーカス用)
-  onShelterExpanded: (callback) => ipcRenderer.on('shelter-expanded', () => callback()),
+  // ウインドウが展開された瞬間の通知。{ focus } が true のとき (ホットキー等の明示的な呼び出し) だけ
+  // 検索バーへフォーカスする。ホバー展開ではフォーカスを奪わない
+  onShelterExpanded: (callback) =>
+    ipcRenderer.on('shelter-expanded', (_event, info) => callback(info || {})),
+  onShelterCollapsed: (callback) => ipcRenderer.on('shelter-collapsed', () => callback()),
 
   // クリップボード監視で検知された新規コピーを受け取る
   onClipboardItem: (callback) =>
@@ -60,4 +70,20 @@ contextBridge.exposeInMainWorld('bridge', {
 
   // 終了時クリーンアップの判定用に、現在リストに保持しているパス一覧を Main へ共有する
   reportRetainedPaths: (paths) => ipcRenderer.send('report-retained-paths', paths),
+
+  // コンテキストメニューのアクション
+  revealInFinder: (filePath) => ipcRenderer.send('reveal-in-finder', filePath),
+  openFile: (filePath) => ipcRenderer.send('open-file', filePath),
+  // テキストをそのままクリップボードへ (パスのコピーなど。履歴の書き戻しとは区別する)
+  copyPlainText: (text) => ipcRenderer.send('clipboard-copy-plain', text),
+
+  // 同期状態 ({ peers: [{ device, host, online }], onlineCount })
+  getSyncStatus: () => ipcRenderer.invoke('get-sync-status'),
+  onSyncStatus: (callback) => ipcRenderer.on('sync-status', (_event, status) => callback(status)),
+
+  // 設定 (デバイス名・種類・同期キー・自動スキャン・手動ピア・ログイン時起動)
+  getSettings: () => ipcRenderer.invoke('get-settings'),
+  saveSettings: (settings) => ipcRenderer.invoke('save-settings', settings),
+  // メニューバーから「設定…」が選ばれたとき
+  onOpenSettings: (callback) => ipcRenderer.on('open-settings', () => callback()),
 });
