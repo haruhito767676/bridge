@@ -1416,7 +1416,7 @@ body.platform-win32 #search-suggest {
   padding: 4px;
 }
 
-body.platform-win32 #context-menu li,
+body.platform-win32 #context-menu li:not(.separator),
 body.platform-win32 #search-suggest li {
   border-radius: var(--radius-s);
   padding: 6px 10px;
@@ -1432,12 +1432,6 @@ body.platform-win32 #search-suggest li:hover {
 body.platform-win32 #context-menu li.destructive:hover {
   background: var(--fill-hover);
   color: var(--destructive);
-}
-
-/* 仕切り線: non-Retina な Windows では CSS 1px がそのまま物理 1px で塗られて
-   mac より太く見えるため、devicePixelRatio 分だけ縮めて見た目の太さを揃える */
-body.platform-win32 #context-menu li.separator {
-  transform: scaleY(calc(1 / var(--dpr, 1)));
 }
 
 body.platform-win32 .bridge-tooltip {

@@ -14,10 +14,6 @@ const IS_MAC = PLATFORM === 'darwin';
 const IS_WIN = PLATFORM === 'win32';
 document.body.classList.add(`platform-${PLATFORM}`);
 if (window.bridge.isWindows11) document.body.classList.add('win11');
-// Windows は non-Retina 環境が多く、CSS 1px の仕切り線がそのまま物理 1px で塗られて
-// mac (Retina で 2 物理px ににじんで見える) より太く見える。実測の devicePixelRatio で
-// 逆スケールして「見た目の太さ」を揃える (styles.css の platform-win32 側で使用)
-document.documentElement.style.setProperty('--dpr', window.devicePixelRatio || 1);
 
 const dropZone = document.getElementById('drop-zone');
 const listEl = document.getElementById('file-list');
