@@ -1613,14 +1613,21 @@ let lastImageSignature = '';
 // (Snipping Tool など WinRT 経由のコピーは遅延レンダリングのため形式一覧に image/* が出ないことがある)
 let lastClipSequence = null;
 let clipRetryTicks = 0; // 連番は変わったのに何も読めなかったとき、数 tick だけ読み直す
+let clipSequenceFailureLogged = false; // 「連番が一度も取れない」を毎 tick 書かないための一度きりフラグ
 
 async function readClipboardSequence() {
   if (process.platform !== 'win32') return null;
   try {
     const out = await winShellRun('[Native.Win32]::GetClipboardSequenceNumber()');
     const n = Number(out);
-    return Number.isFinite(n) ? n : null;
-  } catch {
+    if (!Number.isFinite(n)) throw new Error(`数値ではない応答: ${JSON.stringify(out)}`);
+    clipSequenceFailureLogged = false;
+    return n;
+  } catch (err) {
+    if (!clipSequenceFailureLogged) {
+      clipSequenceFailureLogged = true;
+      logEvent('winshell', `クリップボード連番の取得に失敗 (以後は従来方式にフォールバック): ${err.message}`);
+    }
     return null;
   }
 }
@@ -1659,7 +1666,10 @@ async function pollClipboard() {
 
     // ファイル: Finder で ⌘C されたファイルを最優先で検知し、リストへ自動追加する。
     // ファイルコピー時はパス文字列などの付随テキストも載るため、その tick の
-    // テキスト/画像判定はスキップして誤検知 (偽のテキスト履歴) を防ぐ
+    // テキスト/画像判定はスキップして誤検知 (偽のテキスト履歴) を防ぐ。
+    // ただし「連番は変わったのに既知のファイルキーと同じ」ときは、そのファイルキー自体が
+    // 誤検知 (例: 別アプリのコピーに古い FileNameW が残っている) の可能性があるとみなし、
+    // ここで return せず画像判定へ進む (Win+Shift+S 等の取りこぼしを防ぐ保険)
     const copiedFiles = await readCopiedFilePaths();
     if (copiedFiles.length > 0) {
       const key = copiedFiles.join('\n');
@@ -1670,10 +1680,13 @@ async function pollClipboard() {
         for (const p of copiedFiles) {
           if (fs.existsSync(p)) addFileQuietly(p, null, sourceApp);
         }
+        return;
       }
-      return;
+      if (!sequenceChanged) return; // 連番も変わっていないなら本当に何も起きていない
+      // 連番だけ変わっている場合は、既知のファイルキーを無視して下へ読み進める
+    } else {
+      lastClipFileKey = '';
     }
-    lastClipFileKey = '';
 
     // テキスト: 前回と異なる非空テキストなら履歴へ。
     // ドラッグアウト用の .txt はここでは作らず、実際にドラッグ / プレビューされたときに
@@ -1715,12 +1728,14 @@ async function pollClipboard() {
       if (image.isEmpty()) {
         if (tryImageAnyway) {
           // 連番は変わったのに何も読めない: 遅延レンダリングが間に合っていない可能性があるので
-          // 数 tick だけ読み直す。診断のため、その瞬間の形式一覧をログに残す
+          // 数 tick だけ読み直す。診断のため、その瞬間に見えていたものを必ずログへ残す
+          // (テキストの有無に関わらず出す。ここが原因の切り分けに直結するため)
           if (sequenceChanged && clipRetryTicks <= 0) {
             clipRetryTicks = 4;
-            if (!(text || '').trim()) {
-              logEvent('clip', `連番 ${seq}: 画像もテキストも読めず。形式=[${formats.join(', ')}] (数 tick 再試行)`);
-            }
+            logEvent(
+              'clip',
+              `連番 ${seq} (変化検知) だが画像を読めず。形式=[${formats.join(', ')}] text="${(text || '').slice(0, 40)}" files=${copiedFiles.length} (4 tick 再試行)`
+            );
           } else {
             clipRetryTicks -= 1;
           }
@@ -1756,7 +1771,9 @@ async function pollClipboard() {
       lastImageSignature = '';
     }
   } catch (err) {
+    // console.error はパッケージ版だとどこにも表示されず消えてしまうため、必ず bridge.log にも残す
     console.error('クリップボード監視に失敗:', err);
+    logEvent('clip', `監視 tick が例外で失敗: ${err && err.message}`);
   } finally {
     clipboardPolling = false;
   }
@@ -2280,6 +2297,7 @@ function httpPostJson(host, port, pathName, payload, timeoutMs = 3000) {
 // ピアの /file?id= から実体ファイルをローカルの一時保存フォルダへバックグラウンド転送する。
 // 一括読み込みせず createWriteStream へパイプするため、数 GB のファイルでもメモリを圧迫しない
 function downloadEntryFile(peer, entry) {
+  const startedAt = Date.now();
   return new Promise((resolve, reject) => {
     const req = http.get(
       {
@@ -2320,11 +2338,21 @@ function downloadEntryFile(peer, entry) {
           fsp.unlink(dest).catch(() => {});
           reject(err);
         };
+        let received = 0;
+        res.on('data', (chunk) => {
+          received += chunk.length;
+        });
         res.pipe(out);
         out.on('finish', () => {
           if (settled) return;
           settled = true;
           sessionTempFiles.add(dest); // 同期コピーも終了時クリーンアップの対象として追跡
+          const seconds = (Date.now() - startedAt) / 1000;
+          const mbps = seconds > 0 ? ((received / 1048576) / seconds).toFixed(1) : '?';
+          logEvent(
+            'sync',
+            `受信: ${entry.name} (${Math.round(received / 1048576)}MB, ${seconds.toFixed(1)}s, ${mbps}MB/s) from ${peer.device || peer.host}`
+          );
           resolve(dest);
         });
         out.on('error', fail);
@@ -2966,25 +2994,48 @@ ipcMain.handle('save-settings', (_event, incoming) => {
 // 受信側は通常のファイル同期と同じ経路で zip のままハブへ保存する (自動展開はしない)
 
 // フォルダを一時保存フォルダ内の「フォルダ名.zip」へ圧縮し、生成した zip の絶対パスを返す
+// 診断用: フォルダ内のファイル数をざっくり数える (上限 20000 で打ち切り、巨大ツリーでも一瞬で終える)。
+// 「遅いのはファイルサイズかファイル数か」を bridge.log から判断できるようにするためだけの値
+async function countEntriesRough(folderPath, limit = 20000) {
+  let count = 0;
+  const stack = [folderPath];
+  while (stack.length > 0 && count < limit) {
+    const dir = stack.pop();
+    let names;
+    try {
+      names = await fsp.readdir(dir, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const entry of names) {
+      count++;
+      if (count >= limit) break;
+      if (entry.isDirectory()) stack.push(path.join(dir, entry.name));
+    }
+  }
+  return count >= limit ? `${limit}+` : String(count);
+}
+
 async function zipFolder(folderPath) {
   const dir = downloadDir();
   await fsp.mkdir(dir, { recursive: true });
   const base = path.basename(folderPath) || 'folder';
   const dest = reserveDest(dir, `${sanitizeSyncFileName(base)}.zip`);
+  const startedAt = Date.now();
+  const fileCount = await countEntriesRough(folderPath);
 
   if (process.platform === 'win32') {
-    // PowerShell の単一引用符リテラル ('' でエスケープ) に包み、空白・日本語パスも安全に渡す
-    const q = (p) => `'${p.replace(/'/g, "''")}'`;
-    await execFileAsync(
-      'powershell.exe',
-      [
-        '-NoProfile',
-        '-NonInteractive',
-        '-Command',
-        `Compress-Archive -LiteralPath ${q(folderPath)} -DestinationPath ${q(dest)} -Force`,
-      ],
-      { windowsHide: true }
-    );
+    // bsdtar (Windows 10 1803 以降に tar.exe として同梱) はフォルダ 1 個を丸ごと zip 化できて、
+    // .NET の Compress-Archive よりファイル数が多いフォルダでかなり速い。無い環境だけ従来方式へ
+    try {
+      await execFileAsync('tar', ['-a', '-cf', dest, '-C', path.dirname(folderPath), base], {
+        windowsHide: true,
+      });
+    } catch (err) {
+      logEvent('sync', `tar での zip 化に失敗、Compress-Archive にフォールバック: ${err.message}`);
+      const q = (p) => `'${p.replace(/'/g, "''")}'`;
+      await winShellRun(`Compress-Archive -LiteralPath ${q(folderPath)} -DestinationPath ${q(dest)} -Force`);
+    }
   } else if (process.platform === 'darwin') {
     // ditto は Finder の「圧縮」と同じ macOS 標準コマンド (--keepParent でフォルダごと格納)
     await execFileAsync('ditto', ['-c', '-k', '--sequesterRsrc', '--keepParent', folderPath, dest]);
@@ -2994,6 +3045,14 @@ async function zipFolder(folderPath) {
   }
 
   sessionTempFiles.add(dest); // 裏生成した zip は終了時クリーンアップの対象として追跡
+  const seconds = ((Date.now() - startedAt) / 1000).toFixed(1);
+  let zipSize = 0;
+  try {
+    zipSize = (await fsp.stat(dest)).size;
+  } catch {
+    zipSize = 0;
+  }
+  logEvent('sync', `フォルダを圧縮: ${base} (${fileCount} 項目, zip ${Math.round(zipSize / 1048576)}MB, ${seconds}s)`);
   return dest;
 }
 
@@ -3044,6 +3103,7 @@ ipcMain.on('sync-register-file', (_event, payload) => {
 const FOLDER_AUTO_EXTRACT_MAX_BYTES = 1024 * 1024 * 1024; // 1GB
 
 async function extractFolderZip(zipPath, folderName) {
+  const startedAt = Date.now();
   const dir = downloadDir();
   await fsp.mkdir(dir, { recursive: true });
   // いったん専用の作業ディレクトリへ展開し、中の最上位フォルダを衝突しない名前で移動する
@@ -3073,6 +3133,7 @@ async function extractFolderZip(zipPath, folderName) {
     }
     const dest = reserveDest(dir, sanitizeSyncFileName(folderName || path.basename(zipPath, '.zip')));
     await fsp.rename(source, dest);
+    logEvent('sync', `フォルダを展開: ${folderName || path.basename(zipPath)} (${((Date.now() - startedAt) / 1000).toFixed(1)}s)`);
     return dest;
   } finally {
     await fsp.rm(work, { recursive: true, force: true }).catch(() => {});
@@ -3499,6 +3560,13 @@ app.whenReady().then(() => {
   createTray();
   if (IS_WINDOWS) {
     winShellSpawn(); // 常駐ヘルパーを先に温めておく
+    // 起動直後に 1 回だけ疎通確認する。ここで失敗するなら、クリップボードの連番駆動の
+    // 検知 (Win+Shift+S 等) はこの環境では機能せず、常に旧来の内容比較方式にフォールバックする
+    setTimeout(() => {
+      readClipboardSequence()
+        .then((seq) => logEvent('winshell', `疎通確認: クリップボード連番 = ${seq === null ? '取得失敗' : seq}`))
+        .catch((err) => logEvent('winshell', `疎通確認に失敗: ${err.message}`));
+    }, 1500);
     refreshTabWindows();
     for (const evt of ['display-added', 'display-removed', 'display-metrics-changed']) {
       screen.on(evt, () => setTimeout(refreshTabWindows, 500));

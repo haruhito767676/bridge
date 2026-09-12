@@ -242,7 +242,7 @@ Windows では macOS 向けの「毎フレームの `setBounds`」と「カー�
    - Windows: `FileNameW`（CF_FILENAMEW）で「ファイルがコピーされた」ことを検知し、常駐ヘルパーの `Get-Clipboard -Format FileDropList` で**選択された全ファイル**を列挙する（同じコピーが載り続けている間は前回の結果を再利用）→ `Chromium Web Custom MIME Data` → `text/uri-list` → プレーンテキストは**全体が 1 行 1 パスのときだけ**（`extractWholeTextPaths`。プロンプト行に作業フォルダのパスが混じるだけのコピーをファイルと誤認しない）。最後に `fs.existsSync` で実在確認
    - 検知したファイルは `addFileQuietly` でシェルフへ追加（ウインドウは奪わない）
 2. **テキスト**: 前回と異なる非空テキストなら履歴化。`.txt` はこの時点では作らず、ドラッグアウト / クイックルック時に `ensure-clipboard-text-file` で**遅延生成**する（コピーのたびにディスクへ書かない）。同期台帳へ登録 → ピアへ即時プッシュ
-3. **画像**: `availableFormats()` に `image/*` がある場合を対象にする。**Windows は毎 tick まず OS のクリップボード連番（`GetClipboardSequenceNumber`、常駐ヘルパー経由）を読み、前回と同じなら何も読まずに終える**。連番が変わった tick は形式一覧に `image/*` が無くても `readImage()` を試す（Snipping Tool など WinRT 経由の遅延レンダリングは一覧に出ないことがある）。それでも空なら 4 tick だけ読み直し、そのときの形式一覧を `bridge.log` の `[clip]` に残す。macOS はまず**安価な署名**（フォーマット一覧 + macOS は `public.tiff` / Windows は `PNG` バッファの長さ。Windows で `PNG` が無いとき（Snipping Tool など）はクリップボード連番 `GetClipboardSequenceNumber` を署名に加える）を前回と比べ、同じならデコードもハッシュもしない（スクリーンショットが載ったまま放置されても CPU を使わない）。変わっていたら `readImage()` し、同一判定キーは「サイズ + バイト数 + bitmap の等間隔サンプル（最大 256KB）の MD5」。新規なら `clipboard_<ts>.png` として即ファイル化 → 履歴化・同期登録
+3. **画像**: `availableFormats()` に `image/*` がある場合を対象にする。**Windows は毎 tick まず OS のクリップボード連番（`GetClipboardSequenceNumber`、常駐ヘルパー経由）を読み、前回と同じなら何も読まずに終える**。連番が変わった tick は形式一覧に `image/*` が無くても `readImage()` を試す（Snipping Tool など WinRT 経由の遅延レンダリングは一覧に出ないことがある）。既知のファイルキーと同じでファイル判定が return してしまうと連番変化を握りつぶすため、連番が変わっているときはファイルキー一致でも return せず画像判定まで進む。それでも空なら 4 tick だけ読み直し、そのときの形式一覧・テキスト・ファイル数を必ず `bridge.log` の `[clip]` に残す（起動 1.5 秒後には連番機構自体の疎通確認も `[winshell]` に 1 行出す）。この tick が例外で失敗した場合も `[clip]` にメッセージを残す（`console.error` はパッケージ版では表示先が無く消えるため）。macOS はまず**安価な署名**（フォーマット一覧 + macOS は `public.tiff` / Windows は `PNG` バッファの長さ。Windows で `PNG` が無いとき（Snipping Tool など）はクリップボード連番 `GetClipboardSequenceNumber` を署名に加える）を前回と比べ、同じならデコードもハッシュもしない（スクリーンショットが載ったまま放置されても CPU を使わない）。変わっていたら `readImage()` し、同一判定キーは「サイズ + バイト数 + bitmap の等間隔サンプル（最大 256KB）の MD5」。新規なら `clipboard_<ts>.png` として即ファイル化 → 履歴化・同期登録
 
 Main 側履歴 (`clipHistory`) の上限はテキスト 100 / 画像 30。**Main はディスク削除を行わず配列長のみ管理**する（表示の真実を持つ Renderer 側のトリミング → `delete-temp-file` IPC が削除を担う。両者の並びズレによる「表示中ファイルの誤削除」を防ぐための設計）。
 
@@ -313,7 +313,8 @@ Main 側履歴 (`clipHistory`) の上限はテキスト 100 / 画像 30。**Main
 
 ### 7.6 フォルダの扱い
 
-- フォルダはストリーム配信できないため、同期登録時にバックグラウンドで **`フォルダ名.zip` へ自動圧縮**してから台帳登録する。台帳とメタデータに `originKind: 'folder'` と `folderName` を付け、ユーザーが本当に置いた `.zip` と区別する（時刻は zip 化の完了時ではなく「置いた時」）
+- フォルダはストリーム配信できないため、同期登録時にバックグラウンドで **`フォルダ名.zip` へ自動圧縮**してから台帳登録する。台帳とメタデータに `originKind: 'folder'` と `folderName` を付け、ユーザーが本当に置いた `.zip` と区別する（時刻は zip 化の完了時ではなく「置いた時」）。**圧縮が終わるまでは同期そのものが始まらない**（相手には zip 完成後に初めてメタデータが届く）ため、大きい・ファイル数の多いフォルダほど「同期中」表示が出るまでの時間も延びる。圧縮 (`zipFolder`)・展開 (`extractFolderZip`)・受信 (`downloadEntryFile`) はいずれも所要時間とサイズ（圧縮はおおよそのファイル数も）を `bridge.log` の `[sync]` に記録し、遅さがファイルサイズ・ファイル数・ネットワークのどこに起因するか切り分けられるようにしている
+- Windows の zip 化は Windows 10 1803 以降に同梱の `tar`（bsdtar、`.zip` も作れる）を優先し、ファイル数の多いフォルダで著しく遅い `.NET` の `Compress-Archive` は失敗時のフォールバックに格下げした
 - **受信側は上限（`FOLDER_AUTO_EXTRACT_MAX_BYTES` = 1GB）以内なら自動で展開**し、zip を消してフォルダの行にする（macOS: `ditto -x -k` / Windows: 同梱の `tar -xf`、無ければヘルパーの `Expand-Archive` / その他: `unzip`）。作業ディレクトリへ展開してから最上位フォルダを衝突しない名前で `downloads/` に移す。展開したフォルダは `sessionTempFiles` に載せ、上限あふれ・終了時に `rmSync` で片付ける
 - 上限超え・展開失敗のときは zip のまま残し、行の種別を「フォルダ (zip)」と表示して、右クリックの「フォルダとして展開」(`extract-folder-zip`) で手動展開できる
   - Windows: `Compress-Archive` / macOS: `ditto -c -k --sequesterRsrc --keepParent` / その他: `zip -r`
