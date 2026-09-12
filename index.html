@@ -12,9 +12,6 @@
        #root を右寄せの固定幅にしておくことで、幅が縮んでも中身は再レイアウトされず
        左側から自然に隠れていく (つまみだけが最後まで残る) -->
   <div id="root">
-  <!-- 隠れているときに画面端に残る「つまみ」。ホバー滞留/ドラッグ進入/クリックでシェルターが開く -->
-  <div id="handle" role="button" aria-label="Bridge を開く"></div>
-
   <div id="shell">
     <!-- 検索フィールド。
          「:」入力で file / clip のサジェストが浮き出し、Tab / Enter でトークンとして
@@ -158,6 +155,10 @@
       <button id="control-toast-action" class="toast-action" hidden></button>
     </div>
   </div>
+
+  <!-- 隠れているときに画面端 (= ウインドウの右端) に残る「つまみ」。
+       #root は右寄せなので、格納して幅 15px になったときに見えるのはこの要素になる -->
+  <div id="handle" role="button" aria-label="Bridge を開く"></div>
   </div>
 
   <script src="lib/format.js"></script>

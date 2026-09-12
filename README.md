@@ -50,7 +50,7 @@ Bridge は画面右端に「つまみ」として常駐し、マウスを寄せ�
 
 | 項目 | 内容 |
 |---|---|
-| プラットフォーム | macOS / Windows（Linux はベストエフォート） |
+| プラットフォーム | macOS / Windows（Linux はベストエフォート）。見た目と動きはそれぞれの OS 標準に合わせています（macOS: すりガラス + スプリング / Windows: Fluent のフライアウト） |
 | ランタイム | Electron 43.x / Node.js（Electron 同梱） |
 | 外部依存 | なし（devDependencies は electron / electron-builder のみ） |
 

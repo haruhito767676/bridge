@@ -1,6 +1,10 @@
 // ペースト用ポップアップ (popup.html)。Main から届いた履歴を表示し、選んだものを popup-choose で返す
 const PLATFORM = window.bridge.platform || 'darwin';
 document.body.classList.add(`platform-${PLATFORM}`);
+if (window.bridge.isWindows11) document.body.classList.add('win11');
+if (PLATFORM !== 'darwin') {
+  document.querySelector('#popup-footer span').textContent = '↑↓ 選択 · Enter 貼り付け · Esc 閉じる';
+}
 
 const searchEl = document.getElementById('popup-search');
 const listEl = document.getElementById('popup-list');

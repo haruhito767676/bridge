@@ -135,6 +135,11 @@ body.reduced-transparency {
   transform: scaleY(1.15);
 }
 
+/* 展開中はつまみを消す (画面端に取っ手が残っていると見た目の重心がずれる) */
+body.expanded #handle::before {
+  opacity: 0;
+}
+
 /* ---- シェル本体（つまみの右側、ドロップゾーン等一式）---- */
 
 #shell {
@@ -154,7 +159,7 @@ body.reduced-transparency {
 #drop-zone::after {
   content: "";
   position: absolute;
-  inset: 4px 8px 4px 0;
+  inset: 4px 0 4px 8px;
   border-radius: var(--radius-l);
   pointer-events: none;
   opacity: 0;
@@ -189,7 +194,7 @@ body.drag-mode #empty-state .empty-sub {
 #search-area {
   position: relative; /* サジェストの浮き出し位置の基準 */
   flex-shrink: 0;
-  margin: 12px 12px 0 0;
+  margin: 12px 0 0 12px;
 }
 
 /* Finder の検索欄をそのまま模倣する: 完全なピル形状 + ゆったりしたアイコン間隔 + 濃いめの地 */
@@ -787,7 +792,7 @@ body:not(.platform-darwin) #drop-zone::-webkit-scrollbar-thumb:hover {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 8px 12px 10px 4px;
+  padding: 8px 4px 10px 12px;
   min-height: 36px;
   color: var(--fg-secondary);
   font-size: 11px;
@@ -1061,7 +1066,7 @@ body.settings-open #shelf-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 12px 8px 4px;
+  padding: 12px 4px 8px 12px;
   flex-shrink: 0;
 }
 
@@ -1074,7 +1079,7 @@ body.settings-open #shelf-footer {
   display: flex;
   flex-direction: column;
   gap: 14px;
-  padding: 0 12px 16px 4px;
+  padding: 0 4px 16px 12px;
 }
 
 .form-group {
@@ -1219,4 +1224,229 @@ body.settings-open #shelf-footer {
   .file-item.entering {
     animation: none;
   }
+}
+
+
+/* ==== Windows: Fluent Design のスキン ====
+   機能は共通のまま、見た目と動きだけを Windows 11 の標準 (フライアウト / ListView / InfoBar) に合わせる */
+
+body.platform-win32 {
+  font-family: "Segoe UI Variable Text", "Segoe UI", "Yu Gothic UI", "Meiryo UI", sans-serif;
+  --radius-s: 4px;
+  --radius-m: 4px;
+  --radius-l: 8px;
+  --handle: var(--accent);
+  background: var(--panel-fallback);
+}
+
+/* Windows 11 は Acrylic の上に乗るので地を薄くし、Windows 10 は不透明のまま */
+body.platform-win32.win11 {
+  --panel-fallback: rgba(243, 243, 243, 0.78);
+}
+
+@media (prefers-color-scheme: dark) {
+  body.platform-win32.win11 {
+    --panel-fallback: rgba(32, 32, 32, 0.78);
+  }
+}
+
+/* フライアウトの出入り: ウインドウは即時に広がり、中身が右から 250ms で減速して入る。
+   閉じるときは 150ms で右へ抜ける (Windows の通知センターと同じ曲線) */
+body.platform-win32.expanded #shell {
+  animation: fluent-slide-in 250ms cubic-bezier(0, 0, 0, 1);
+}
+
+body.platform-win32.collapsing #shell {
+  animation: fluent-slide-out 150ms cubic-bezier(1, 0, 1, 1) forwards;
+}
+
+@keyframes fluent-slide-in {
+  from {
+    transform: translateX(40px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+@keyframes fluent-slide-out {
+  to {
+    transform: translateX(40px);
+    opacity: 0;
+  }
+}
+
+/* つまみ: Windows 11 の選択インジケーターと同じ、細いアクセント色のピル */
+body.platform-win32 #handle::before {
+  width: 3px;
+  height: 32px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+
+/* 検索: Fluent の TextBox (角丸 4px、下辺だけ線、フォーカスで下辺がアクセント 2px) */
+body.platform-win32 #search-field {
+  height: 32px;
+  padding: 0 10px 0 32px;
+  border-radius: var(--radius-s);
+  background-color: var(--fill);
+  box-shadow: inset 0 -1px 0 var(--fg-tertiary);
+  background-position: 10px center;
+}
+
+body.platform-win32 #search-field:focus-within {
+  background-color: var(--popover-bg);
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+
+body.platform-win32 #filter-badge {
+  border-radius: var(--radius-s);
+}
+
+/* リスト: ListView。選択は塗りを薄くし、左端の 3px アクセントバーで示す (文字は反転しない) */
+body.platform-win32 .file-item {
+  border-radius: var(--radius-s);
+  padding-left: 12px;
+}
+
+body.platform-win32 .file-item.selected,
+body.platform-win32 .file-item.selected:hover {
+  background: var(--fill-hover);
+  color: var(--fg);
+}
+
+body.platform-win32 .file-item.selected::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 50%;
+  width: 3px;
+  height: 16px;
+  transform: translateY(-50%);
+  border-radius: 2px;
+  background: var(--accent);
+}
+
+body.platform-win32 .file-item.selected .item-meta-line,
+body.platform-win32 .file-item.selected .origin-chip {
+  color: var(--fg-secondary);
+  opacity: 1;
+}
+
+body.platform-win32 .file-item.selected .origin-chip,
+body.platform-win32 .file-item.selected .clip-glyph {
+  background: var(--fill);
+  color: var(--fg-secondary);
+}
+
+body.platform-win32 .file-item.selected .remove-button {
+  color: var(--fg-tertiary);
+}
+
+body.platform-win32 .file-item.entering {
+  animation-duration: 200ms;
+  animation-timing-function: cubic-bezier(0, 0, 0, 1);
+}
+
+body.platform-win32 .clip-glyph,
+body.platform-win32 .file-icon.thumbnail,
+body.platform-win32 .origin-chip {
+  border-radius: var(--radius-s);
+}
+
+body.platform-win32 .section-header {
+  font-weight: 600;
+  text-transform: none;
+}
+
+/* ボタン: Fluent の Standard Button (塗り + 1px の線 + 4px) */
+body.platform-win32 .footer-button,
+body.platform-win32 .push-button,
+body.platform-win32 .toast-action {
+  border-radius: var(--radius-s);
+  border: 1px solid var(--divider);
+  background: var(--fill);
+  color: var(--fg);
+}
+
+body.platform-win32 .footer-button:hover,
+body.platform-win32 .push-button:hover,
+body.platform-win32 .toast-action:hover {
+  background: var(--fill-hover);
+}
+
+body.platform-win32 .push-button.primary {
+  background: var(--accent);
+  border-color: transparent;
+  color: var(--accent-fg);
+}
+
+body.platform-win32 .text-field {
+  border-radius: var(--radius-s);
+  box-shadow: inset 0 -1px 0 var(--fg-tertiary);
+}
+
+body.platform-win32 .text-field:focus {
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+
+/* 通知: InfoBar (角丸 4px、左にアクセント、ぼかしなし) */
+body.platform-win32 #control-toast {
+  border-radius: var(--radius-s);
+  border-left: 4px solid var(--accent);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background: var(--popover-bg);
+}
+
+body.platform-win32 #control-toast.toast-accent-amber {
+  border-left-color: #ff9f0a;
+}
+
+body.platform-win32 #control-toast.toast-accent-red {
+  border-left-color: var(--destructive);
+}
+
+/* コンテキストメニュー / ツールチップ / サジェスト: Fluent の MenuFlyout */
+body.platform-win32 #context-menu,
+body.platform-win32 #search-suggest {
+  border-radius: var(--radius-l);
+  padding: 4px;
+}
+
+body.platform-win32 #context-menu li,
+body.platform-win32 #search-suggest li {
+  border-radius: var(--radius-s);
+  padding: 6px 10px;
+}
+
+body.platform-win32 #context-menu li:hover,
+body.platform-win32 #search-suggest li.active,
+body.platform-win32 #search-suggest li:hover {
+  background: var(--fill-hover);
+  color: var(--fg);
+}
+
+body.platform-win32 #context-menu li.destructive:hover {
+  background: var(--fill-hover);
+  color: var(--destructive);
+}
+
+body.platform-win32 .bridge-tooltip {
+  border-radius: var(--radius-s);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* ドロップの受け皿: 角丸 4px、線 1px (Fluent の ListView のドロップ表示) */
+body.platform-win32 #drop-zone::after {
+  border-radius: var(--radius-s);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+/* チェックボックスをアクセント色に */
+body.platform-win32 input[type="checkbox"] {
+  accent-color: var(--accent);
 }

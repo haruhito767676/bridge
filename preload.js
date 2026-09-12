@@ -3,6 +3,11 @@ const { contextBridge, ipcRenderer, webUtils } = require('electron');
 contextBridge.exposeInMainWorld('bridge', {
   // 実行中の OS ('darwin' | 'win32' | 'linux')。キー表記やフォールバック背景の出し分けに使う
   platform: process.platform,
+  // Windows 11 (ビルド 22000 以降) なら Acrylic が使えるので、地の色を半透明にできる。
+  // サンドボックス化された preload では os モジュールが使えないため process.getSystemVersion() で判定する
+  isWindows11:
+    process.platform === 'win32' &&
+    Number(((typeof process.getSystemVersion === 'function' ? process.getSystemVersion() : '').split('.')[2]) || 0) >= 22000,
 
   // Electron 32+ では File.path が廃止されたため、公式後継 API で絶対パスを取得する
   getPathForFile: (file) => webUtils.getPathForFile(file),

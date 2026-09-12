@@ -245,10 +245,31 @@ function stepDockSpring() {
 }
 
 // 展開量を目標へ向けてスプリングで動かす。既に動いている途中なら目標だけ差し替える
+// Windows: フライアウト方式。ウインドウは 2 状態を即時に切り替え、滑る動きは Renderer の CSS が担う
+// (毎フレームの setBounds は DPI の異なるマルチモニターで Windows 側の再配置と衝突して暴れるため使わない)
+const IS_WINDOWS = process.platform === 'win32';
+const WIN_COLLAPSE_ANIM_MS = 170; // Renderer のスライドアウト (150ms) を待ってからつまみ幅へ縮める
+let winCollapseTimer = null;
+
 function animateDock(display, shown) {
   if (!winAlive()) return;
   dockSpring.display = display;
   dockSpring.target = shown ? 1 : 0;
+  if (IS_WINDOWS) {
+    if (winCollapseTimer) {
+      clearTimeout(winCollapseTimer);
+      winCollapseTimer = null;
+    }
+    if (shown) {
+      placeDockInstantly(display, true);
+    } else {
+      winCollapseTimer = setTimeout(() => {
+        winCollapseTimer = null;
+        if (!expanded) placeDockInstantly(display, false);
+      }, WIN_COLLAPSE_ANIM_MS);
+    }
+    return;
+  }
   if (prefersReducedMotion()) {
     placeDockInstantly(display, shown);
     return;
@@ -353,8 +374,9 @@ function collapseShelter() {
     collapseTimer = null;
     if (!expanded || devHoldOpen) return;
     // Renderer の mouseleave はレイアウト変更などで空振りすることがあるため、
-    // 本当にカーソルがウインドウの外にあるときだけ格納する
-    if (cursorInsideExpandedWindow(screen.getCursorScreenPoint())) return;
+    // 本当にカーソルがウインドウの外にあるときだけ格納する (Windows は座標を信用せず、
+    // Renderer 側の「離脱後に再進入が無かった」判定に任せる)
+    if (!IS_WINDOWS && cursorInsideExpandedWindow(screen.getCursorScreenPoint())) return;
     collapseShelterNow();
   }, 220);
 }
@@ -454,6 +476,10 @@ function pollCursorForEdgeReveal() {
 }
 
 function startEdgeRevealWatcher() {
+  // Windows ではカーソル座標を使った開閉判定を一切行わない (DPI の異なるモニター間で座標系が
+  // 食い違うと、展開 → 強制格納 → 再展開の無限ループになる)。開閉は Renderer 自身の
+  // ホバーイベント (つまみへの滞留 / ウインドウからの離脱) だけで決める
+  if (IS_WINDOWS) return;
   // 起動時点で既にゾーン内に居た場合は「進入済み」として扱い、勝手に開かないようにする
   const cursor = screen.getCursorScreenPoint();
   if (cursorInTabZone(cursor, screen.getDisplayNearestPoint(cursor))) tabZoneEnteredAt = Infinity;
@@ -467,6 +493,7 @@ function startEdgeRevealWatcher() {
 // 一瞬でも動かさないようにする
 const gotSingleInstanceLock = app.requestSingleInstanceLock();
 if (!gotSingleInstanceLock) {
+  console.log('Bridge は既に起動しています (このインスタンスは終了します)');
   app.quit();
 }
 

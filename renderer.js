@@ -11,7 +11,9 @@ let lastSelectedIndex = null;
 
 const PLATFORM = window.bridge.platform || 'darwin';
 const IS_MAC = PLATFORM === 'darwin';
+const IS_WIN = PLATFORM === 'win32';
 document.body.classList.add(`platform-${PLATFORM}`);
+if (window.bridge.isWindows11) document.body.classList.add('win11');
 
 const dropZone = document.getElementById('drop-zone');
 const listEl = document.getElementById('file-list');
@@ -331,10 +333,36 @@ function setDragMode(on) {
   if (items.length === 0) emptyLabel.textContent = on ? 'ここにドロップ' : 'ここにファイルをドロップ';
 }
 
-document.addEventListener('mouseleave', () => window.bridge.collapseShelter());
+let shelfExpanded = false; // Main からの通知で追従する開閉状態
+let hoverDwellTimer = null;
+const HOVER_DWELL_MS = 250;
+
+document.addEventListener('mouseleave', () => {
+  clearTimeout(hoverDwellTimer);
+  hoverDwellTimer = null;
+  window.bridge.collapseShelter();
+});
+
+// 再進入で保留中の格納を取り消す。Windows は展開のきっかけ自体もここ
+// (つまみに 250ms 留まったら開く) で決める。macOS は Main のカーソル監視が担う
+document.addEventListener('mouseenter', () => {
+  if (shelfExpanded) {
+    window.bridge.expandShelter(); // 既に開いていれば格納タイマーの取り消しだけになる
+    return;
+  }
+  if (!IS_WIN) return;
+  clearTimeout(hoverDwellTimer);
+  hoverDwellTimer = setTimeout(() => {
+    hoverDwellTimer = null;
+    window.bridge.expandShelter();
+  }, HOVER_DWELL_MS);
+});
 
 const handleEl = document.getElementById('handle');
-handleEl.addEventListener('click', () => window.bridge.expandShelter());
+handleEl.addEventListener('click', () => {
+  clearTimeout(hoverDwellTimer);
+  window.bridge.expandShelter();
+});
 
 document.addEventListener('dragenter', () => {
   if (draggingOut) return;
@@ -582,6 +610,10 @@ async function refreshMissingFiles() {
 }
 
 window.bridge.onShelterExpanded(({ focus }) => {
+  shelfExpanded = true;
+  // Windows: ウインドウは即時に広がり、中身だけがフライアウトのように滑り込む
+  document.body.classList.remove('collapsing');
+  document.body.classList.add('expanded');
   refreshMissingFiles();
   // アニメーション開始と同時にリストを組み直すとコマ落ちするため、状態が残っているときだけリセットする
   if (searchBar.value || filterMode || selectedItems.size > 0) resetSearchState();
@@ -592,6 +624,10 @@ window.bridge.onShelterExpanded(({ focus }) => {
 
 // 格納時は選択・フォーカス・ツールチップを片付け、次に開いたとき古い状態が残らないようにする
 window.bridge.onShelterCollapsed(() => {
+  shelfExpanded = false;
+  document.body.classList.remove('expanded');
+  document.body.classList.add('collapsing');
+  setTimeout(() => document.body.classList.remove('collapsing'), 200);
   hideTooltip();
   closeContextMenu();
   closeSettings();
@@ -1060,7 +1096,7 @@ document.addEventListener('keydown', (e) => {
     return;
   }
 
-  if (e.code === 'Space' && first && (first.path || first.kind === 'clip-text')) {
+  if (IS_MAC && e.code === 'Space' && first && (first.path || first.kind === 'clip-text')) {
     e.preventDefault();
     previewItem(first);
   }
@@ -1187,21 +1223,23 @@ function openContextMenu(e, item) {
     render();
   }
   const mod = IS_MAC ? '⌘' : 'Ctrl+';
+  const enterKey = IS_MAC ? '⏎' : 'Enter';
   const entries = [
-    { label: 'コピー', shortcut: '⏎', run: () => copyItemToClipboard(item), enabled: !item.downloading },
+    { label: 'コピー', shortcut: enterKey, run: () => copyItemToClipboard(item), enabled: !item.downloading },
   ];
   const url = urlOfItem(item);
   if (url) {
-    entries.push({ label: 'リンクを開く', shortcut: `${mod}⏎`, run: () => window.bridge.openExternal(url) });
+    entries.push({ label: 'リンクを開く', shortcut: `${mod}${enterKey}`, run: () => window.bridge.openExternal(url) });
   }
-  if (item.path || item.kind === 'clip-text') {
+  // クイックルックは macOS 専用
+  if (IS_MAC && (item.path || item.kind === 'clip-text')) {
     entries.push({ label: 'クイックルック', shortcut: 'Space', run: () => previewItem(item) });
   }
   if (item.path) {
     entries.push({ type: 'separator' });
     entries.push({
       label: IS_MAC ? 'Finder で表示' : 'エクスプローラーで表示',
-      shortcut: `${mod}⏎`,
+      shortcut: `${mod}${enterKey}`,
       run: () => revealItem(item),
     });
     entries.push({ label: '開く', run: () => window.bridge.openFile(item.path) });
@@ -1221,7 +1259,7 @@ function openContextMenu(e, item) {
   });
   entries.push({
     label: selectedItems.size > 1 ? `${selectedItems.size} 個をリストから外す` : 'リストから外す',
-    shortcut: '⌫',
+    shortcut: IS_MAC ? '⌫' : 'Del',
     destructive: true,
     run: () => removeSelectedItems(),
   });

@@ -63,6 +63,14 @@
 
 - `BrowserWindow` オプション: `frame: false` / `resizable: false` / `alwaysOnTop: true` / `fullscreenable: false` / `vibrancy: 'sidebar'`（macOS すりガラス）/ `backgroundMaterial: 'acrylic'`（Windows 11）/ 背景透過。macOS では `type: 'panel'`（NSPanel）として生成し、クリックしても作業中のアプリを背面に下げない
 - macOS では `app.dock.hide()` によりメニューバー常駐のユーティリティとして振る舞う（Dock・⌘Tab に出ない）。Windows では `type: 'toolbar'` + `skipTaskbar` でタスクバーと Alt+Tab に出さない
+
+### 2.1.1 Windows の開閉方式（フライアウト）
+
+Windows では macOS 向けの「毎フレームの `setBounds`」と「カーソル座標のポーリング」を**一切使わない**。DPI の異なるマルチモニターでは DIP 座標系が食い違い、展開 → 強制格納 → 再展開の無限ループ（暴れ）になるため。
+
+- ウインドウは「つまみ幅」と「全幅」の 2 状態を即時に切り替える。滑る動きは Renderer の CSS（`body.expanded #shell` に 250ms の減速スライドイン、`body.collapsing #shell` に 150ms のスライドアウト）が担い、Main は格納時に 170ms 待ってから幅を縮める（`animateDock` の `IS_WINDOWS` 分岐）
+- 展開のきっかけは Renderer 自身の `mouseenter`（つまみに 250ms 留まる）/ `dragenter` / クリック / ホットキー / メニューバー。格納は Renderer の `mouseleave` から 220ms 後（その間に再進入があれば取り消し）。カーソル座標による強制格納と離脱判定は行わない（`startEdgeRevealWatcher` は Windows では起動しない）
+- 見た目は `body.platform-win32` の Fluent スキン（§ 9.4）
 - Windows で起動する PowerShell（前面アプリ取得・ファイルのクリップボード書き込み・zip 化・⌘V 送信）はすべて `windowsHide: true` で、コンソール窓を一瞬も出さない
 - `setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })` により仮想デスクトップ・フルスクリーンアプリ上でも追従
 - 配置は常に「**マウスカーソルがあるディスプレイ**の `workArea` 右端・垂直中央」。表示前に必ず `placeDockInstantly` で座標を確定し、OS の自動復元によるモニター跨ぎを防ぐ
@@ -395,6 +403,8 @@ Main 側履歴 (`clipHistory`) の上限はテキスト 100 / 画像 30。**Main
 - スクロールバーは macOS ではネイティブのオーバーレイをそのまま使う（`::-webkit-scrollbar` を触るとコンポジタ駆動のスクロールが効かなくなる）。Windows / Linux のみ細いバーに整える
 - macOS 以外と `prefers-reduced-transparency` では不透明の地 (`--panel-fallback`) を敷く。`prefers-reduced-motion` ではトランジションを止める
 - フッター: 同期状態ドット（ピアが 1 台以上オンラインで緑）+ 件数 / 「すべて消去」（取り消しトースト付き）/ 設定ボタン
+- つまみ (`#handle`) は `#root` の右端に置く（`#root` は右寄せなので、幅 15px に格納したときに見えるのがこの要素になる）。展開中はピルを消す
+- **Windows の Fluent スキン** (`body.platform-win32`): Segoe UI Variable、角丸はコントロール 4px / フライアウト 8px、つまみは Windows 11 の選択インジケーターと同じ 3px のアクセントピル、検索欄は下辺だけ線の TextBox（フォーカスで下辺 2px アクセント）、行の選択は薄い塗り + 左端 3px のアクセントバー（文字は反転しない）、ボタンは塗り + 1px 線の Standard Button、通知は左にアクセントの InfoBar、メニューは MenuFlyout（ホバーは塗り）、ぼかしは使わない。Windows 11（ビルド 22000 以降、`isWindows11`）では Acrylic の上に乗るので地を 78% に薄くし、Windows 10 は不透明。キー表記は Enter / Del / Ctrl+、クイックルックは出さない
 - 画像ファイルは OS アイコンではなく実物サムネイル（`file://` URL 化は Windows ドライブレター対応済み）
 - ツールチップは自作（Electron のフレームレス制約で OS 標準 `title` が機能しないため）。ホバーで全文表示、画面端で位置反転
 - ドラッグ進入中は `body.drag-mode` でドロップオーバーレイ（アクセント色の薄い塗り + 枠）表示 + 既存 UI を透過 25% に減光（`pointer-events: none` で OS ドラッグ描画を阻害しない）
