@@ -44,6 +44,11 @@ contextBridge.exposeInMainWorld('bridge', {
   onSyncPending: (callback) => ipcRenderer.on('sync-pending', (_event, info) => callback(info)),
   onSyncPendingRemove: (callback) =>
     ipcRenderer.on('sync-pending-remove', (_event, info) => callback(info)),
+  // 受信中の進捗 { syncId, received, total } (total は不明なら 0)
+  onSyncProgress: (callback) => ipcRenderer.on('sync-progress', (_event, info) => callback(info)),
+  // 「同期中」の行の × (中止) と再試行ボタン
+  cancelSyncDownload: (syncId) => ipcRenderer.send('cancel-sync-download', syncId),
+  retrySyncDownload: (syncId) => ipcRenderer.invoke('retry-sync-download', syncId),
 
   // 上限超えで zip のまま届いたフォルダを手動で展開する。展開後のフォルダのパスを返す
   extractFolderZip: (filePath, folderName) =>

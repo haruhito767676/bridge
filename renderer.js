@@ -49,6 +49,8 @@ const GLYPHS = {
     '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2.2 14.3 13H1.7L8 2.2zM8 6.5v3M8 11.6v.1"/></svg>',
   info:
     '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6.3"/><path d="M8 7.2v4M8 5v.1"/></svg>',
+  retry:
+    '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8a5 5 0 1 1 1.6 3.7M3 8V4M3 8h4"/></svg>',
   pin:
     '<svg viewBox="0 0 16 16" fill="currentColor"><path d="M9.5 1.5 14.5 6.5l-1.2 1.2-.9-.3-2.6 2.6.3 2.6-1.2 1.2L6 11 2.5 14.5l-1-1L5 10 2.2 7.1l1.2-1.2 2.6.3 2.6-2.6-.3-.9z"/></svg>',
   laptop:
@@ -629,6 +631,13 @@ window.bridge.onSyncPending((info) => {
     originKind: info.originKind || null,
     sourceApp: null,
     entering: true,
+    // 受信の進捗。total は届いた瞬間 (ヘッダー到着時) に分かる。stalled は Renderer 側で
+    // 「しばらく進捗が無い」ことを検知したときだけ立てる (Main 側の状態ではない)
+    received: 0,
+    total: 0,
+    speedMBps: 0,
+    stalled: false,
+    lastProgressAt: Date.now(),
   };
   items.unshift(item);
   render();
@@ -639,6 +648,83 @@ window.bridge.onSyncPendingRemove(({ syncId }) => {
   const item = items.find((it) => it.syncId === syncId && it.syncing);
   if (item) removeItem(item);
 });
+
+// ---- 「同期中」の進捗 ----
+// 大きなファイルは何十分もかかることがあり、何も表示が変わらないと「本当に動いているのか」
+// 判断できない。届いた分・全体量・速度を表示し、しばらく動きが無ければ「止まっているかも」に
+// 切り替えて、いつでも中止・再試行できるようにする
+const STALL_AFTER_MS = 8000;
+
+function formatBytes(n) {
+  if (!n) return '0MB';
+  if (n >= 1024 * 1024 * 1024) return `${(n / 1073741824).toFixed(2)}GB`;
+  return `${Math.max(0.1, n / 1048576).toFixed(1)}MB`;
+}
+
+function syncMetaText(item) {
+  if (item.stalled) return '止まっている可能性があります';
+  if (!item.total) return item.received ? `同期中 · ${formatBytes(item.received)}` : '同期中';
+  const pct = Math.min(99, Math.floor((item.received / item.total) * 100));
+  const speed = item.speedMBps > 0.05 ? ` · ${item.speedMBps.toFixed(1)}MB/s` : '';
+  return `${pct}% · ${formatBytes(item.received)} / ${formatBytes(item.total)}${speed}`;
+}
+
+// 行を作り直さず、進捗テキストとボタンの見た目だけをその場で書き換える (スクロール位置や
+// ホバー状態を壊さないよう、進捗の更新だけは render() を呼ばない)
+function updateSyncRowDom(item) {
+  const li = itemElements.get(item);
+  if (!li) return;
+  const meta = li.querySelector('.item-meta-line');
+  if (meta) meta.textContent = syncMetaText(item);
+  li.classList.toggle('stalled', Boolean(item.stalled));
+  const retryBtn = li.querySelector('.sync-retry-button');
+  if (retryBtn) retryBtn.hidden = !item.stalled;
+}
+
+window.bridge.onSyncProgress(({ syncId, received, total }) => {
+  const item = items.find((it) => it.syncId === syncId && it.syncing);
+  if (!item) return;
+  const now = Date.now();
+  const elapsedS = (now - item.lastProgressAt) / 1000;
+  if (elapsedS > 0 && received > item.received) {
+    item.speedMBps = (received - item.received) / 1048576 / elapsedS;
+  }
+  item.received = received;
+  item.total = total;
+  item.lastProgressAt = now;
+  item.stalled = false;
+  updateSyncRowDom(item);
+});
+
+// 進捗の更新が一定時間止まっていたら「止まっているかも」に切り替える。動いているものが
+// 本当に動いているかを外から確認する手段が今まで無かったための救済表示
+setInterval(() => {
+  const now = Date.now();
+  for (const item of items) {
+    if (!item.syncing) continue;
+    const stalled = now - item.lastProgressAt > STALL_AFTER_MS;
+    if (stalled !== item.stalled) {
+      item.stalled = stalled;
+      updateSyncRowDom(item);
+    }
+  }
+}, 2000);
+
+// 「同期中」の行の × (中止)。押した瞬間にリストからも消し、Main 側にも中断を伝える
+function cancelSyncItem(item) {
+  window.bridge.cancelSyncDownload(item.syncId);
+  removeItem(item);
+}
+
+// 「止まっているかも」のときだけ出る、その場でもう一度取りに行くボタン
+function retrySyncItem(item) {
+  item.stalled = false;
+  item.received = 0;
+  item.speedMBps = 0;
+  item.lastProgressAt = Date.now();
+  updateSyncRowDom(item);
+  window.bridge.retrySyncDownload(item.syncId).catch(() => {});
+}
 
 // ウインドウが展開されるたびに検索状態 (文字列・トークン・サジェスト・選択) をリセットして
 // 最新の全リスト表示へ戻す。ホットキー等の明示的な呼び出しのときだけ検索バーへフォーカスする
@@ -1597,7 +1683,7 @@ function render() {
     const metaLine = document.createElement('div');
     metaLine.className = 'item-meta-line';
     metaLine.textContent = item.syncing
-      ? '同期中'
+      ? syncMetaText(item)
       : item.missing
         ? '見つかりません · 移動または削除されました'
         : item.timestamp
@@ -1618,18 +1704,45 @@ function render() {
       lines.appendChild(badgeLine);
     }
 
-    // ホバー時に現れる削除ボタン
-    const removeBtn = document.createElement('button');
-    removeBtn.className = 'remove-button';
-    removeBtn.setAttribute('aria-label', 'リストから外す');
-    removeBtn.tabIndex = -1;
-    removeBtn.appendChild(glyph('xmark'));
-    removeBtn.addEventListener('click', (e) => {
-      e.stopPropagation(); // アイテムの選択を発火させない
-      fadeOutAndRemove(item);
-    });
+    if (item.syncing) {
+      // 同期中は「止まっているかも」のときだけ再試行ボタンを出し、× は常に押せるようにする
+      // (ホバーでしか出ない通常の削除ボタンだと、止まっているかの確認と中止がすぐにできない)
+      const retryBtn = document.createElement('button');
+      retryBtn.className = 'remove-button sync-retry-button';
+      retryBtn.hidden = !item.stalled;
+      retryBtn.setAttribute('aria-label', 'もう一度試す');
+      retryBtn.tabIndex = -1;
+      retryBtn.appendChild(glyph('retry'));
+      retryBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        retrySyncItem(item);
+      });
 
-    li.append(lines, removeBtn);
+      const cancelBtn = document.createElement('button');
+      cancelBtn.className = 'remove-button sync-cancel-button';
+      cancelBtn.setAttribute('aria-label', '同期を中止');
+      cancelBtn.tabIndex = -1;
+      cancelBtn.appendChild(glyph('xmark'));
+      cancelBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        cancelSyncItem(item);
+      });
+
+      li.append(lines, retryBtn, cancelBtn);
+    } else {
+      // ホバー時に現れる削除ボタン
+      const removeBtn = document.createElement('button');
+      removeBtn.className = 'remove-button';
+      removeBtn.setAttribute('aria-label', 'リストから外す');
+      removeBtn.tabIndex = -1;
+      removeBtn.appendChild(glyph('xmark'));
+      removeBtn.addEventListener('click', (e) => {
+        e.stopPropagation(); // アイテムの選択を発火させない
+        fadeOutAndRemove(item);
+      });
+
+      li.append(lines, removeBtn);
+    }
     listEl.appendChild(li);
     itemElements.set(item, li);
   }

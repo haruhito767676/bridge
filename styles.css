@@ -620,17 +620,26 @@ body:not(.platform-darwin) #drop-zone::-webkit-scrollbar-thumb:hover {
   color: #ff9f0a;
 }
 
-/* 他拠点からの実体待ち (同期中): 名前と時刻は確定、実体だけ未着。触れない・ドラッグできない */
-.file-item.syncing {
-  pointer-events: none;
-}
-
+/* 他拠点からの実体待ち (同期中): 名前と時刻は確定、実体だけ未着。
+   コピー・ドラッグはできないが、中止・再試行ボタンだけは常に押せる必要があるため
+   pointer-events は殺さず、クリックでのコピー動作だけを copyItemToClipboard 側で弾く */
 .file-item.syncing .item-title {
   color: var(--fg-secondary);
 }
 
-.file-item.syncing .remove-button {
-  display: none;
+/* 同期中は「×」(中止) を常に見せる (通常の削除ボタンはホバー時だけ)。stalled のときだけ再試行も並べて出す */
+.file-item.syncing .sync-cancel-button,
+.file-item.syncing .sync-retry-button {
+  opacity: 0.7 !important;
+}
+
+.file-item.syncing .sync-cancel-button:hover,
+.file-item.syncing .sync-retry-button:hover {
+  opacity: 1 !important;
+}
+
+.file-item.syncing.stalled .item-meta-line {
+  color: #ff9f0a;
 }
 
 /* ダウンロード / 保存の進行中: 不定スピナー */
@@ -778,6 +787,12 @@ body:not(.platform-darwin) #drop-zone::-webkit-scrollbar-thumb:hover {
 .remove-button svg {
   width: 16px;
   height: 16px;
+}
+
+/* display: flex 指定が UA の [hidden] { display: none } に勝ってしまうのを防ぐ
+   (再試行ボタンは stalled でないときだけ hidden 属性で隠す) */
+.remove-button[hidden] {
+  display: none;
 }
 
 .file-item:hover .remove-button,

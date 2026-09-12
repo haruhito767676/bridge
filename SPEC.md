@@ -305,7 +305,7 @@ Main 側履歴 (`clipHistory`) の上限はテキスト 100 / 画像 30。**Main
 | type | 処理 |
 |---|---|
 | `text` | 本文のみで取り込み → Renderer へ `clipboard-item`（`.txt` は必要になったときに遅延生成） |
-| `image` / `file`（共通） | ダウンロード開始**前に** `sync-pending`（`syncId` / 種別 / 名前 / 送信元の時刻 / 出身）を Renderer へ送り、「同期中」の行を先に出す。実体が届いたら `clipboard-item` / `add-file` に同じ `syncId` を添えて送り、Renderer はその行を差し替える（新しい行は作らない）。404 で届かないと分かったら `sync-pending-remove` で取り下げる。転送失敗（再試行待ち）の間は行を残す |
+| `image` / `file`（共通） | ダウンロード開始**前に** `sync-pending`（`syncId` / 種別 / 名前 / 送信元の時刻 / 出身）を Renderer へ送り、「同期中」の行を先に出す。ヘッダー到着時点で `Content-Length` から総サイズが分かるので、以後 `sync-progress`（`syncId` / 受信バイト数 / 総バイト数、300ms 間隔で間引き）を送り続け、行に % ・受信量・速度を表示する。実体が届いたら `clipboard-item` / `add-file` に同じ `syncId` を添えて送り、Renderer はその行を差し替える（新しい行は作らない）。404 で届かないと分かったら `sync-pending-remove` で取り下げる。転送失敗（再試行待ち）の間は行を残す |
 | `image` | `/file` からダウンロード → `clipboard-item`（画像履歴として表示） |
 | `file` | `/file` からダウンロード → `originKind: 'folder'` なら § 7.6 の展開 → `add-file`（ファイルカードとして表示、ウインドウは奪わない） |
 
@@ -355,6 +355,16 @@ Main 側履歴 (`clipHistory`) の上限はテキスト 100 / 画像 30。**Main
 プリセットから選ぶのではなく、OS 標準の設定アプリと同じ「フィールドをクリックして押したいキーを押す」方式（`startHotkeyCapture` / `eventToAccelerator`）。`KeyboardEvent.code`（レイアウト非依存の物理キー）から Electron の accelerator 文字列を組み立て、Ctrl / Alt / ⌘ のいずれか（Shift 単独は不可）を必須にする。Esc でキャンセル、フィールドからのフォーカス外れでもキャンセル、リセットボタンで既定値に戻す。
 
 保存時 (`save-settings`) は `applyHotkeys` が新旧それぞれ独立に `globalShortcut.unregister` → `register` を試み、失敗（他アプリ・OS 予約済み）した方だけ元のキーへ登録し直してから `hotkeyError: 'toggle' | 'paste' | null` を返す。Renderer は失敗した方だけ元のラベルに戻して赤枠を明滅させ、成功した設定は保存済みのまま設定シートを開いたままにする（もう一度試せるように閉じない）。
+
+### 8.1.2 進捗・中止・再試行（大きなファイルの同期）
+
+数百MB〜数GB級のファイルは転送に数十分かかることがあり、それまで「本当に動いているのか止まっているのか」を確認する手段が無かった。これに対応する:
+
+- **進捗表示**: `/file` のレスポンスは元から `Content-Length` を返しているので、受信側 (`downloadEntryFile`) はヘッダー到着時点で総サイズを知り、以後 300ms 間隔で `sync-progress` を送る。Renderer は行の再構築 (`render()`) をせず、対象行の `.item-meta-line` だけを直接書き換える (`updateSyncRowDom`) ことで、進捗更新のたびにスクロール位置やホバー状態を壊さない。表示は「42% · 1.1GB / 2.5GB · 4.2MB/s」の形式
+- **停滞検知**: Renderer は `item.lastProgressAt`（最後に進捗イベントを受け取った時刻）を 2 秒間隔で監視し、8 秒 (`STALL_AFTER_MS`) 進捗が無ければ「止まっている可能性があります」に切り替える。これは Main の状態ではなく Renderer だけで判定する、あくまで表示上のヒント
+- **中止**: 同期中の行には常に × ボタンが出る（通常の削除ボタンはホバー時のみ）。押すと `cancel-sync-download` で Main の `req` / 書き込み中ストリームを破棄し、欠損ファイルを削除し、行を取り下げる。その id は `cancelledSyncIds` に載り、以後の自動ポーリングでは（`retry-sync-download` で明示的に外すまで）再試行しない
+- **再試行**: 「止まっている可能性があります」のときだけ、× の隣に再試行ボタンが出る。押すと `retry-sync-download` が現在進行中の接続があれば `abortActiveDownload` で破棄してから、同じピアの同じ id へ直接 `downloadEntryFile` をやり直す（`/items` の差分ポーリングを待たない）。取り込み完了時の処理 (フォルダ展開・台帳登録・Renderer への通知・中継) は通常経路と共通の `finalizeIncomingEntry` を使う
+- ダウンロード中の項目は `activeSyncDownloads`（id → `{ req, out, dest, total, received }`）で追跡し、`pendingSyncEntries`（id → `{ entry, peer }`）で再試行に必要な情報を保持する
 
 ### 8.2 ペースト用ポップアップ（`popup.html`）
 

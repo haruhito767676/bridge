@@ -2296,9 +2296,30 @@ function httpPostJson(host, port, pathName, payload, timeoutMs = 3000) {
 // 他拠点由来のファイル名は OS を跨ぐため、Windows で使えない文字を除去してから保存する
 // ピアの /file?id= から実体ファイルをローカルの一時保存フォルダへバックグラウンド転送する。
 // 一括読み込みせず createWriteStream へパイプするため、数 GB のファイルでもメモリを圧迫しない
+// 進行中のダウンロード (id → { req, out, dest, total, received, startedAt })。
+// キャンセルボタンと進捗表示の両方がここを参照する
+const activeSyncDownloads = new Map();
+// ユーザーが「やめる」を押した id。自動ポーリングはここに載っている間は再試行しない
+// (再試行したければ「もう一度試す」で明示的に外す)
+const cancelledSyncIds = new Set();
+// キャンセル・再試行に使うため、実体をまだ取り込んでいないエントリを id で覚えておく
+const pendingSyncEntries = new Map(); // id → { entry, peer }
+
+const PROGRESS_THROTTLE_MS = 300;
+
+function sendSyncProgress(id, received, total) {
+  if (canSendToRenderer()) win.webContents.send('sync-progress', { syncId: id, received, total });
+}
+
 function downloadEntryFile(peer, entry) {
   const startedAt = Date.now();
   return new Promise((resolve, reject) => {
+    if (cancelledSyncIds.has(entry.id)) {
+      const err = new Error('キャンセルされました');
+      err.cancelled = true;
+      reject(err);
+      return;
+    }
     const req = http.get(
       {
         host: peer.host,
@@ -2327,31 +2348,44 @@ function downloadEntryFile(peer, entry) {
           res.resume();
           return reject(err);
         }
+        const total = Number(res.headers['content-length']) || 0;
+        const record = { req, out, dest, total, received: 0, startedAt };
+        activeSyncDownloads.set(entry.id, record);
+        sendSyncProgress(entry.id, 0, total); // ヘッダーが届いた時点でサイズが分かるので、0% でもすぐ知らせる
+
         // 転送途中のネットワークエラーやソケットハングアップでは、両側のストリームを
         // 確実に閉じて欠損ファイルを削除する。reject は次回ポーリングでの再試行につながる
         let settled = false;
         const fail = (err) => {
           if (settled) return;
           settled = true;
+          activeSyncDownloads.delete(entry.id);
           out.destroy();
           res.destroy();
           fsp.unlink(dest).catch(() => {});
           reject(err);
         };
-        let received = 0;
+        let lastProgressSentAt = 0;
         res.on('data', (chunk) => {
-          received += chunk.length;
+          record.received += chunk.length;
+          const now = Date.now();
+          if (now - lastProgressSentAt >= PROGRESS_THROTTLE_MS) {
+            lastProgressSentAt = now;
+            sendSyncProgress(entry.id, record.received, total);
+          }
         });
         res.pipe(out);
         out.on('finish', () => {
           if (settled) return;
           settled = true;
+          activeSyncDownloads.delete(entry.id);
           sessionTempFiles.add(dest); // 同期コピーも終了時クリーンアップの対象として追跡
+          sendSyncProgress(entry.id, record.received, total || record.received);
           const seconds = (Date.now() - startedAt) / 1000;
-          const mbps = seconds > 0 ? ((received / 1048576) / seconds).toFixed(1) : '?';
+          const mbps = seconds > 0 ? (record.received / 1048576 / seconds).toFixed(1) : '?';
           logEvent(
             'sync',
-            `受信: ${entry.name} (${Math.round(received / 1048576)}MB, ${seconds.toFixed(1)}s, ${mbps}MB/s) from ${peer.device || peer.host}`
+            `受信: ${entry.name} (${Math.round(record.received / 1048576)}MB, ${seconds.toFixed(1)}s, ${mbps}MB/s) from ${peer.device || peer.host}`
           );
           resolve(dest);
         });
@@ -2360,10 +2394,99 @@ function downloadEntryFile(peer, entry) {
         res.on('aborted', () => fail(new Error('socket hang up')));
       }
     );
-    req.on('timeout', () => req.destroy(new Error('timeout')));
-    req.on('error', reject);
+    // ヘッダー到着前でもキャンセルできるよう、reject 前に record を持たない段階から追跡する
+    activeSyncDownloads.set(entry.id, { req, out: null, dest: null, total: 0, received: 0, startedAt });
+    req.on('timeout', () => req.destroy(new Error('タイムアウトしました (応答なし)')));
+    req.on('error', (err) => {
+      activeSyncDownloads.delete(entry.id);
+      reject(err);
+    });
   });
 }
+
+// ダウンロード完了後の共通の取り込み処理 (フォルダ展開・台帳登録・Renderer への通知・中継)。
+// importRemoteEntry の通常経路と、ユーザーの「もう一度試す」操作の両方から呼ぶ
+async function finalizeIncomingEntry(entry, meta) {
+  if (entry.originKind === 'folder') {
+    const extracted = await extractFolderZipIfSmall(entry.path, entry.folderName || entry.name);
+    if (extracted) entry.path = extracted;
+  }
+  rememberSyncId(entry.id);
+  announcedSyncPlaceholders.delete(entry.id);
+  pendingSyncEntries.delete(entry.id);
+  pushSyncEntry(entry); // ローカルパス付きで台帳に載せ、さらに別のピアへも中継できるようにする
+  if ((meta ? meta.type : entry.type) === 'image') {
+    sendClipboardItem({
+      type: 'clipboard-image',
+      text: null,
+      path: entry.path,
+      timestamp: entry.timestamp,
+      fromDevice: entry.fromDevice,
+      fromPlatform: entry.fromPlatform,
+      syncId: entry.id,
+    });
+  } else {
+    addFileQuietly(entry.path, entry);
+  }
+  // 3 台以上の構成で、送信元と直接つながっていないピアにも届くよう中継プッシュする
+  pushEntriesToPeers([entry]);
+}
+
+// ---- キャンセル・再試行 (「同期中」の行から呼ばれる) ----
+
+// 実行中のダウンロードがあれば止め、欠損ファイルを消す (キャンセル・再試行の両方から使う共通処理)
+function abortActiveDownload(id) {
+  const rec = activeSyncDownloads.get(id);
+  if (!rec) return;
+  activeSyncDownloads.delete(id);
+  try {
+    rec.req.destroy();
+  } catch {
+    // 既に閉じていれば無視
+  }
+  if (rec.out) rec.out.destroy();
+  if (rec.dest) fsp.unlink(rec.dest).catch(() => {});
+}
+
+// ダウンロードを中断し、欠損ファイルを消し、行を取り下げる。以後の自動ポーリングでも
+// 「もう一度試す」まではこの id を再試行しない (無限に失敗し続けて帯域を食うのを防ぐ)
+ipcMain.on('cancel-sync-download', (_event, id) => {
+  if (typeof id !== 'string') return;
+  cancelledSyncIds.add(id);
+  abortActiveDownload(id);
+  removeSyncPlaceholder(id);
+  const pending = pendingSyncEntries.get(id);
+  logEvent('sync', `ユーザーが同期を中止: ${pending ? pending.entry.name : id}`);
+});
+
+// 「もう一度試す」。キャンセル済みフラグを外し、そのピアへ直接もう一度ファイルを取りに行く
+// (差分ポーリングの /items からではなく、既知の id で /file を直接叩くので即座に始まる)
+ipcMain.handle('retry-sync-download', async (_event, id) => {
+  if (typeof id !== 'string') return false;
+  cancelledSyncIds.delete(id);
+  const pending = pendingSyncEntries.get(id);
+  if (!pending) return false;
+  const { entry, peer } = pending;
+  abortActiveDownload(id); // 「止まっているが実は生きている」古い接続を残さない
+  sendSyncPlaceholder(entry); // 既に消えている行を出し直す (キャンセル後の再試行のため)
+  try {
+    entry.path = await downloadEntryFile(peer, entry);
+  } catch (err) {
+    if (err && err.statusCode === 404) {
+      logEvent('sync', `実体なしでスキップ: ${entry.name} from ${peer.device || peer.host}`);
+      rememberSyncId(entry.id);
+      pendingSyncEntries.delete(id);
+      removeSyncPlaceholder(id);
+      return false;
+    }
+    logEvent('sync', `再試行に失敗: ${entry.name} (${err.message})`);
+    return false;
+  }
+  await finalizeIncomingEntry(entry, entry);
+  return true;
+});
+
+// ---- 受信アイテムの取り込み ----
 
 // ---- 受信アイテムの取り込み ----
 
@@ -2372,6 +2495,8 @@ function downloadEntryFile(peer, entry) {
 async function importRemoteEntry(meta, peer) {
   if (!meta || typeof meta.id !== 'string') return true;
   if (seenSyncIds.has(meta.id) || meta.fromDevice === deviceName) return true; // 重複・自分発は無視
+  // ユーザーが明示的に中止した項目は、「もう一度試す」が押されるまで自動では再試行しない
+  if (cancelledSyncIds.has(meta.id)) return true;
 
   const entry = {
     id: meta.id,
@@ -2409,16 +2534,20 @@ async function importRemoteEntry(meta, peer) {
       rememberSyncId(entry.id);
       return true;
     }
-    // メタデータは実体より先に届いているので、まず「同期中」の行を出す (名前・時刻・出身は確定済み)
+    // メタデータは実体より先に届いているので、まず「同期中」の行を出す (名前・時刻・出身は確定済み)。
+    // キャンセル・再試行のために、どのピアからどのエントリを取っているかも覚えておく
     sendSyncPlaceholder(entry);
+    pendingSyncEntries.set(entry.id, { entry, peer });
     try {
       entry.path = await downloadEntryFile(peer, entry);
     } catch (err) {
+      if (err && err.cancelled) return true; // ユーザーが中止済み。この場でこれ以上は何もしない
       // 相手側で実体が既に消えている (404) なら、待っても届かない。既読にして先へ進む
       // (ここで false を返し続けると lastSyncedTs が進まず、以後の新着まで全部止まってしまう)
       if (err && err.statusCode === 404) {
         logEvent('sync', `実体なしでスキップ: ${entry.name} from ${peer.device || peer.host}`);
         rememberSyncId(entry.id);
+        pendingSyncEntries.delete(entry.id);
         removeSyncPlaceholder(entry.id);
         return true;
       }
@@ -2426,29 +2555,7 @@ async function importRemoteEntry(meta, peer) {
       logEvent('sync', `受信失敗: ${entry.name} from ${peer.device || peer.host} (${err.message})`);
       return false; // プレースホルダは残し、次回のポーリングで続きから
     }
-    // フォルダ由来の zip は、上限以内なら受信側でフォルダに戻す (送信側の「フォルダを置いた」に揃える)
-    if (entry.originKind === 'folder') {
-      const extracted = await extractFolderZipIfSmall(entry.path, entry.folderName || entry.name);
-      if (extracted) entry.path = extracted;
-    }
-    rememberSyncId(entry.id);
-    announcedSyncPlaceholders.delete(entry.id);
-    pushSyncEntry(entry); // ローカルパス付きで台帳に載せ、さらに別のピアへも中継できるようにする
-    if (meta.type === 'image') {
-      sendClipboardItem({
-        type: 'clipboard-image',
-        text: null,
-        path: entry.path,
-        timestamp: entry.timestamp,
-        fromDevice: entry.fromDevice,
-        fromPlatform: entry.fromPlatform,
-        syncId: entry.id,
-      });
-    } else {
-      addFileQuietly(entry.path, entry);
-    }
-    // 3 台以上の構成で、送信元と直接つながっていないピアにも届くよう中継プッシュする
-    pushEntriesToPeers([entry]);
+    await finalizeIncomingEntry(entry, meta);
     return true;
   }
 
@@ -3629,6 +3736,29 @@ app.whenReady().then(() => {
               }, 900);
             }, 400);
           }, 1200);
+        }
+        if (process.env.BRIDGE_DEV_SEED === 'transfer') {
+          // 進捗 → 停滞 → stalled 表示の確認用。実際のダウンロードは走らせず IPC だけ模擬する
+          const id = 'dev-transfer-1';
+          win.webContents.send('sync-pending', {
+            syncId: id,
+            kind: 'file',
+            name: 'huge-archive.zip',
+            timestamp: Date.now(),
+            fromDevice: 'Win-Desk',
+            fromPlatform: 'win32',
+            originKind: null,
+          });
+          const total = 2.5 * 1024 * 1024 * 1024;
+          let received = 0;
+          const tick = setInterval(() => {
+            received += total * 0.03;
+            win.webContents.send('sync-progress', { syncId: id, received: Math.min(received, total), total });
+            if (received >= total * 0.4) {
+              clearInterval(tick); // ここで止める → 8 秒後に stalled 表示になるはず
+              console.log('DEV_TRANSFER_STALL_START');
+            }
+          }, 400);
         }
         if (process.env.BRIDGE_DEV_SEED === 'sync') {
           // 同期中プレースホルダの確認: メタデータだけ先に出し、3 秒後に実体 (このリポジトリのファイル) を流し込む
