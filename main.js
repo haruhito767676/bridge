@@ -2306,6 +2306,10 @@ const cancelledSyncIds = new Set();
 const pendingSyncEntries = new Map(); // id → { entry, peer }
 
 const PROGRESS_THROTTLE_MS = 300;
+// 巨大な転送が遅いとき、最後の平均速度だけでは「途中で遅くなったのか」「最初から
+// ずっと遅かったのか」を切り分けられない。10 秒おきに瞬間速度を残すことで、
+// 次に遅い転送が起きたときに bridge.log だけで原因の当たりが付けられるようにする
+const SYNC_SPEED_SAMPLE_MS = 10 * 1000;
 
 function sendSyncProgress(id, received, total) {
   if (canSendToRenderer()) win.webContents.send('sync-progress', { syncId: id, received, total });
@@ -2366,12 +2370,25 @@ function downloadEntryFile(peer, entry) {
           reject(err);
         };
         let lastProgressSentAt = 0;
+        let lastSampleAt = startedAt;
+        let lastSampleReceived = 0;
         res.on('data', (chunk) => {
           record.received += chunk.length;
           const now = Date.now();
           if (now - lastProgressSentAt >= PROGRESS_THROTTLE_MS) {
             lastProgressSentAt = now;
             sendSyncProgress(entry.id, record.received, total);
+          }
+          if (now - lastSampleAt >= SYNC_SPEED_SAMPLE_MS) {
+            const dt = (now - lastSampleAt) / 1000;
+            const instantMbps = (dt > 0 ? (record.received - lastSampleReceived) / 1048576 / dt : 0).toFixed(1);
+            const pct = total > 0 ? Math.round((record.received / total) * 100) : '?';
+            logEvent(
+              'sync',
+              `受信中: ${entry.name} ${pct}% (瞬間速度 ${instantMbps}MB/s) from ${peer.device || peer.host}`
+            );
+            lastSampleAt = now;
+            lastSampleReceived = record.received;
           }
         });
         res.pipe(out);
