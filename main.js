@@ -3184,7 +3184,12 @@ async function checkForUpdates({ manual = false } = {}) {
 // キー自体は設定シートで「フィールドをクリックして押す」形式で変更でき、Set-Clipboard 系との
 // 衝突 (Ctrl+Shift+V は多くのアプリで「書式なしで貼り付け」) を各自の環境に合わせて避けられる
 const DEFAULT_TOGGLE_SHORTCUT = process.platform === 'darwin' ? 'Alt+Space' : 'Ctrl+Shift+Space';
-const DEFAULT_PASTE_SHORTCUT = 'CommandOrControl+Shift+V';
+// ⌘⇧V / Ctrl+Shift+V は「書式なしで貼り付け」として多くのアプリ (ブラウザ、Slack、Office、
+// エディタ等) が内部的に使う定番の組み合わせで、既に別の常駐ユーティリティに global hotkey として
+// 押さえられていることも多い。特に Windows の Ctrl+Alt+V は AltGr (多くの非 US 配列で
+// Ctrl+Alt と等価) と衝突し、意図せず暴発するため避け、OS 側にもほぼ予約されていない
+// 組み合わせを既定にする (ユーザーはいつでも設定シートで変更できる)
+const DEFAULT_PASTE_SHORTCUT = process.platform === 'darwin' ? 'Alt+CommandOrControl+V' : 'Control+Super+V';
 
 let toggleShortcut = DEFAULT_TOGGLE_SHORTCUT;
 let pasteShortcut = DEFAULT_PASTE_SHORTCUT;

@@ -903,7 +903,10 @@ body:not(.platform-darwin) #drop-zone::-webkit-scrollbar-thumb:hover {
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.18s, transform 0.18s;
-  z-index: 10;
+  /* 設定シート (35) や右クリックメニュー (40) の上に確実に出す。
+     以前は 10 だったため、設定シートを開いた状態での警告トーストがその背景の裏に隠れ、
+     うっすら透けて見えるだけで読めなかった */
+  z-index: 50;
 }
 
 #control-toast.visible {
