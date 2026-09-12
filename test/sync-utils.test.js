@@ -59,3 +59,12 @@ test('extractWholeTextPaths: 行全体がパスのときだけ拾う', () => {
   assert.deepEqual(S.extractWholeTextPaths(''), []);
   assert.deepEqual(S.extractWholeTextPaths(null), []);
 });
+
+test('syncMetadata: フォルダ由来の zip は originKind と folderName を運ぶ', () => {
+  const f = S.syncMetadata({ id: '4', type: 'file', name: 'Docs.zip', path: '/tmp/Docs.zip', timestamp: 4, originKind: 'folder', folderName: 'Docs' });
+  assert.equal(f.originKind, 'folder');
+  assert.equal(f.folderName, 'Docs');
+  const plain = S.syncMetadata({ id: '5', type: 'file', name: 'a.zip', path: '/tmp/a.zip', timestamp: 5 });
+  assert.equal(plain.originKind, null);
+  assert.equal(plain.folderName, null);
+});

@@ -35,9 +35,19 @@ contextBridge.exposeInMainWorld('bridge', {
   // 自分のデバイス名とプラットフォーム ({ device, platform })。出身デバイスバッジの判定に使う
   getDeviceInfo: () => ipcRenderer.invoke('get-device-info'),
 
-  // ローカル生まれのファイルをマルチデバイス同期の台帳へ登録する (他拠点由来は登録しない)
-  registerSyncFile: (filePath, name) =>
-    ipcRenderer.send('sync-register-file', { path: filePath, name }),
+  // ローカル生まれのファイルをマルチデバイス同期の台帳へ登録する (他拠点由来は登録しない)。
+  // timestamp はシェルフに置いた時刻。同期先でもこの時刻で並ぶ
+  registerSyncFile: (filePath, name, timestamp) =>
+    ipcRenderer.send('sync-register-file', { path: filePath, name, timestamp }),
+
+  // 他拠点からの実体ダウンロードが終わる前に届く「同期中」のプレースホルダと、その取り下げ
+  onSyncPending: (callback) => ipcRenderer.on('sync-pending', (_event, info) => callback(info)),
+  onSyncPendingRemove: (callback) =>
+    ipcRenderer.on('sync-pending-remove', (_event, info) => callback(info)),
+
+  // 上限超えで zip のまま届いたフォルダを手動で展開する。展開後のフォルダのパスを返す
+  extractFolderZip: (filePath, folderName) =>
+    ipcRenderer.invoke('extract-folder-zip', { path: filePath, folderName }),
 
   // Mac 純正クイックルックでプレビュー
   previewFile: (filePath, fileName) =>

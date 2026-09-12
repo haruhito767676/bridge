@@ -998,8 +998,37 @@ function addFilePayload(filePath, origin, sourceApp) {
     name: path.basename(filePath),
     fromDevice: origin ? origin.fromDevice : null,
     fromPlatform: origin ? origin.fromPlatform : null,
+    // 他拠点から届いたものは「送信元でシェルフに置かれた時刻」をそのまま使う (受信時刻にしない)。
+    // ローカル生まれ (null) は Renderer 側で Date.now() になる
+    timestamp: origin && origin.timestamp ? origin.timestamp : null,
+    // 同期中プレースホルダの差し替え用 ID と、フォルダ由来かどうか
+    syncId: origin && origin.id ? origin.id : null,
+    originKind: origin && origin.originKind ? origin.originKind : null,
     sourceApp: sourceApp || null,
   };
+}
+
+// 実体のダウンロードが終わる前に、メタデータだけで「同期中」の行を Renderer に出しておく
+const announcedSyncPlaceholders = new Set();
+
+function sendSyncPlaceholder(entry) {
+  if (announcedSyncPlaceholders.has(entry.id)) return;
+  announcedSyncPlaceholders.add(entry.id);
+  const payload = {
+    syncId: entry.id,
+    kind: entry.type === 'image' ? 'clip-image' : 'file',
+    name: entry.originKind === 'folder' && entry.folderName ? entry.folderName : entry.name,
+    timestamp: entry.timestamp,
+    fromDevice: entry.fromDevice,
+    fromPlatform: entry.fromPlatform,
+    originKind: entry.originKind || null,
+  };
+  if (canSendToRenderer()) win.webContents.send('sync-pending', payload);
+}
+
+function removeSyncPlaceholder(id) {
+  announcedSyncPlaceholders.delete(id);
+  if (canSendToRenderer()) win.webContents.send('sync-pending-remove', { syncId: id });
 }
 
 function sendFileToRenderer(filePath, origin) {
@@ -1579,6 +1608,23 @@ async function clipboardImageSignatureAsync(formats) {
 }
 let lastImageSignature = '';
 
+// Windows: OS のクリップボード連番 (変更のたびに増える) で「何か変わったか」をまず判定する。
+// 変わっていなければその tick は何も読まない。変わっていたら形式一覧に頼らず画像の読み取りも試す
+// (Snipping Tool など WinRT 経由のコピーは遅延レンダリングのため形式一覧に image/* が出ないことがある)
+let lastClipSequence = null;
+let clipRetryTicks = 0; // 連番は変わったのに何も読めなかったとき、数 tick だけ読み直す
+
+async function readClipboardSequence() {
+  if (process.platform !== 'win32') return null;
+  try {
+    const out = await winShellRun('[Native.Win32]::GetClipboardSequenceNumber()');
+    const n = Number(out);
+    return Number.isFinite(n) ? n : null;
+  } catch {
+    return null;
+  }
+}
+
 async function pollClipboard() {
   if (clipboardPolling) return; // 画像保存中に次のポーリングが重ならないようにする
   clipboardPolling = true;
@@ -1599,6 +1645,16 @@ async function pollClipboard() {
       lastClipFileKey = '';
       lastImageSignature = '';
       return;
+    }
+
+    // Windows: 連番が前回と同じで再読み込みの予定も無ければ、この tick は何もしない
+    let sequenceChanged = true;
+    const seq = await readClipboardSequence();
+    if (seq !== null) {
+      sequenceChanged = seq !== lastClipSequence;
+      if (!sequenceChanged && clipRetryTicks <= 0) return;
+      if (sequenceChanged) clipRetryTicks = 0;
+      lastClipSequence = seq;
     }
 
     // ファイル: Finder で ⌘C されたファイルを最優先で検知し、リストへ自動追加する。
@@ -1642,17 +1698,35 @@ async function pollClipboard() {
       }
     }
 
-    // 画像: 形式チェックを先に行い、画像が無いときの readImage デコードを避ける
+    // 画像: 形式チェックを先に行い、画像が無いときの readImage デコードを避ける。
+    // Windows で連番が変わった (または読み直し中の) tick は、形式一覧に image/* が無くても
+    // readImage を試す (Snipping Tool など遅延レンダリングのコピーは一覧に出ないことがある)
     const formats = clipboard.availableFormats();
     const hasImage = formats.some((f) => f.startsWith('image/'));
-    if (hasImage) {
+    const tryImageAnyway = seq !== null && (sequenceChanged || clipRetryTicks > 0);
+    if (hasImage || tryImageAnyway) {
       // 安価な署名が前回と同じなら、デコードもハッシュもせずに終える
-      const signature = await clipboardImageSignatureAsync(formats);
-      if (signature === lastImageSignature) return;
+      // (連番駆動の Windows では連番そのものが署名になる)
+      const signature = seq !== null ? `seq:${seq}` : await clipboardImageSignatureAsync(formats);
+      if (signature === lastImageSignature && clipRetryTicks <= 0) return;
       lastImageSignature = signature;
 
       const image = clipboard.readImage();
-      if (!image.isEmpty()) {
+      if (image.isEmpty()) {
+        if (tryImageAnyway) {
+          // 連番は変わったのに何も読めない: 遅延レンダリングが間に合っていない可能性があるので
+          // 数 tick だけ読み直す。診断のため、その瞬間の形式一覧をログに残す
+          if (sequenceChanged && clipRetryTicks <= 0) {
+            clipRetryTicks = 4;
+            if (!(text || '').trim()) {
+              logEvent('clip', `連番 ${seq}: 画像もテキストも読めず。形式=[${formats.join(', ')}] (数 tick 再試行)`);
+            }
+          } else {
+            clipRetryTicks -= 1;
+          }
+        }
+      } else {
+        clipRetryTicks = 0;
         const key = imageKey(image);
         if (key !== lastClipImageKey) {
           lastClipImageKey = key;
@@ -1798,6 +1872,17 @@ ipcMain.handle('drag-clipboard-text', async (event, payload) => {
   }
 });
 
+// 裏生成物 (ファイル、または展開したフォルダ) を消す。sessionTempFiles にあるものにしか使わない
+function removeTempPathSync(p) {
+  try {
+    const stat = fs.lstatSync(p);
+    if (stat.isDirectory()) fs.rmSync(p, { recursive: true, force: true });
+    else fs.unlinkSync(p);
+  } catch {
+    // 既に無い・アクセス不可などは無視 (掃除が目的なので失敗しても続行)
+  }
+}
+
 // ---- 履歴の永続化 (userData/history.json) ----
 // 表示リストの真実は Renderer が持つため、Renderer から届いた「保存用の一覧」をそのまま書く。
 // 裏生成ファイルの追跡 (sessionTempFiles) も一緒に保存し、再起動後も上限あふれ時の削除対象にする
@@ -1909,11 +1994,7 @@ ipcMain.on('report-retained-paths', (_event, paths) => {
 ipcMain.on('delete-temp-file', (_event, filePath) => {
   if (typeof filePath !== 'string' || !sessionTempFiles.has(filePath)) return;
   sessionTempFiles.delete(filePath);
-  try {
-    fs.unlinkSync(filePath); // 用済みの実体を即時に完全削除し、ストレージの圧迫を防ぐ
-  } catch {
-    // 既に無い場合などは無視 (掃除が目的なので失敗しても続行)
-  }
+  removeTempPathSync(filePath); // 用済みの実体を即時に完全削除し、ストレージの圧迫を防ぐ
   // 同期台帳からも実体への参照を外す。以後ピアには hasFile: false で通知され、
   // 消えたファイルを /file へ取りに来て 404 → 永久再試行になるのを防ぐ
   for (const entry of syncStore) {
@@ -1936,11 +2017,7 @@ app.on('will-quit', () => {
   if (historyWriteTimer) clearTimeout(historyWriteTimer);
   for (const p of sessionTempFiles) {
     if (retainedPaths.has(p)) continue;
-    try {
-      fs.unlinkSync(p);
-    } catch {
-      // 既に削除済み・アクセス不可などは無視 (掃除が目的なので失敗しても続行)
-    }
+    removeTempPathSync(p);
   }
   for (const p of [...sessionTempFiles]) {
     if (!retainedPaths.has(p)) sessionTempFiles.delete(p);
@@ -2073,7 +2150,7 @@ function isDirectorySafe(p) {
 }
 
 // 自分のデバイスで生まれたアイテムを台帳へ登録し、オンラインのピアへ即時プッシュする
-function registerLocalSyncEntry({ type, name, text, path: filePath, timestamp }) {
+function registerLocalSyncEntry({ type, name, text, path: filePath, timestamp, originKind, folderName }) {
   if (syncPaused) return null; // 一時停止中に生まれたアイテムは、再開後も同期しない (意図的)
   // 同期トリガーの最終関門: フォルダは台帳登録もピアへのプッシュも行わず完全スキップする
   if (type !== 'text' && filePath && isDirectorySafe(filePath)) return null;
@@ -2086,6 +2163,8 @@ function registerLocalSyncEntry({ type, name, text, path: filePath, timestamp })
     timestamp: timestamp || Date.now(),
     fromDevice: deviceName,
     fromPlatform: process.platform,
+    originKind: originKind || null, // 'folder' = フォルダを zip 化したもの (受信側で戻す)
+    folderName: folderName || null,
   };
   rememberSyncId(entry.id);
   pushSyncEntry(entry);
@@ -2275,6 +2354,8 @@ async function importRemoteEntry(meta, peer) {
     timestamp: Number(meta.timestamp) || Date.now(),
     fromDevice: meta.fromDevice || peer.device || peer.host,
     fromPlatform: meta.fromPlatform || null,
+    originKind: meta.originKind === 'folder' ? 'folder' : null,
+    folderName: typeof meta.folderName === 'string' ? meta.folderName : null,
   };
 
   if (meta.type === 'text') {
@@ -2300,6 +2381,8 @@ async function importRemoteEntry(meta, peer) {
       rememberSyncId(entry.id);
       return true;
     }
+    // メタデータは実体より先に届いているので、まず「同期中」の行を出す (名前・時刻・出身は確定済み)
+    sendSyncPlaceholder(entry);
     try {
       entry.path = await downloadEntryFile(peer, entry);
     } catch (err) {
@@ -2308,13 +2391,20 @@ async function importRemoteEntry(meta, peer) {
       if (err && err.statusCode === 404) {
         logEvent('sync', `実体なしでスキップ: ${entry.name} from ${peer.device || peer.host}`);
         rememberSyncId(entry.id);
+        removeSyncPlaceholder(entry.id);
         return true;
       }
       console.error('同期ファイルの転送に失敗 (次回ポーリングで再試行):', entry.name, err.message);
       logEvent('sync', `受信失敗: ${entry.name} from ${peer.device || peer.host} (${err.message})`);
-      return false;
+      return false; // プレースホルダは残し、次回のポーリングで続きから
+    }
+    // フォルダ由来の zip は、上限以内なら受信側でフォルダに戻す (送信側の「フォルダを置いた」に揃える)
+    if (entry.originKind === 'folder') {
+      const extracted = await extractFolderZipIfSmall(entry.path, entry.folderName || entry.name);
+      if (extracted) entry.path = extracted;
     }
     rememberSyncId(entry.id);
+    announcedSyncPlaceholders.delete(entry.id);
     pushSyncEntry(entry); // ローカルパス付きで台帳に載せ、さらに別のピアへも中継できるようにする
     if (meta.type === 'image') {
       sendClipboardItem({
@@ -2324,6 +2414,7 @@ async function importRemoteEntry(meta, peer) {
         timestamp: entry.timestamp,
         fromDevice: entry.fromDevice,
         fromPlatform: entry.fromPlatform,
+        syncId: entry.id,
       });
     } else {
       addFileQuietly(entry.path, entry);
@@ -2921,13 +3012,16 @@ ipcMain.on('sync-register-file', (_event, payload) => {
   // フォルダはそのまま同期できないため、バックグラウンドで .zip 化してから台帳へ登録する。
   // ローカルのリストにはフォルダのカードがそのまま残り、同期相手には zip が届く
   if (stat.isDirectory()) {
+    const registeredAt = Date.now(); // 時刻は zip 化の完了時ではなく「置いた時」に揃える
     zipFolder(filePath)
       .then((zipPath) => {
         registerLocalSyncEntry({
           type: 'file',
           name: path.basename(zipPath),
           path: zipPath,
-          timestamp: Date.now(),
+          timestamp: registeredAt,
+          originKind: 'folder',
+          folderName: path.basename(filePath),
         });
       })
       .catch((err) => {
@@ -2940,8 +3034,95 @@ ipcMain.on('sync-register-file', (_event, payload) => {
     type: 'file',
     name: (payload && payload.name) || path.basename(filePath),
     path: filePath,
-    timestamp: Date.now(),
+    timestamp: (payload && Number(payload.timestamp)) || Date.now(),
   });
+});
+
+// ---- フォルダ由来 zip の展開 (受信側) ----
+// 上限以内なら自動で展開し、zip は消してフォルダの行にする。上限を超えるものは zip のまま残し、
+// 右クリックの「フォルダとして展開」で手動展開できるようにする (ディスクの二重消費を避ける)
+const FOLDER_AUTO_EXTRACT_MAX_BYTES = 1024 * 1024 * 1024; // 1GB
+
+async function extractFolderZip(zipPath, folderName) {
+  const dir = downloadDir();
+  await fsp.mkdir(dir, { recursive: true });
+  // いったん専用の作業ディレクトリへ展開し、中の最上位フォルダを衝突しない名前で移動する
+  const work = path.join(dir, `.extract-${crypto.randomUUID()}`);
+  await fsp.mkdir(work, { recursive: true });
+  try {
+    if (process.platform === 'win32') {
+      // Windows 10 1803 以降に同梱の bsdtar は .zip も展開できる。無ければ PowerShell にフォールバック
+      try {
+        await execFileAsync('tar', ['-xf', zipPath, '-C', work], { windowsHide: true });
+      } catch {
+        const q = (p) => `'${p.replace(/'/g, "''")}'`;
+        await winShellRun(`Expand-Archive -LiteralPath ${q(zipPath)} -DestinationPath ${q(work)} -Force`);
+      }
+    } else if (process.platform === 'darwin') {
+      await execFileAsync('ditto', ['-x', '-k', zipPath, work]);
+    } else {
+      await execFileAsync('unzip', ['-q', zipPath, '-d', work]);
+    }
+    const entries = (await fsp.readdir(work)).filter((n) => n !== '__MACOSX' && !n.startsWith('.'));
+    // --keepParent で圧縮された zip は最上位に元のフォルダが 1 つある。それ以外はフォルダ名で包む
+    let source;
+    if (entries.length === 1 && (await fsp.stat(path.join(work, entries[0]))).isDirectory()) {
+      source = path.join(work, entries[0]);
+    } else {
+      source = work;
+    }
+    const dest = reserveDest(dir, sanitizeSyncFileName(folderName || path.basename(zipPath, '.zip')));
+    await fsp.rename(source, dest);
+    return dest;
+  } finally {
+    await fsp.rm(work, { recursive: true, force: true }).catch(() => {});
+  }
+}
+
+// 上限以内なら展開してフォルダのパスを返し、zip は削除する。上限超え・失敗時は null (zip のまま)
+async function extractFolderZipIfSmall(zipPath, folderName) {
+  let size = 0;
+  try {
+    size = (await fsp.stat(zipPath)).size;
+  } catch {
+    return null;
+  }
+  if (size > FOLDER_AUTO_EXTRACT_MAX_BYTES) {
+    logEvent('sync', `フォルダ zip が大きいため展開せず保持: ${folderName} (${Math.round(size / 1048576)}MB)`);
+    return null;
+  }
+  try {
+    const dest = await extractFolderZip(zipPath, folderName);
+    sessionTempFiles.delete(zipPath);
+    await fsp.unlink(zipPath).catch(() => {});
+    sessionTempFiles.add(dest); // 展開したフォルダも自動生成物として後始末の対象にする
+    logEvent('sync', `フォルダを展開: ${folderName}`);
+    return dest;
+  } catch (err) {
+    logEvent('sync', `フォルダの展開に失敗 (zip のまま保持): ${folderName} (${err.message})`);
+    return null;
+  }
+}
+
+// 右クリック「フォルダとして展開」(上限超えで zip のまま残ったもの)
+ipcMain.handle('extract-folder-zip', async (_event, payload) => {
+  const zipPath = payload && payload.path;
+  if (typeof zipPath !== 'string' || !fs.existsSync(zipPath)) return null;
+  try {
+    const dest = await extractFolderZip(zipPath, payload.folderName || null);
+    if (sessionTempFiles.has(zipPath)) {
+      sessionTempFiles.delete(zipPath);
+      await fsp.unlink(zipPath).catch(() => {});
+      sessionTempFiles.add(dest);
+    }
+    for (const entry of syncStore) {
+      if (entry.path === zipPath) entry.path = null; // zip は無くなったので配信対象から外す
+    }
+    return dest;
+  } catch (err) {
+    logEvent('sync', `フォルダの手動展開に失敗: ${zipPath} (${err.message})`);
+    return null;
+  }
 });
 
 // ---- ペースト用ポップアップ (⌘⇧V でカーソルの近くに履歴を出し、選ぶと即ペースト) ----
@@ -3380,6 +3561,54 @@ app.whenReady().then(() => {
               }, 900);
             }, 400);
           }, 1200);
+        }
+        if (process.env.BRIDGE_DEV_SEED === 'sync') {
+          // 同期中プレースホルダの確認: メタデータだけ先に出し、3 秒後に実体 (このリポジトリのファイル) を流し込む
+          const fakeId = 'dev-sync-1';
+          sendSyncPlaceholder({
+            id: fakeId,
+            type: 'file',
+            name: 'Quarterly-Report.pdf',
+            timestamp: Date.now() - 5 * 60 * 1000,
+            fromDevice: 'Win-Desk',
+            fromPlatform: 'win32',
+            originKind: null,
+          });
+          sendSyncPlaceholder({
+            id: 'dev-sync-2',
+            type: 'file',
+            name: 'Photos.zip',
+            timestamp: Date.now() - 2 * 60 * 1000,
+            fromDevice: 'Win-Desk',
+            fromPlatform: 'win32',
+            originKind: 'folder',
+            folderName: 'Photos',
+          });
+          setTimeout(() => {
+            announcedSyncPlaceholders.delete(fakeId);
+            addFileQuietly(path.join(__dirname, 'SPEC.md'), {
+              id: fakeId,
+              fromDevice: 'Win-Desk',
+              fromPlatform: 'win32',
+              timestamp: Date.now() - 5 * 60 * 1000,
+            });
+            console.log('DEV_SYNC_RESOLVED');
+          }, 3000);
+        }
+        if (process.env.BRIDGE_DEV_SEED === 'folder') {
+          // フォルダ zip の往復: lib/ を zip 化 → 展開 → 結果を出力
+          (async () => {
+            try {
+              const zipPath = await zipFolder(path.join(__dirname, 'lib'));
+              const dest = await extractFolderZip(zipPath, 'lib');
+              const listing = fs.readdirSync(dest);
+              console.log('DEV_FOLDER ' + JSON.stringify({ zipPath, dest, listing }));
+              fs.rmSync(dest, { recursive: true, force: true });
+              fs.unlinkSync(zipPath);
+            } catch (err) {
+              console.log('DEV_FOLDER_ERROR ' + err.message);
+            }
+          })();
         }
         if (process.env.BRIDGE_DEV_SEED === 'popup') {
           // 永続化の一覧が届いてからポップアップを出し、その座標を出力する

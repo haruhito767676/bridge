@@ -127,7 +127,7 @@ Windows では macOS 向けの「毎フレームの `setBounds`」と「カー�
 }
 ```
 
-- `kind: 'file'` = ユーザーが明示的に置いた一時保存ファイル（先頭に OS のファイルアイコン / 画像サムネイル）。`clip-*` = コピー監視の自動ログ（先頭にクリップボードのグリフ）。表示は常に `timestamp` の新しい順に並べ替え、日付ごとに「今日 / 昨日 / M月D日」のセクション見出しを挟む（見出しは sticky にせず一緒にスクロールする）
+- `kind: 'file'` = ユーザーが明示的に置いた一時保存ファイル（先頭に OS のファイルアイコン / 画像サムネイル）。`clip-*` = コピー監視の自動ログ（先頭にクリップボードのグリフ）。`syncing: true` は他拠点からの実体待ち（名前・時刻・出身は確定、`syncId` で差し替え先を特定。触れない・ドラッグできない・永続化しない）。`originKind: 'folder'` はフォルダ由来。**`timestamp` は他拠点由来でも「送信元でシェルフに置かれた時刻」**（`add-file` / `clipboard-item` の `timestamp`）で、受信時刻ではない。表示は常に `timestamp` の新しい順に並べ替え、日付ごとに「今日 / 昨日 / M月D日」のセクション見出しを挟む（見出しは sticky にせず一緒にスクロールする）
 - **上限**: file 100 件 / clip-text 100 件 / clip-image 30 件。あふれた最古アイテムはリストから外し、裏生成ファイルなら Main へ実体削除を依頼する
 
 ### 3.2 重複スタック化
@@ -242,7 +242,7 @@ Windows では macOS 向けの「毎フレームの `setBounds`」と「カー�
    - Windows: `FileNameW`（CF_FILENAMEW）で「ファイルがコピーされた」ことを検知し、常駐ヘルパーの `Get-Clipboard -Format FileDropList` で**選択された全ファイル**を列挙する（同じコピーが載り続けている間は前回の結果を再利用）→ `Chromium Web Custom MIME Data` → `text/uri-list` → プレーンテキストは**全体が 1 行 1 パスのときだけ**（`extractWholeTextPaths`。プロンプト行に作業フォルダのパスが混じるだけのコピーをファイルと誤認しない）。最後に `fs.existsSync` で実在確認
    - 検知したファイルは `addFileQuietly` でシェルフへ追加（ウインドウは奪わない）
 2. **テキスト**: 前回と異なる非空テキストなら履歴化。`.txt` はこの時点では作らず、ドラッグアウト / クイックルック時に `ensure-clipboard-text-file` で**遅延生成**する（コピーのたびにディスクへ書かない）。同期台帳へ登録 → ピアへ即時プッシュ
-3. **画像**: `availableFormats()` に `image/*` がある場合のみ対象。まず**安価な署名**（フォーマット一覧 + macOS は `public.tiff` / Windows は `PNG` バッファの長さ。Windows で `PNG` が無いとき（Snipping Tool など）はクリップボード連番 `GetClipboardSequenceNumber` を署名に加える）を前回と比べ、同じならデコードもハッシュもしない（スクリーンショットが載ったまま放置されても CPU を使わない）。変わっていたら `readImage()` し、同一判定キーは「サイズ + バイト数 + bitmap の等間隔サンプル（最大 256KB）の MD5」。新規なら `clipboard_<ts>.png` として即ファイル化 → 履歴化・同期登録
+3. **画像**: `availableFormats()` に `image/*` がある場合を対象にする。**Windows は毎 tick まず OS のクリップボード連番（`GetClipboardSequenceNumber`、常駐ヘルパー経由）を読み、前回と同じなら何も読まずに終える**。連番が変わった tick は形式一覧に `image/*` が無くても `readImage()` を試す（Snipping Tool など WinRT 経由の遅延レンダリングは一覧に出ないことがある）。それでも空なら 4 tick だけ読み直し、そのときの形式一覧を `bridge.log` の `[clip]` に残す。macOS はまず**安価な署名**（フォーマット一覧 + macOS は `public.tiff` / Windows は `PNG` バッファの長さ。Windows で `PNG` が無いとき（Snipping Tool など）はクリップボード連番 `GetClipboardSequenceNumber` を署名に加える）を前回と比べ、同じならデコードもハッシュもしない（スクリーンショットが載ったまま放置されても CPU を使わない）。変わっていたら `readImage()` し、同一判定キーは「サイズ + バイト数 + bitmap の等間隔サンプル（最大 256KB）の MD5」。新規なら `clipboard_<ts>.png` として即ファイル化 → 履歴化・同期登録
 
 Main 側履歴 (`clipHistory`) の上限はテキスト 100 / 画像 30。**Main はディスク削除を行わず配列長のみ管理**する（表示の真実を持つ Renderer 側のトリミング → `delete-temp-file` IPC が削除を担う。両者の並びズレによる「表示中ファイルの誤削除」を防ぐための設計）。
 
@@ -305,14 +305,17 @@ Main 側履歴 (`clipHistory`) の上限はテキスト 100 / 画像 30。**Main
 | type | 処理 |
 |---|---|
 | `text` | 本文のみで取り込み → Renderer へ `clipboard-item`（`.txt` は必要になったときに遅延生成） |
+| `image` / `file`（共通） | ダウンロード開始**前に** `sync-pending`（`syncId` / 種別 / 名前 / 送信元の時刻 / 出身）を Renderer へ送り、「同期中」の行を先に出す。実体が届いたら `clipboard-item` / `add-file` に同じ `syncId` を添えて送り、Renderer はその行を差し替える（新しい行は作らない）。404 で届かないと分かったら `sync-pending-remove` で取り下げる。転送失敗（再試行待ち）の間は行を残す |
 | `image` | `/file` からダウンロード → `clipboard-item`（画像履歴として表示） |
-| `file` | `/file` からダウンロード → `add-file`（ファイルカードとして表示、ウインドウは奪わない） |
+| `file` | `/file` からダウンロード → `originKind: 'folder'` なら § 7.6 の展開 → `add-file`（ファイルカードとして表示、ウインドウは奪わない） |
 
 受信ファイル名は Windows 禁止文字を `_` に置換してサニタイズ。ダウンロード途中のエラーは両ストリームを閉じ欠損ファイルを削除してから reject。受信実体は `sessionTempFiles` へ追跡登録される。
 
 ### 7.6 フォルダの扱い
 
-- フォルダはストリーム配信できないため、同期登録時にバックグラウンドで **`フォルダ名.zip` へ自動圧縮**してから台帳登録する（ローカルのカードはフォルダのまま、相手には zip が届く。自動展開はしない）
+- フォルダはストリーム配信できないため、同期登録時にバックグラウンドで **`フォルダ名.zip` へ自動圧縮**してから台帳登録する。台帳とメタデータに `originKind: 'folder'` と `folderName` を付け、ユーザーが本当に置いた `.zip` と区別する（時刻は zip 化の完了時ではなく「置いた時」）
+- **受信側は上限（`FOLDER_AUTO_EXTRACT_MAX_BYTES` = 1GB）以内なら自動で展開**し、zip を消してフォルダの行にする（macOS: `ditto -x -k` / Windows: 同梱の `tar -xf`、無ければヘルパーの `Expand-Archive` / その他: `unzip`）。作業ディレクトリへ展開してから最上位フォルダを衝突しない名前で `downloads/` に移す。展開したフォルダは `sessionTempFiles` に載せ、上限あふれ・終了時に `rmSync` で片付ける
+- 上限超え・展開失敗のときは zip のまま残し、行の種別を「フォルダ (zip)」と表示して、右クリックの「フォルダとして展開」(`extract-folder-zip`) で手動展開できる
   - Windows: `Compress-Archive` / macOS: `ditto -c -k --sequesterRsrc --keepParent` / その他: `zip -r`
   - zip 化失敗時は登録を取り消し、再ドロップで再挑戦可能にする
 - `registerLocalSyncEntry` と `/file` 配信の双方にフォルダ除外ガードがある（多重防御）
@@ -443,6 +446,7 @@ Windows のタスクバー通知や macOS のメニューバー / Dock と同じ
 | 格納ディレイ | 220ms | `collapseShelter` のタイマー |
 | `CLIPBOARD_POLL_MS` | 500ms | クリップボード監視間隔 |
 | `IMAGE_HASH_SAMPLE_BYTES` | 256KB | 画像同一判定でハッシュするサンプル量 |
+| `FOLDER_AUTO_EXTRACT_MAX_BYTES` | 1GB | 受信したフォルダ zip を自動展開する上限 |
 | `MAX_DOWNLOAD_BYTES` | 2GB | Web ダウンロードの上限 |
 | `ADD_CONFIRM_TIMEOUT_MS` | 15s | bridge://add?path= の確認トーストの有効期間 |
 | `DISCOVERY_GROUP` / `DISCOVERY_PORT` | 239.255.77.77 / 9096 | マルチキャスト発見 |

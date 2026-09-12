@@ -288,6 +288,11 @@ searchBar.addEventListener('keydown', (e) => {
   }
 });
 
+// 実体がフォルダになっているか (Finder 純正の種類名で判定。取得前は false)
+function isFolderPath(item) {
+  return item.fileKind === 'フォルダ' || item.fileKind === 'Folder' || item.fileKind === 'ファイル フォルダー';
+}
+
 // テキスト履歴が「1 本の URL」かどうか (リンクとして開けるもの)
 function urlOfItem(item) {
   if (!item || item.kind !== 'clip-text') return null;
@@ -452,9 +457,24 @@ function attachFileIcon(item, filePath) {
 function addLocalFile(filePath, fileName, origin, sourceApp) {
   if (!filePath) return;
   const name = fileName || filePath.split(/[\\/]/).pop(); // Windows のパス区切り (\) にも対応
+
+  // 「同期中」のプレースホルダがあれば、新しい行を作らずそこへ実体を流し込む
+  const placeholder = origin && origin.syncId ? items.find((it) => it.syncId === origin.syncId) : null;
+  if (placeholder) {
+    placeholder.path = filePath;
+    placeholder.name = name;
+    placeholder.isImage = isImagePath(filePath);
+    placeholder.syncing = false;
+    placeholder.originKind = origin.originKind || null;
+    attachFileIcon(placeholder, filePath);
+    attachFileKind(placeholder, filePath);
+    render();
+    return;
+  }
+
   // 全く同じファイル (同一パス) が既にあればカードを増やさず、既存カードを最上位へ引き上げて
   // 時刻だけを最新に更新する (重複排除・スタック)。名前が同じだけの別ファイルは別カードにする
-  if (bumpExistingItem((it) => it.kind === 'file' && it.path === filePath)) {
+  if (bumpExistingItem((it) => it.kind === 'file' && it.path === filePath, origin && origin.timestamp)) {
     return;
   }
 
@@ -467,9 +487,11 @@ function addLocalFile(filePath, fileName, origin, sourceApp) {
     isImage: isImagePath(filePath),
     downloading: false,
     removing: false,
-    timestamp: Date.now(),
+    // 他拠点由来は「送信元でシェルフに置かれた時刻」で並べる。ローカル生まれは今
+    timestamp: (origin && origin.timestamp) || Date.now(),
     fromDevice: origin ? origin.fromDevice : null,
     fromPlatform: origin ? origin.fromPlatform : null,
+    originKind: origin && origin.originKind ? origin.originKind : null,
     sourceApp: sourceApp || null,
   };
   item.entering = true; // 追加直後だけ「上から滑り込む」アニメーションを付ける
@@ -477,7 +499,7 @@ function addLocalFile(filePath, fileName, origin, sourceApp) {
   trimFileHistory(); // 上限あふれの最古アイテムを外し、同期由来の一時ファイル実体もお掃除する
 
   // 自分のデバイスで生まれたファイルだけを同期台帳へ登録する (他拠点由来の再登録ループを防ぐ)
-  if (!item.fromDevice) window.bridge.registerSyncFile(filePath, item.name);
+  if (!item.fromDevice) window.bridge.registerSyncFile(filePath, item.name, item.timestamp);
 
   attachFileIcon(item, filePath);
   attachFileKind(item, filePath);
@@ -583,6 +605,39 @@ window.bridge.onAddFile((payload) => {
   } else {
     addLocalFile(payload);
   }
+});
+
+// 他拠点からの実体が届く前に、名前・時刻・出身だけで「同期中」の行を先に出す。
+// 実体が届いたら addLocalFile / onClipboardItem が syncId で見つけて同じ行を差し替える
+window.bridge.onSyncPending((info) => {
+  if (!info || !info.syncId) return;
+  if (items.some((it) => it.syncId === info.syncId)) return;
+  const item = {
+    kind: info.kind === 'clip-image' ? 'clip-image' : 'file',
+    path: null,
+    name: info.name || '',
+    text: null,
+    icon: null,
+    isImage: info.kind === 'clip-image',
+    downloading: false,
+    syncing: true,
+    syncId: info.syncId,
+    removing: false,
+    timestamp: Number(info.timestamp) || Date.now(),
+    fromDevice: info.fromDevice || null,
+    fromPlatform: info.fromPlatform || null,
+    originKind: info.originKind || null,
+    sourceApp: null,
+    entering: true,
+  };
+  items.unshift(item);
+  render();
+});
+
+// 相手側で実体が消えていた場合など、届かないと分かったプレースホルダを取り下げる
+window.bridge.onSyncPendingRemove(({ syncId }) => {
+  const item = items.find((it) => it.syncId === syncId && it.syncing);
+  if (item) removeItem(item);
 });
 
 // ウインドウが展開されるたびに検索状態 (文字列・トークン・サジェスト・選択) をリセットして
@@ -728,6 +783,20 @@ window.bridge.onClipboardItem((data) => {
   // 想定外のペイロード (画像なのに path が無い / テキストなのに本文が無い) は読み飛ばす
   if (isImage ? !data.path : typeof data.text !== 'string') return;
 
+  // 「同期中」のプレースホルダがあれば、そこへ実体を流し込む
+  if (data.syncId) {
+    const placeholder = items.find((it) => it.syncId === data.syncId);
+    if (placeholder) {
+      placeholder.path = data.path || null;
+      placeholder.text = isImage ? null : data.text;
+      placeholder.name = isImage ? data.path.split(/[\\/]/).pop() : placeholder.name;
+      placeholder.isImage = isImage;
+      placeholder.syncing = false;
+      render();
+      return;
+    }
+  }
+
   // 重複コピー: 同じ内容 (テキストは全文一致、画像は同一ファイル名) の履歴が既にあれば
   // カードを増やさず、既存カードを最上位へ引き上げて時刻だけを最新に更新する
   if (isImage) {
@@ -810,7 +879,7 @@ function removeSelectedItems() {
 function onItemDragStart(e, item) {
   // HTML5 のドラッグを止め、OS標準のネイティブドラッグに置き換える
   e.preventDefault();
-  if (item.downloading) return;
+  if (item.downloading || item.syncing) return;
 
   // クリップボード履歴はファイルとしてドラッグアウト (履歴なのでリストには残す)
   if (item.kind === 'clip-text') {
@@ -885,6 +954,10 @@ function resetSelectionAndFocus() {
 const COPIED_FEEDBACK_MS = 320;
 
 function copyItemToClipboard(item) {
+  if (item.syncing) {
+    showToast({ icon: 'info', title: '同期中です', sub: '実体が届いてからコピーできます', durationMs: 2000 });
+    return false;
+  }
   if (item.missing) {
     showToast({
       icon: 'warning',
@@ -1237,6 +1310,27 @@ function openContextMenu(e, item) {
   if (IS_MAC && (item.path || item.kind === 'clip-text')) {
     entries.push({ label: 'クイックルック', shortcut: 'Space', run: () => previewItem(item) });
   }
+  if (item.path && item.originKind === 'folder' && !isFolderPath(item) && /\.zip$/i.test(item.path)) {
+    entries.push({
+      label: 'フォルダとして展開',
+      run: async () => {
+        const dest = await window.bridge.extractFolderZip(item.path, item.name.replace(/\.zip$/i, ''));
+        if (!dest) {
+          showToast({ icon: 'warning', title: '展開できませんでした', accent: 'red' });
+          return;
+        }
+        item.path = dest;
+        item.name = dest.split(/[\\/]/).pop();
+        item.isImage = false;
+        item.icon = null;
+        item.fileKind = undefined;
+        attachFileIcon(item, dest);
+        attachFileKind(item, dest);
+        render();
+        showToast({ icon: 'check', title: 'フォルダに展開しました', durationMs: 2000 });
+      },
+    });
+  }
   if (item.path) {
     entries.push({ type: 'separator' });
     entries.push({
@@ -1398,7 +1492,7 @@ function createSourceAppBadge(item) {
 function createLeading(item) {
   const leading = document.createElement('div');
   leading.className = 'item-leading';
-  if (item.downloading) {
+  if (item.downloading || item.syncing) {
     const spinner = document.createElement('div');
     spinner.className = 'spinner';
     spinner.setAttribute('role', 'progressbar');
@@ -1454,12 +1548,13 @@ function render() {
     if (selectedItems.has(item)) li.classList.add('selected');
     if (item.removing) li.classList.add('removing');
     if (item.downloading) li.classList.add('downloading');
+    if (item.syncing) li.classList.add('syncing');
     if (item.missing) li.classList.add('missing');
     if (item.entering) {
       li.classList.add('entering');
       item.entering = false; // 次の再描画からは通常の行として扱う
     }
-    li.draggable = !item.removing && !item.downloading;
+    li.draggable = !item.removing && !item.downloading && !item.syncing;
     li.addEventListener('click', (e) => onItemClick(e, item));
     li.addEventListener('dragstart', (e) => onItemDragStart(e, item));
     li.addEventListener('contextmenu', (e) => openContextMenu(e, item));
@@ -1474,7 +1569,7 @@ function render() {
     titleEl.className = 'item-title' + (item.kind === 'clip-text' ? ' clip-preview' : '');
     if (item.kind === 'clip-text') {
       titleEl.textContent = item.name;
-    } else if (item.downloading) {
+    } else if (item.downloading || item.syncing) {
       titleEl.textContent = item.name;
     } else {
       const isRealFile = item.kind === 'file' && item.fileKind !== 'フォルダ';
@@ -1496,14 +1591,18 @@ function render() {
           ? '画像'
           : item.downloading
             ? '保存中'
-            : item.fileKind || 'ファイル'; // Finder 純正の種類名 (取得前は「ファイル」で暫定表示)
+            : item.originKind === 'folder' && !isFolderPath(item)
+              ? 'フォルダ (zip)'
+              : item.fileKind || 'ファイル'; // Finder 純正の種類名 (取得前は「ファイル」で暫定表示)
     const metaLine = document.createElement('div');
     metaLine.className = 'item-meta-line';
-    metaLine.textContent = item.missing
-      ? '見つかりません · 移動または削除されました'
-      : item.timestamp
-        ? `${kindLabel} · ${formatTime(item.timestamp)}`
-        : kindLabel;
+    metaLine.textContent = item.syncing
+      ? '同期中'
+      : item.missing
+        ? '見つかりません · 移動または削除されました'
+        : item.timestamp
+          ? `${kindLabel} · ${formatTime(item.timestamp)}`
+          : kindLabel;
     if (item.pinned) {
       const pinIcon = glyph('pin');
       pinIcon.classList.add('meta-pin');
@@ -1563,9 +1662,10 @@ let persistTimer = null;
 
 function serializeItems() {
   return items
-    .filter((it) => !it.downloading && !it.removing)
+    .filter((it) => !it.downloading && !it.removing && !it.syncing)
     .map((it) => ({
       kind: it.kind,
+      originKind: it.originKind || null,
       path: it.path,
       name: it.name,
       text: it.text,
@@ -1607,6 +1707,7 @@ window.bridge.onRestoreItems((saved) => {
       removing: false,
       timestamp: Number(s.timestamp) || Date.now(),
       fileKind: s.fileKind || undefined,
+      originKind: s.originKind || null,
       fromDevice: s.fromDevice || null,
       fromPlatform: s.fromPlatform || null,
       sourceApp: s.sourceApp || null,

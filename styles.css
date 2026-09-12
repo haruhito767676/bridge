@@ -620,6 +620,19 @@ body:not(.platform-darwin) #drop-zone::-webkit-scrollbar-thumb:hover {
   color: #ff9f0a;
 }
 
+/* 他拠点からの実体待ち (同期中): 名前と時刻は確定、実体だけ未着。触れない・ドラッグできない */
+.file-item.syncing {
+  pointer-events: none;
+}
+
+.file-item.syncing .item-title {
+  color: var(--fg-secondary);
+}
+
+.file-item.syncing .remove-button {
+  display: none;
+}
+
 /* ダウンロード / 保存の進行中: 不定スピナー */
 .file-item.downloading {
   pointer-events: none;
