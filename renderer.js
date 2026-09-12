@@ -1338,16 +1338,21 @@ function createDeviceChip(item) {
   return createChip(item.fromDevice, icon);
 }
 
-function createAppChip(item) {
-  if (!item.sourceApp || !item.sourceApp.name) return null;
-  let icon = null;
-  if (item.sourceApp.icon) {
-    icon = document.createElement('img');
-    icon.src = item.sourceApp.icon;
-    icon.draggable = false;
-    icon.alt = '';
+// コピー元アプリ: 名前は出さず、先頭スロットの右下に小さなアイコンだけを重ねる
+// (通知センターのアプリバッジと同じ見せ方。名前はツールチップに)。
+// アイコンが取れていないときは何も出さない。ファイル行には出さない (常に Finder なので意味がない)
+function createSourceAppBadge(item) {
+  if (item.kind === 'file' || !item.sourceApp || !item.sourceApp.icon) return null;
+  const badge = document.createElement('img');
+  badge.className = 'source-app-badge';
+  badge.src = item.sourceApp.icon;
+  badge.draggable = false;
+  badge.alt = item.sourceApp.name || '';
+  if (item.sourceApp.name) {
+    badge.addEventListener('mouseenter', () => scheduleTooltip(badge, item.sourceApp.name));
+    badge.addEventListener('mouseleave', hideTooltip);
   }
-  return createChip(item.sourceApp.name, icon);
+  return badge;
 }
 
 function createLeading(item) {
@@ -1376,6 +1381,8 @@ function createLeading(item) {
     }
     leading.appendChild(img);
   }
+  const sourceBadge = createSourceAppBadge(item);
+  if (sourceBadge) leading.appendChild(sourceBadge);
   return leading;
 }
 
@@ -1465,12 +1472,10 @@ function render() {
     lines.appendChild(metaLine);
 
     const deviceChip = createDeviceChip(item);
-    const appChip = createAppChip(item);
-    if (deviceChip || appChip) {
+    if (deviceChip) {
       const badgeLine = document.createElement('div');
       badgeLine.className = 'item-badge-line';
-      if (appChip) badgeLine.appendChild(appChip);
-      if (deviceChip) badgeLine.appendChild(deviceChip);
+      badgeLine.appendChild(deviceChip);
       lines.appendChild(badgeLine);
     }
 
@@ -1666,6 +1671,8 @@ const settingPeerList = document.getElementById('setting-peer-list');
 const settingLogin = document.getElementById('setting-login');
 const settingHotkeyHelp = document.getElementById('setting-hotkey-help');
 const settingAutoPaste = document.getElementById('setting-autopaste');
+const settingSourceApp = document.getElementById('setting-sourceapp');
+const settingSourceAppHelp = document.getElementById('setting-sourceapp-help');
 const settingPasteHelp = document.getElementById('setting-paste-help');
 
 function renderPeerList() {
@@ -1710,6 +1717,10 @@ async function openSettings() {
     settingPeers.value = (s.peers || []).join('\n');
     settingLogin.checked = Boolean(s.openAtLogin);
     settingAutoPaste.checked = Boolean(s.autoPaste);
+    settingSourceApp.checked = Boolean(s.showSourceApp);
+    settingSourceAppHelp.textContent = IS_MAC
+      ? 'テキストや画像の行に、コピーしたときに使っていたアプリのアイコンを小さく重ねます。'
+      : 'コピーのたびに PowerShell を起動するため、Windows では少し重くなります。';
     settingHotkeyHelp.textContent = `${s.hotkeyLabel} でパネルの表示 / 非表示、${s.pasteHotkeyLabel} でカーソルの近くに履歴を出せます。Bridge ${s.version}`;
     settingPasteHelp.textContent = IS_MAC
       ? '自動ペーストには「システム設定 > プライバシーとセキュリティ > アクセシビリティ」で Bridge の許可が必要です。'
@@ -1740,6 +1751,7 @@ async function saveSettings() {
     peers: settingPeers.value.split(/\r?\n/).map((s) => s.trim()).filter(Boolean),
     openAtLogin: settingLogin.checked,
     autoPaste: settingAutoPaste.checked,
+    showSourceApp: settingSourceApp.checked,
   };
   try {
     const result = await window.bridge.saveSettings(payload);

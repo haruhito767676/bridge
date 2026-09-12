@@ -140,16 +140,17 @@ function dockedBoundsForDisplay(display, shown) {
 //           Chromium の再レイアウト・再描画が発生せず軽い (通常はこちら)
 //   resize: 右端を固定して幅を変える。右隣にディスプレイがある構成では move だと
 //           はみ出した部分が隣のディスプレイに見えてしまうため、そのときだけ使う
+// 「画面外へ滑り出す矩形」(右端から SHELTER_WIDTH ぶん右) が他のディスプレイと重なるか。
+// Windows の DPI 違いのモニターは DIP 座標で数 px の隙間や重なりが出るため、辺の一致ではなく
+// 矩形の交差で判定し、さらに余裕 (32px) を持たせる
 function hasDisplayToTheRight(display) {
   const { x, y, width, height } = display.bounds;
-  const rightEdge = x + width;
-  return screen.getAllDisplays().some(
-    (d) =>
-      d.id !== display.id &&
-      Math.abs(d.bounds.x - rightEdge) <= 1 &&
-      d.bounds.y < y + height &&
-      d.bounds.y + d.bounds.height > y
-  );
+  const slideOut = { left: x + width - 32, right: x + width + SHELTER_WIDTH + 32, top: y, bottom: y + height };
+  return screen.getAllDisplays().some((d) => {
+    if (d.id === display.id) return false;
+    const b = d.bounds;
+    return b.x < slideOut.right && b.x + b.width > slideOut.left && b.y < slideOut.bottom && b.y + b.height > slideOut.top;
+  });
 }
 
 function dockModeFor(display) {
@@ -306,9 +307,11 @@ function expandShelter({ focus = false } = {}) {
   // ウインドウが別のディスプレイに居る場合は、まずアニメーションなしで
   // カーソルのあるディスプレイの右端（隠れ位置）へ即座にワープしてから展開する。
   // 既に展開済みでも、カーソルが別ディスプレイの右端に来たときは開き直す
+  // 比較相手は「いまドックしているディスプレイ」。アニメーション中のウインドウ矩形から
+  // getDisplayMatching で求めると、画面外へ滑り出した瞬間に隣のディスプレイと判定されて
+  // 閉じる → 開き直すを繰り返す (マルチモニターでの暴れの原因)
   const display = currentDisplay();
-  const winDisplay = screen.getDisplayMatching(win.getBounds());
-  const sameDisplay = display.id === winDisplay.id;
+  const sameDisplay = dockSpring.display ? display.id === dockSpring.display.id : false;
   if (expanded && sameDisplay) {
     if (focus) {
       win.focus();
@@ -591,6 +594,9 @@ function createWindow() {
     // 補助ウインドウで、Spotlight や絵文字ピッカーと同じ振る舞いになる
     // (クリックしても作業中のアプリが背面に下がらない)
     ...(process.platform === 'darwin' ? { type: 'panel' } : {}),
+    // Windows: ツールウインドウにしてタスクバーと Alt+Tab に出さない (常駐パネルとして振る舞う)
+    ...(process.platform === 'win32' ? { type: 'toolbar' } : {}),
+    skipTaskbar: true,
     title: 'Bridge',
     // Apple ライクなすりガラス背景 (macOS の vibrancy)。
     // sidebar はサイドバー用の明度が高めのマテリアルで、上に半透明のカードを重ねても濁りにくい
@@ -1090,7 +1096,7 @@ async function getFrontmostAppWindows() {
   const { stdout } = await execFileAsync(
     'powershell',
     ['-NoProfile', '-NonInteractive', '-Command', WIN_FRONT_APP_PS],
-    { timeout: 2000 },
+    { timeout: 2000, windowsHide: true }, // コンソール窓を一瞬でも出さない
   );
   const exePath = stdout.trim();
   if (!exePath) return null;
@@ -1102,6 +1108,7 @@ async function getFrontmostAppWindows() {
 // 直前のクリップボード変更検知からアプリ切り替えが起きていることは稀ではないため、
 // あくまでベストエフォート (取得失敗時は null を返し、バッジ無しにフォールバック)
 async function getFrontmostApp() {
+  if (!showSourceApp) return null;
   try {
     if (process.platform === 'darwin') return await getFrontmostAppMac();
     if (process.platform === 'win32') return await getFrontmostAppWindows();
@@ -1465,7 +1472,9 @@ ipcMain.on('clipboard-write-text', (_event, text) => {
 function writeFilesToWindowsClipboard(paths) {
   const psLiteral = (s) => `'${s.replace(/'/g, "''")}'`;
   const script = `Set-Clipboard -LiteralPath @(${paths.map(psLiteral).join(',')})`;
-  return execFileAsync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script]);
+  return execFileAsync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], {
+    windowsHide: true,
+  });
 }
 
 // パスを OS の「ファイル形式」でクリップボードへ。
@@ -1769,6 +1778,7 @@ function loadSyncConfig() {
       myIconType = parsed.iconType;
     }
     if (typeof parsed.autoPaste === 'boolean') autoPasteEnabled = parsed.autoPaste;
+    if (typeof parsed.showSourceApp === 'boolean') showSourceApp = parsed.showSourceApp;
   }
 
   // secretToken が未設定なら暗号学的に安全なランダムキーを自動生成して設定ファイルへ書き戻す。
@@ -1944,7 +1954,9 @@ function downloadEntryFile(peer, entry) {
       (res) => {
         if (res.statusCode !== 200) {
           res.resume();
-          return reject(new Error(`HTTP ${res.statusCode}`));
+          const err = new Error(`HTTP ${res.statusCode}`);
+          err.statusCode = res.statusCode;
+          return reject(err);
         }
         // 保存先の準備に失敗しても (ディスク満杯・権限など)、http コールバック内の
         // 同期例外でプロセスごと落とさず reject して次回ポーリングの再試行へ回す
@@ -2032,6 +2044,13 @@ async function importRemoteEntry(meta, peer) {
     try {
       entry.path = await downloadEntryFile(peer, entry);
     } catch (err) {
+      // 相手側で実体が既に消えている (404) なら、待っても届かない。既読にして先へ進む
+      // (ここで false を返し続けると lastSyncedTs が進まず、以後の新着まで全部止まってしまう)
+      if (err && err.statusCode === 404) {
+        logEvent('sync', `実体なしでスキップ: ${entry.name} from ${peer.device || peer.host}`);
+        rememberSyncId(entry.id);
+        return true;
+      }
       console.error('同期ファイルの転送に失敗 (次回ポーリングで再試行):', entry.name, err.message);
       logEvent('sync', `受信失敗: ${entry.name} from ${peer.device || peer.host} (${err.message})`);
       return false;
@@ -2499,6 +2518,7 @@ ipcMain.handle('get-settings', () => ({
   hotkeyLabel: TOGGLE_SHORTCUT_LABEL,
   pasteHotkeyLabel: PASTE_SHORTCUT_LABEL,
   autoPaste: autoPasteEnabled,
+  showSourceApp,
   version: app.getVersion(),
 }));
 
@@ -2535,6 +2555,10 @@ ipcMain.handle('save-settings', (_event, incoming) => {
   if (typeof incoming.autoPaste === 'boolean') {
     autoPasteEnabled = incoming.autoPaste;
     next.autoPaste = autoPasteEnabled;
+  }
+  if (typeof incoming.showSourceApp === 'boolean') {
+    showSourceApp = incoming.showSourceApp;
+    next.showSourceApp = showSourceApp;
   }
 
   let existing = {};
@@ -2651,6 +2675,8 @@ const PASTE_SHORTCUT = 'CommandOrControl+Shift+V';
 const PASTE_SHORTCUT_LABEL = process.platform === 'darwin' ? '⌘⇧V' : 'Ctrl+Shift+V';
 let popupWin = null;
 let autoPasteEnabled = true; // 設定 (sync-config.json の autoPaste)
+// コピー元アプリのアイコン取得。Windows はコピーのたびに PowerShell を起動する重さがあるため既定オフ
+let showSourceApp = process.platform === 'darwin';
 
 function popupAlive() {
   return popupWin !== null && !popupWin.isDestroyed();
@@ -2670,6 +2696,7 @@ function createPopupWindow() {
     skipTaskbar: true,
     alwaysOnTop: true,
     ...(process.platform === 'darwin' ? { type: 'panel', vibrancy: 'popover', visualEffectState: 'active' } : {}),
+    ...(process.platform === 'win32' ? { type: 'toolbar' } : {}),
     backgroundMaterial: 'acrylic',
     backgroundColor: '#00000000',
     webPreferences: {

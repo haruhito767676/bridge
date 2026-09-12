@@ -559,6 +559,20 @@ body:not(.platform-darwin) #drop-zone::-webkit-scrollbar-thumb:hover {
   object-fit: contain;
 }
 
+/* コピー元アプリのアイコンバッジ (先頭スロットの右下に重ねる。名前はツールチップ) */
+.source-app-badge {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  background: var(--popover-bg);
+  box-shadow: 0 0 0 1.5px var(--popover-bg), 0 1px 2px rgba(0, 0, 0, 0.25);
+  object-fit: contain;
+  pointer-events: auto;
+}
+
 /* 画像ファイルの実物サムネイル */
 .file-icon.thumbnail {
   width: 40px;

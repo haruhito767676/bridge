@@ -62,10 +62,11 @@
 | `SHELTER_HEIGHT` | 600px | 高さ（ディスプレイ作業領域より大きい場合は縮小） |
 
 - `BrowserWindow` オプション: `frame: false` / `resizable: false` / `alwaysOnTop: true` / `fullscreenable: false` / `vibrancy: 'sidebar'`（macOS すりガラス）/ `backgroundMaterial: 'acrylic'`（Windows 11）/ 背景透過。macOS では `type: 'panel'`（NSPanel）として生成し、クリックしても作業中のアプリを背面に下げない
-- macOS では `app.dock.hide()` によりメニューバー常駐のユーティリティとして振る舞う（Dock・⌘Tab に出ない）
+- macOS では `app.dock.hide()` によりメニューバー常駐のユーティリティとして振る舞う（Dock・⌘Tab に出ない）。Windows では `type: 'toolbar'` + `skipTaskbar` でタスクバーと Alt+Tab に出さない
+- Windows で起動する PowerShell（前面アプリ取得・ファイルのクリップボード書き込み・zip 化・⌘V 送信）はすべて `windowsHide: true` で、コンソール窓を一瞬も出さない
 - `setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })` により仮想デスクトップ・フルスクリーンアプリ上でも追従
 - 配置は常に「**マウスカーソルがあるディスプレイ**の `workArea` 右端・垂直中央」。表示前に必ず `placeDockInstantly` で座標を確定し、OS の自動復元によるモニター跨ぎを防ぐ
-- **開閉はスプリングアニメーション**（`animateDock`）: 通常は幅 320px を保ったまま画面外へスライド（移動のみなので Chromium の再レイアウト・再描画が起きない）し、格納が終わった時点で幅を `TAB_WIDTH` へ縮める。右隣にディスプレイがある場合（`hasDisplayToTheRight`）だけ、はみ出しが見えないよう右端固定の幅変更方式にフォールバックする。毎フレーム（60fps）`setBounds` し、減衰比 1.0 / 応答 0.32s の臨界減衰スプリングで、途中で目標が変わってもその場の値と速度から滑らかに反転する（中断可能）。Renderer 側は `#root` を右寄せ・固定幅 320px にしているため、幅が縮んでも中身は再レイアウトされない。`nativeTheme.getAnimationSettings().prefersReducedMotion` が真なら即時に切り替える
+- **開閉はスプリングアニメーション**（`animateDock`）: 通常は幅 320px を保ったまま画面外へスライド（移動のみなので Chromium の再レイアウト・再描画が起きない）し、格納が終わった時点で幅を `TAB_WIDTH` へ縮める。「滑り出す矩形」が他のディスプレイと交差する場合（`hasDisplayToTheRight`、DPI 差による数 px の隙間を許容するため 32px の余裕付き）だけ、はみ出しが見えないよう右端固定の幅変更方式にフォールバックする。展開時の「別ディスプレイに居るか」の判定は、アニメーション中の矩形ではなく現在ドックしているディスプレイ (`dockSpring.display`) と比べる（滑り出した瞬間に隣のディスプレイと誤判定して閉じ直す暴れを防ぐ）。毎フレーム（60fps）`setBounds` し、減衰比 1.0 / 応答 0.32s の臨界減衰スプリングで、途中で目標が変わってもその場の値と速度から滑らかに反転する（中断可能）。Renderer 側は `#root` を右寄せ・固定幅 320px にしているため、幅が縮んでも中身は再レイアウトされない。`nativeTheme.getAnimationSettings().prefersReducedMotion` が真なら即時に切り替える
 
 ### 2.2 展開・格納の状態遷移
 
@@ -189,7 +190,8 @@
 | `onClipboardItem(cb)` | `clipboard-item` | クリップボード履歴。`{ type: 'clipboard-text'|'clipboard-image', text, path, timestamp, fromDevice, fromPlatform }` |
 | `onShelterExpanded(cb)` | `shelter-expanded` | 展開通知 `{ focus }`（検索リセット。`focus` が真のときだけ検索バーへフォーカス） |
 | `onShelterCollapsed(cb)` | `shelter-collapsed` | 格納通知（選択・ツールチップ・メニュー・設定シートを閉じる） |
-| `onSyncStatus(cb)` | `sync-status` | ピアのオンライン状態が変わったとき `{ peers: [{ device, host, port, online }], onlineCount }` |
+| `onSyncStatus(cb)` | `sync-status` | ピアのオンライン状態が変わったとき `{ peers: [{ device, host, port, online, lastSyncedAt, lastError }], onlineCount, clipboardPaused, syncPaused }` |
+| `onPastePermissionNeeded(cb)` | `paste-permission-needed` | 自動ペーストにアクセシビリティの許可が無い（macOS） |
 | `onOpenSettings(cb)` | `open-settings` | メニューバーの「設定…」 |
 | `onRestoreItems(cb)` | `restore-items` | 起動時 / Renderer 再起動時に前回の一覧を復元 |
 | `onConfirmAddFile(cb)` | `confirm-add-file` | bridge://add?path= の確認依頼 `{ path, name }` |
@@ -386,7 +388,8 @@ Main 側履歴 (`clipHistory`) の上限はテキスト 100 / 画像 30。**Main
 - 表示用の純粋関数（`formatFileName` / `sectionLabel` / `urlOfText` / `extractWebUrlFromData` 等）は `lib/format.js` にまとめ、Renderer は `window.BridgeFormat`、テストは `require` で同じ実装を使う。Main 側の純粋関数（`tokensMatch` / `sanitizeSyncFileName` / `syncMetadata` / `compareVersions` 等）は `lib/sync-utils.js`。`npm test` で `node --test` が走る
 - ファイル名整形（`formatFileName`）: 視覚幅カウント（全角・英大文字 = 2 / 半角 = 1）で合計 30 を超えるとき、拡張子あり: 「先頭 + `…` + 末尾 6 + 拡張子」の中央省略 / 拡張子なし（フォルダ等）: 末尾 `…`。サロゲートペアはコードポイント単位で分断しない
 - メタ行: 「種類 · 時刻 (H:mm)」。種類は macOS では `mdls` の Finder 純正名、他は拡張子から生成。日付はセクション見出し（今日 / 昨日 / M月D日 (曜)）で示す
-- 出身チップ: コピー元アプリ（アイコン + 名前）と、`fromDevice` が自デバイス名と異なる場合の出身デバイス（ノート / デスクトップのグリフ + 名前）。いずれもニュートラルな小さなピル
+- 出身デバイス: `fromDevice` が自デバイス名と異なる場合だけ、ノート / デスクトップのグリフ + 名前のニュートラルなピルを 2 段目に出す
+- コピー元アプリ: 名前は出さず、テキスト / 画像の行の先頭スロット右下に 16px のアプリアイコンだけを重ねる（名前はツールチップ）。アイコンが取れないときは何も出さない。ファイル行には出さない。取得自体は設定 `showSourceApp`（macOS 既定 on / Windows 既定 off。Windows はコピーのたびに PowerShell を起動する重さがあるため）
 - ダウンロード / 保存の進行中は先頭スロットに不定スピナー
 - ポップオーバー（サジェスト・ツールチップ・トースト・コンテキストメニュー）はライト / ダーク両対応のトークン色。設定シートは本体と入れ替えて表示する（vibrancy 上では半透明レイヤーの重ね合わせが濁るため）
 - スクロールバーは macOS ではネイティブのオーバーレイをそのまま使う（`::-webkit-scrollbar` を触るとコンポジタ駆動のスクロールが効かなくなる）。Windows / Linux のみ細いバーに整える

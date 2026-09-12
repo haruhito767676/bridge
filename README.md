@@ -127,6 +127,7 @@ bridge://add?text=任意のテキスト              # テキスト → .txt 化
 | `peers` | 静的ピア指定（`host` または `host:port`）。自動スキャンで見つからないセグメント越しのピア用 |
 | `autoScan` | UDP マルチキャストによる自動発見（既定 `true`）。起動 15 秒後に誰も見つからなければ /24 スキャンを 1 回だけ行う |
 | `autoPaste` | ⌘⇧V のポップアップで選んだあと自動でペーストする（既定 `true`） |
+| `showSourceApp` | コピー元アプリのアイコンを行に重ねる（macOS 既定 `true` / Windows 既定 `false`。Windows はコピーのたびに PowerShell を起動するため） |
 | `myDeviceName` | バッジに表示される自デバイス名（省略時は `os.hostname()`） |
 | `iconType` | 旧マウス共有機能で使っていた端末アイコン種別（`win_laptop` / `macbook` / `win_desktop`）。互換のため受け渡しは残しているが、現在の UI では使用しない |
 | `secretToken` | **同期認証キー。同期させたいデバイス全台でこの値を一致させてください（設定シートの「同期キー」）。** 未設定なら初回起動時に暗号学的乱数で自動生成されます |
