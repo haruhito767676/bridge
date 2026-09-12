@@ -346,6 +346,12 @@ Main 側履歴 (`clipHistory`) の上限はテキスト 100 / 画像 30。**Main
 - 終了時は最新の一覧を必ず書き出してから、リストに残っていない裏生成ファイルだけを削除する（リストにあるものは次回も使うので残す）
 - **ピン留め** (`pinned`) は上限トリミングと「すべて消去」の対象外で、常にリスト先頭の「ピン留め」セクションに出る
 
+### 8.1.1 ショートカットキーの変更（設定シート）
+
+プリセットから選ぶのではなく、OS 標準の設定アプリと同じ「フィールドをクリックして押したいキーを押す」方式（`startHotkeyCapture` / `eventToAccelerator`）。`KeyboardEvent.code`（レイアウト非依存の物理キー）から Electron の accelerator 文字列を組み立て、Ctrl / Alt / ⌘ のいずれか（Shift 単独は不可）を必須にする。Esc でキャンセル、フィールドからのフォーカス外れでもキャンセル、リセットボタンで既定値に戻す。
+
+保存時 (`save-settings`) は `applyHotkeys` が新旧それぞれ独立に `globalShortcut.unregister` → `register` を試み、失敗（他アプリ・OS 予約済み）した方だけ元のキーへ登録し直してから `hotkeyError: 'toggle' | 'paste' | null` を返す。Renderer は失敗した方だけ元のラベルに戻して赤枠を明滅させ、成功した設定は保存済みのまま設定シートを開いたままにする（もう一度試せるように閉じない）。
+
 ### 8.2 ペースト用ポップアップ（`popup.html`）
 
 - `⌘⇧V`（Windows: `Ctrl+Shift+V`）でカーソルの右下に 300×380 のパネルを出す。中身は `history.json` 用の最新一覧（テキスト / 画像 / 実体のあるファイル、ピン留め先頭、最大 60 件）
@@ -355,6 +361,10 @@ Main 側履歴 (`clipHistory`) の上限はテキスト 100 / 画像 30。**Main
 ### 8.3 診断ログ（`bridge.log`）
 
 `<userData>/bridge.log` に `ISO時刻 \t [category] \t message` で追記（1MB でローテーション、2 世代）。カテゴリ: `app` / `server` / `discovery` / `peer` / `sync` / `download` / `update`。設定シートの「ログを表示」で Finder に表示する。
+
+### 8.3.1 全画面アプリの上での自動非表示（Windows、設定なし）
+
+Windows のタスクバー通知や macOS のメニューバー / Dock と同じく、動画・ゲームなどの排他的フルスクリーン表示を Bridge のつまみが邪魔しないことを **OS 標準の振る舞いとして扱い、オンオフの設定は設けない**。1.5 秒ごと（`checkFullscreenAndHide`）に常駐 PowerShell ヘルパーへ問い合わせ、前面ウインドウの矩形がそのモニターの矩形とちょうど一致する（＝排他的フルスクリーン）ときだけ、全モニターのつまみ (`tabWindows`) を隠し、シェルフが開いていれば格納する。全画面が終われば自動で戻る。macOS は `setVisibleOnAllWorkspaces({ visibleOnFullScreen: true })` で最初からフルスクリーン Space と共存できているため対象外。
 
 ### 8.4 アップデートの確認
 

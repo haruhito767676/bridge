@@ -115,6 +115,17 @@ Add-Type -Namespace Native -Name Win32 -MemberDefinition @'
 [DllImport("user32.dll")] public static extern uint GetClipboardSequenceNumber();
 [DllImport("kernel32.dll")] public static extern uint GetCurrentThreadId();
 '@
+Add-Type @'
+using System;
+using System.Runtime.InteropServices;
+public struct RECT { public int Left, Top, Right, Bottom; }
+public struct MONITORINFO { public int cbSize; public RECT rcMonitor; public RECT rcWork; public uint dwFlags; }
+public static class NativeMon {
+  [DllImport("user32.dll")] public static extern IntPtr MonitorFromWindow(IntPtr h, uint flags);
+  [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out RECT r);
+  [DllImport("user32.dll")] public static extern bool GetMonitorInfo(IntPtr hMonitor, ref MONITORINFO lpmi);
+}
+'@
 `;
 
 const winShell = {
@@ -749,7 +760,7 @@ function buildTrayMenu() {
   return Menu.buildFromTemplate([
     {
       label: expanded ? 'Bridge を隠す' : 'Bridge を表示',
-      accelerator: TOGGLE_SHORTCUT,
+      accelerator: toggleShortcut,
       click: () => {
         if (!winAlive()) return;
         if (!expanded) placeOnCursorDisplay(false);
@@ -2025,6 +2036,8 @@ function loadSyncConfig() {
     }
     if (typeof parsed.autoPaste === 'boolean') autoPasteEnabled = parsed.autoPaste;
     if (typeof parsed.showSourceApp === 'boolean') showSourceApp = parsed.showSourceApp;
+    if (typeof parsed.toggleShortcut === 'string' && parsed.toggleShortcut.trim()) toggleShortcut = parsed.toggleShortcut.trim();
+    if (typeof parsed.pasteShortcut === 'string' && parsed.pasteShortcut.trim()) pasteShortcut = parsed.pasteShortcut.trim();
   }
 
   // secretToken が未設定なら暗号学的に安全なランダムキーを自動生成して設定ファイルへ書き戻す。
@@ -2761,8 +2774,14 @@ ipcMain.handle('get-settings', () => ({
   peers: syncConfig.peers.slice(),
   port: syncConfig.port,
   openAtLogin: app.getLoginItemSettings().openAtLogin,
-  hotkeyLabel: TOGGLE_SHORTCUT_LABEL,
-  pasteHotkeyLabel: PASTE_SHORTCUT_LABEL,
+  toggleShortcut,
+  pasteShortcut,
+  hotkeyLabel: acceleratorLabel(toggleShortcut),
+  pasteHotkeyLabel: acceleratorLabel(pasteShortcut),
+  defaultToggleShortcut: DEFAULT_TOGGLE_SHORTCUT,
+  defaultToggleShortcutLabel: acceleratorLabel(DEFAULT_TOGGLE_SHORTCUT),
+  defaultPasteShortcut: DEFAULT_PASTE_SHORTCUT,
+  defaultPasteShortcutLabel: acceleratorLabel(DEFAULT_PASTE_SHORTCUT),
   autoPaste: autoPasteEnabled,
   showSourceApp,
   version: app.getVersion(),
@@ -2806,6 +2825,12 @@ ipcMain.handle('save-settings', (_event, incoming) => {
     showSourceApp = incoming.showSourceApp;
     next.showSourceApp = showSourceApp;
   }
+  let hotkeyResult = { toggleOk: true, pasteOk: true };
+  if (typeof incoming.toggleShortcut === 'string' || typeof incoming.pasteShortcut === 'string') {
+    hotkeyResult = applyHotkeys({ toggle: incoming.toggleShortcut, paste: incoming.pasteShortcut });
+    next.toggleShortcut = toggleShortcut;
+    next.pasteShortcut = pasteShortcut;
+  }
 
   let existing = {};
   try {
@@ -2834,7 +2859,14 @@ ipcMain.handle('save-settings', (_event, incoming) => {
   }
   pollAllPeers();
   lastSyncStatusKey = '';
-  return { ok: true };
+  return {
+    ok: true,
+    toggleShortcut,
+    pasteShortcut,
+    hotkeyLabel: acceleratorLabel(toggleShortcut),
+    pasteHotkeyLabel: acceleratorLabel(pasteShortcut),
+    hotkeyError: !hotkeyResult.toggleOk ? 'toggle' : !hotkeyResult.pasteOk ? 'paste' : null,
+  };
 });
 
 // ---- フォルダの自動 .zip 化 (フォルダ除外ガードのアップグレード) ----
@@ -3146,26 +3178,131 @@ async function checkForUpdates({ manual = false } = {}) {
   }
 }
 
-// ---- グローバルホットキー (パネルの表示/非表示トグル) ----
+// ---- グローバルホットキー (設定で変更可能) ----
 // ホバー展開は「マウスが右端に行ったついで」の受動的な導線なので、意図して呼び出す主導線として
 // ホットキーを用意する。ホットキーで開いたときだけ検索バーにフォーカスし、そのまま打ち始められる。
-// macOS: ⌥Space (既定で未割り当て) / Windows・Linux: Ctrl+Shift+Space
-const TOGGLE_SHORTCUT = process.platform === 'darwin' ? 'Alt+Space' : 'Ctrl+Shift+Space';
-const TOGGLE_SHORTCUT_LABEL = process.platform === 'darwin' ? '⌥Space' : 'Ctrl+Shift+Space';
+// キー自体は設定シートで「フィールドをクリックして押す」形式で変更でき、Set-Clipboard 系との
+// 衝突 (Ctrl+Shift+V は多くのアプリで「書式なしで貼り付け」) を各自の環境に合わせて避けられる
+const DEFAULT_TOGGLE_SHORTCUT = process.platform === 'darwin' ? 'Alt+Space' : 'Ctrl+Shift+Space';
+const DEFAULT_PASTE_SHORTCUT = 'CommandOrControl+Shift+V';
+
+let toggleShortcut = DEFAULT_TOGGLE_SHORTCUT;
+let pasteShortcut = DEFAULT_PASTE_SHORTCUT;
+
+// Electron の accelerator 文字列 → 表示用ラベル (⌘⌥⇧⌃ / Ctrl+Alt+Shift+Win)
+function acceleratorLabel(accelerator) {
+  const parts = String(accelerator || '').split('+');
+  const key = parts.pop();
+  const mac = process.platform === 'darwin';
+  const symbols = mac
+    ? { CommandOrControl: '⌘', Command: '⌘', Cmd: '⌘', Control: '⌃', Ctrl: '⌃', Alt: '⌥', Option: '⌥', Shift: '⇧', Super: '⌘' }
+    : { CommandOrControl: 'Ctrl', Command: 'Win', Cmd: 'Win', Control: 'Ctrl', Ctrl: 'Ctrl', Alt: 'Alt', Option: 'Alt', Shift: 'Shift', Super: 'Win' };
+  const mods = parts.map((p) => symbols[p] || p);
+  const keyLabel = key === 'Space' ? 'Space' : key;
+  return mac ? [...mods, keyLabel].join('') : [...mods, keyLabel].join('+');
+}
+
+function unregisterHotkeys() {
+  try {
+    globalShortcut.unregister(toggleShortcut);
+  } catch {
+    // 未登録なら何もしない
+  }
+  try {
+    globalShortcut.unregister(pasteShortcut);
+  } catch {
+    // 同上
+  }
+}
+
+// 1 つだけ登録し直す。成功したら true。失敗時 (他アプリ・OS 予約済み) は登録を戻さず false を返す
+function registerOneHotkey(accelerator, handler) {
+  try {
+    const ok = globalShortcut.register(accelerator, handler);
+    if (!ok) logEvent('hotkey', `登録に失敗 (使用中): ${accelerator}`);
+    return ok;
+  } catch (err) {
+    logEvent('hotkey', `登録エラー: ${accelerator} (${err.message})`);
+    return false;
+  }
+}
 
 function registerToggleShortcut() {
-  try {
-    const ok = globalShortcut.register(TOGGLE_SHORTCUT, () => {
+  registerOneHotkey(toggleShortcut, () => {
+    if (!winAlive()) return;
+    if (!expanded) placeOnCursorDisplay(false);
+    toggleShelter();
+  });
+  registerOneHotkey(pasteShortcut, () => togglePastePopup());
+}
+
+// 設定シートからの変更を反映する。それぞれ独立に検証し、どちらかが失敗しても他方は適用する。
+// 戻り値: { toggleOk, pasteOk } (失敗した方は元の値のまま据え置き、呼び出し側が保存有無を決める)
+function applyHotkeys({ toggle, paste }) {
+  const result = { toggleOk: true, pasteOk: true };
+  if (typeof toggle === 'string' && toggle !== toggleShortcut) {
+    globalShortcut.unregister(toggleShortcut);
+    const ok = registerOneHotkey(toggle, () => {
       if (!winAlive()) return;
       if (!expanded) placeOnCursorDisplay(false);
       toggleShelter();
     });
-    if (!ok) console.error('ホットキーの登録に失敗 (他のアプリが使用中):', TOGGLE_SHORTCUT);
-    const okPaste = globalShortcut.register(PASTE_SHORTCUT, () => togglePastePopup());
-    if (!okPaste) console.error('ホットキーの登録に失敗 (他のアプリが使用中):', PASTE_SHORTCUT);
-  } catch (err) {
-    console.error('ホットキーの登録に失敗:', err);
+    if (ok) toggleShortcut = toggle;
+    else {
+      registerOneHotkey(toggleShortcut, () => {
+        if (!winAlive()) return;
+        if (!expanded) placeOnCursorDisplay(false);
+        toggleShelter();
+      }); // 失敗したので元のキーへ登録し直す
+      result.toggleOk = false;
+    }
   }
+  if (typeof paste === 'string' && paste !== pasteShortcut) {
+    globalShortcut.unregister(pasteShortcut);
+    const ok = registerOneHotkey(paste, () => togglePastePopup());
+    if (ok) pasteShortcut = paste;
+    else {
+      registerOneHotkey(pasteShortcut, () => togglePastePopup());
+      result.pasteOk = false;
+    }
+  }
+  return result;
+}
+
+// ---- 全画面アプリの上では自動で隠す (設定なしの既定動作) ----
+// Windows のタスクバー通知や macOS のメニューバー / Dock と同じく、動画・ゲームなどの
+// 全画面表示を邪魔しないことを OS 標準の振る舞いとして扱う (オンオフの設定は設けない)
+let hiddenForFullscreen = false;
+
+
+function checkFullscreenAndHide() {
+  if (process.platform !== 'win32') return;
+  // 前面ウインドウの矩形が、そのモニターの矩形とちょうど一致するか (= 排他的フルスクリーン)。
+  // Win32 の型は WIN_HELPER_INIT で一度だけ定義済みの NativeMon を使う
+  const script = [
+    '$h = [Native.Win32]::GetForegroundWindow()',
+    'if ($h -eq [IntPtr]::Zero) { "0" } else {',
+    '  $mon = [NativeMon]::MonitorFromWindow($h, 2)',
+    '  $mi = New-Object MONITORINFO; $mi.cbSize = [System.Runtime.InteropServices.Marshal]::SizeOf($mi)',
+    '  [NativeMon]::GetMonitorInfo($mon, [ref]$mi) | Out-Null',
+    '  $wr = New-Object RECT',
+    '  [NativeMon]::GetWindowRect($h, [ref]$wr) | Out-Null',
+    '  if ($wr.Left -le $mi.rcMonitor.Left -and $wr.Top -le $mi.rcMonitor.Top -and $wr.Right -ge $mi.rcMonitor.Right -and $wr.Bottom -ge $mi.rcMonitor.Bottom) { "1" } else { "0" }',
+    '}',
+  ].join('; ');
+  winShellRun(script)
+    .then((out) => {
+      const fullscreen = out.trim() === '1';
+      if (fullscreen === hiddenForFullscreen) return;
+      hiddenForFullscreen = fullscreen;
+      for (const tab of tabWindows.values()) {
+        if (tab.isDestroyed()) continue;
+        if (fullscreen) tab.hide();
+        else if (!tab.isVisible()) tab.showInactive();
+      }
+      if (fullscreen && expanded) collapseShelterNow();
+    })
+    .catch(() => {}); // 判定できなくても実害はない (単に隠れないだけ)
 }
 
 app.whenReady().then(() => {
@@ -3182,6 +3319,7 @@ app.whenReady().then(() => {
     }
   }
   registerToggleShortcut();
+  if (IS_WINDOWS) setInterval(checkFullscreenAndHide, 1500);
   startClipboardWatcher();
   startEdgeRevealWatcher();
   startDeviceSync();

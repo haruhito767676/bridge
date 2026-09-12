@@ -1187,6 +1187,49 @@ body.settings-open #shelf-footer {
   font-size: 11px;
 }
 
+/* ショートカットキーの編集行: ラベル + 「フィールドをクリックして押す」フィールド + 既定に戻すボタン */
+.hotkey-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.hotkey-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--fg-secondary);
+}
+
+.hotkey-field {
+  flex-shrink: 0;
+  min-width: 110px;
+  height: 26px;
+  padding: 0 10px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  text-align: center;
+  border: none;
+  border-radius: var(--radius-s);
+  background: var(--fill);
+  color: var(--fg);
+}
+
+.hotkey-field:hover {
+  background: var(--fill-hover);
+}
+
+.hotkey-field.recording {
+  background: var(--accent-tint);
+  color: var(--accent);
+  box-shadow: 0 0 0 1.5px var(--accent);
+}
+
+.hotkey-field.conflict {
+  box-shadow: 0 0 0 1.5px var(--destructive);
+}
+
 .push-button {
   height: 24px;
   padding: 0 10px;
@@ -1386,6 +1429,10 @@ body.platform-win32 .push-button.primary {
 body.platform-win32 .text-field {
   border-radius: var(--radius-s);
   box-shadow: inset 0 -1px 0 var(--fg-tertiary);
+}
+
+body.platform-win32 .hotkey-field {
+  border: 1px solid var(--divider);
 }
 
 body.platform-win32 .text-field:focus {

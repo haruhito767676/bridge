@@ -1019,6 +1019,8 @@ function moveSelection(delta, extend) {
 }
 
 document.addEventListener('keydown', (e) => {
+  // ショートカットキーの録音中は、リスト操作のショートカットや ⌘A などに奪わせない
+  if (capturingHotkey) return;
   // 設定シートやテキスト入力中はリスト操作のショートカットを奪わない
   if (e.target === searchBar) return;
   if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
@@ -1697,6 +1699,136 @@ window.bridge
   })
   .catch(() => {});
 
+// ---- ショートカットキーの録音 (「フィールドをクリックして押す」方式) ----
+// OS 設定アプリやターミナルの類似 UI と同じ: フィールドをクリックすると次に押した組み合わせを
+// そのまま記録する。プリセットからの選択ではなく実際のキー入力を取るので、他アプリとの衝突を
+// 各自の環境に合わせて自由に避けられる
+let capturingHotkey = false;
+
+const MODIFIER_CODES = new Set(['ControlLeft', 'ControlRight', 'AltLeft', 'AltRight', 'ShiftLeft', 'ShiftRight', 'MetaLeft', 'MetaRight']);
+
+// 電子 (Electron) の accelerator 文字列に使えるキー名。実用上よく使うものだけをサポートする
+function acceleratorKeyName(e) {
+  if (e.code.startsWith('Key')) return e.code.slice(3); // KeyV → V
+  if (e.code.startsWith('Digit')) return e.code.slice(5); // Digit1 → 1
+  if (e.code.startsWith('Numpad') && /^Numpad\d$/.test(e.code)) return `num${e.code.slice(6)}`;
+  if (/^F\d{1,2}$/.test(e.code)) return e.code; // F1..F24
+  if (e.code.startsWith('Arrow')) return e.code.slice(5); // ArrowUp → Up
+  const named = {
+    Space: 'Space',
+    Tab: 'Tab',
+    Enter: 'Return',
+    Backspace: 'Backspace',
+    Delete: 'Delete',
+    Home: 'Home',
+    End: 'End',
+    PageUp: 'PageUp',
+    PageDown: 'PageDown',
+    Comma: ',',
+    Period: '.',
+    Slash: '/',
+    Semicolon: ';',
+    Quote: "'",
+    BracketLeft: '[',
+    BracketRight: ']',
+    Backslash: '\\',
+    Minus: '-',
+    Equal: '=',
+    Backquote: '`',
+  };
+  return named[e.code] || null;
+}
+
+// キーイベントから { accelerator, label } を作る。修飾キーが 1 つも無い、または
+// 対応していないキーのときは null (呼び出し側は録音を続ける)
+function eventToAccelerator(e) {
+  const keyName = acceleratorKeyName(e);
+  if (!keyName) return null;
+  const mods = [];
+  if (IS_MAC) {
+    if (e.metaKey) mods.push('Command');
+    if (e.ctrlKey) mods.push('Control');
+  } else {
+    if (e.ctrlKey) mods.push('Control');
+    if (e.metaKey) mods.push('Super'); // Windows キー
+  }
+  if (e.altKey) mods.push('Alt');
+  if (e.shiftKey) mods.push('Shift');
+  // グローバルホットキーとして安全な組み合わせにするため、Shift 以外の修飾キーを 1 つ以上要求する
+  if (!mods.some((m) => m !== 'Shift')) return null;
+  const accelerator = [...mods, keyName].join('+');
+  const symbols = IS_MAC
+    ? { Command: '⌘', Control: '⌃', Alt: '⌥', Shift: '⇧' }
+    : { Control: 'Ctrl', Super: 'Win', Alt: 'Alt', Shift: 'Shift' };
+  const label = IS_MAC
+    ? [...mods.map((m) => symbols[m]), keyName].join('')
+    : [...mods.map((m) => symbols[m]), keyName].join('+');
+  return { accelerator, label };
+}
+
+// フィールドを「録音中」にする。次の有効なキー入力で確定し、Esc または他所クリックで取り消す
+function startHotkeyCapture(button) {
+  if (capturingHotkey) stopHotkeyCapture(false);
+  capturingHotkey = true;
+  button.classList.add('recording');
+  button.classList.remove('conflict');
+  const previousLabel = button.textContent;
+  button.textContent = '押してください…';
+
+  const onKeydown = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.code === 'Escape' && !e.ctrlKey && !e.altKey && !e.metaKey) {
+      stopHotkeyCapture(false, previousLabel);
+      return;
+    }
+    if (MODIFIER_CODES.has(e.code)) return; // 修飾キー単体では確定しない。押しっぱなしの続きを待つ
+    const result = eventToAccelerator(e);
+    if (!result) {
+      // Ctrl/Alt/Cmd を含まない組み合わせは受け付けない。一瞬赤くして録音は続ける
+      button.classList.add('conflict');
+      setTimeout(() => button.classList.remove('conflict'), 300);
+      return;
+    }
+    button.dataset.accelerator = result.accelerator;
+    stopHotkeyCapture(true, result.label);
+  };
+
+  const onBlur = () => stopHotkeyCapture(false, previousLabel);
+
+  button.addEventListener('keydown', onKeydown);
+  button.addEventListener('blur', onBlur);
+  button._hotkeyCleanup = () => {
+    button.removeEventListener('keydown', onKeydown);
+    button.removeEventListener('blur', onBlur);
+  };
+  button.focus();
+
+  function stopHotkeyCapture(committed, label) {
+    capturingHotkey = false;
+    button.classList.remove('recording');
+    if (button._hotkeyCleanup) {
+      button._hotkeyCleanup();
+      button._hotkeyCleanup = null;
+    }
+    if (typeof label === 'string') button.textContent = label;
+  }
+}
+
+function setupHotkeyField(button, resetButton, initialAccelerator, initialLabel) {
+  button.dataset.accelerator = initialAccelerator;
+  button.textContent = initialLabel;
+  button.addEventListener('click', () => startHotkeyCapture(button));
+  resetButton.addEventListener('click', () => {
+    const def = button.dataset.default;
+    const defLabel = button.dataset.defaultLabel;
+    if (def) {
+      button.dataset.accelerator = def;
+      button.textContent = defLabel || def;
+    }
+  });
+}
+
 // ---- 8. 設定シート ----
 
 const settingsSheet = document.getElementById('settings-sheet');
@@ -1712,6 +1844,12 @@ const settingAutoPaste = document.getElementById('setting-autopaste');
 const settingSourceApp = document.getElementById('setting-sourceapp');
 const settingSourceAppHelp = document.getElementById('setting-sourceapp-help');
 const settingPasteHelp = document.getElementById('setting-paste-help');
+const settingHotkeyToggle = document.getElementById('setting-hotkey-toggle');
+const settingHotkeyToggleReset = document.getElementById('setting-hotkey-toggle-reset');
+const settingHotkeyPaste = document.getElementById('setting-hotkey-paste');
+const settingHotkeyPasteReset = document.getElementById('setting-hotkey-paste-reset');
+setupHotkeyField(settingHotkeyToggle, settingHotkeyToggleReset, '', '');
+setupHotkeyField(settingHotkeyPaste, settingHotkeyPasteReset, '', '');
 
 function renderPeerList() {
   settingPeerList.textContent = '';
@@ -1759,7 +1897,15 @@ async function openSettings() {
     settingSourceAppHelp.textContent = IS_MAC
       ? 'テキストや画像の行に、コピーしたときに使っていたアプリのアイコンを小さく重ねます。'
       : 'コピーのたびに PowerShell を起動するため、Windows では少し重くなります。';
-    settingHotkeyHelp.textContent = `${s.hotkeyLabel} でパネルの表示 / 非表示、${s.pasteHotkeyLabel} でカーソルの近くに履歴を出せます。Bridge ${s.version}`;
+    settingHotkeyToggle.dataset.accelerator = s.toggleShortcut || '';
+    settingHotkeyToggle.dataset.default = s.defaultToggleShortcut || '';
+    settingHotkeyToggle.dataset.defaultLabel = s.defaultToggleShortcutLabel || '';
+    settingHotkeyToggle.textContent = s.hotkeyLabel || '';
+    settingHotkeyPaste.dataset.accelerator = s.pasteShortcut || '';
+    settingHotkeyPaste.dataset.default = s.defaultPasteShortcut || '';
+    settingHotkeyPaste.dataset.defaultLabel = s.defaultPasteShortcutLabel || '';
+    settingHotkeyPaste.textContent = s.pasteHotkeyLabel || '';
+    settingHotkeyHelp.textContent = 'フィールドをクリックして押したいキーの組み合わせを押してください。Ctrl / Alt / ⌘ のいずれかを含める必要があります。Bridge ' + (s.version || '');
     settingPasteHelp.textContent = IS_MAC
       ? '自動ペーストには「システム設定 > プライバシーとセキュリティ > アクセシビリティ」で Bridge の許可が必要です。'
       : '';
@@ -1790,10 +1936,34 @@ async function saveSettings() {
     openAtLogin: settingLogin.checked,
     autoPaste: settingAutoPaste.checked,
     showSourceApp: settingSourceApp.checked,
+    toggleShortcut: settingHotkeyToggle.dataset.accelerator || undefined,
+    pasteShortcut: settingHotkeyPaste.dataset.accelerator || undefined,
   };
   try {
     const result = await window.bridge.saveSettings(payload);
     if (result && result.ok) {
+      // 実際に登録できたキーへ表示を合わせる (競合で失敗していれば元のキーに戻っている)
+      if (result.toggleShortcut) {
+        settingHotkeyToggle.dataset.accelerator = result.toggleShortcut;
+        settingHotkeyToggle.textContent = result.hotkeyLabel || settingHotkeyToggle.textContent;
+      }
+      if (result.pasteShortcut) {
+        settingHotkeyPaste.dataset.accelerator = result.pasteShortcut;
+        settingHotkeyPaste.textContent = result.pasteHotkeyLabel || settingHotkeyPaste.textContent;
+      }
+      if (result.hotkeyError) {
+        const field = result.hotkeyError === 'toggle' ? settingHotkeyToggle : settingHotkeyPaste;
+        field.classList.add('conflict');
+        setTimeout(() => field.classList.remove('conflict'), 1500);
+        showToast({
+          icon: 'warning',
+          title: 'そのキーの組み合わせは使用中です',
+          sub: '他の設定は保存し、このショートカットだけ元のキーに戻しました',
+          accent: 'amber',
+          durationMs: 5000,
+        });
+        return; // シートは開いたまま、もう一度試せるようにする
+      }
       closeSettings();
       showToast({ icon: 'check', title: '設定を保存しました', durationMs: 2000 });
       window.bridge.getDeviceInfo().then((info) => {
