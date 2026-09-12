@@ -27,6 +27,9 @@
       "popup.html",
       "popup.js",
       "popup.css",
+      "tab.html",
+      "tab.js",
+      "tab.css",
       "lib/**/*",
       "assets/**/*"
     ],

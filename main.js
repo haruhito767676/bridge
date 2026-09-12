@@ -33,6 +33,7 @@ const {
   sanitizeSyncFileName,
   extractFileUrlPaths,
   extractWindowsAbsolutePaths,
+  extractWholeTextPaths,
   syncMetadata,
   compareVersions,
 } = require('./lib/sync-utils');
@@ -81,6 +82,131 @@ function setSyncPaused(paused) {
   syncPaused = Boolean(paused);
   lastSyncStatusKey = '';
   broadcastSyncStatus();
+}
+
+// ---- Windows: 常駐 PowerShell ヘルパー ----
+// 前面ウインドウの取得と復帰・複数ファイルのコピー検知・クリップボード連番など、Electron からは
+// 触れない Win32 API を 1 つの PowerShell プロセスに任せる。毎回起動すると数百 ms かかるため
+// 起動しっぱなしにして標準入出力で命令する (命令は Base64 の 1 行、応答は <<END>> 番兵まで)
+const WIN_HELPER_LOOP = [
+  '[Console]::InputEncoding = [System.Text.Encoding]::UTF8',
+  '[Console]::OutputEncoding = [System.Text.Encoding]::UTF8',
+  'while ($true) {',
+  '  $line = [Console]::In.ReadLine()',
+  '  if ($null -eq $line) { break }',
+  '  try {',
+  '    $script = [System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($line))',
+  '    Invoke-Expression $script',
+  '  } catch {',
+  "    Write-Output ('<<ERR>>' + $_.Exception.Message)",
+  '  }',
+  "  Write-Output '<<END>>'",
+  '}',
+].join('; ');
+
+const WIN_HELPER_INIT = `
+$ErrorActionPreference = 'Stop'
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -Namespace Native -Name Win32 -MemberDefinition @'
+[DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+[DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
+[DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint procId);
+[DllImport("user32.dll")] public static extern bool AttachThreadInput(uint idAttach, uint idAttachTo, bool fAttach);
+[DllImport("user32.dll")] public static extern uint GetClipboardSequenceNumber();
+[DllImport("kernel32.dll")] public static extern uint GetCurrentThreadId();
+'@
+`;
+
+const winShell = {
+  proc: null,
+  queue: [], // { script, resolve, reject, timer }
+  current: null,
+  buffer: '',
+  initialized: false,
+};
+
+function winShellSpawn() {
+  if (winShell.proc) return;
+  const { spawn } = require('child_process');
+  const proc = spawn(
+    'powershell.exe',
+    ['-NoProfile', '-NonInteractive', '-NoLogo', '-ExecutionPolicy', 'Bypass', '-Command', WIN_HELPER_LOOP],
+    { windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] }
+  );
+  winShell.proc = proc;
+  winShell.buffer = '';
+  winShell.initialized = false;
+  proc.stdout.setEncoding('utf8');
+  proc.stdout.on('data', (chunk) => {
+    winShell.buffer += chunk;
+    let idx;
+    while ((idx = winShell.buffer.indexOf('<<END>>')) !== -1) {
+      const raw = winShell.buffer.slice(0, idx);
+      winShell.buffer = winShell.buffer.slice(idx + '<<END>>'.length).replace(/^\r?\n/, '');
+      const job = winShell.current;
+      winShell.current = null;
+      if (!job) continue;
+      clearTimeout(job.timer);
+      const errIdx = raw.indexOf('<<ERR>>');
+      if (errIdx !== -1) job.reject(new Error(raw.slice(errIdx + 7).trim()));
+      else job.resolve(raw.replace(/\r/g, '').trim());
+      winShellNext();
+    }
+  });
+  proc.stderr.on('data', () => {});
+  proc.on('exit', () => {
+    winShell.proc = null;
+    const job = winShell.current;
+    winShell.current = null;
+    if (job) {
+      clearTimeout(job.timer);
+      job.reject(new Error('PowerShell ヘルパーが終了しました'));
+    }
+    // 残っている命令は次の spawn で処理する
+    if (winShell.queue.length > 0) setTimeout(winShellNext, 200);
+  });
+  // 最初の命令として Win32 API の定義を流す
+  winShell.queue.unshift({
+    script: WIN_HELPER_INIT,
+    resolve: () => {
+      winShell.initialized = true;
+    },
+    reject: (err) => logEvent('winshell', `初期化に失敗: ${err.message}`),
+    timer: null,
+  });
+}
+
+function winShellNext() {
+  if (winShell.current || winShell.queue.length === 0) return;
+  if (!winShell.proc) {
+    winShellSpawn();
+  }
+  const job = winShell.queue.shift();
+  winShell.current = job;
+  job.timer = setTimeout(() => {
+    // 応答が無い (ハング) ときはプロセスごと捨てて作り直す
+    if (winShell.current === job) {
+      winShell.current = null;
+      job.reject(new Error('PowerShell ヘルパーがタイムアウトしました'));
+      if (winShell.proc) winShell.proc.kill();
+    }
+  }, 8000);
+  try {
+    winShell.proc.stdin.write(Buffer.from(job.script, 'utf8').toString('base64') + '\n');
+  } catch (err) {
+    winShell.current = null;
+    clearTimeout(job.timer);
+    job.reject(err);
+  }
+}
+
+// PowerShell の式を実行して標準出力 (トリム済み) を返す。Windows 以外では常に失敗する
+function winShellRun(script) {
+  if (process.platform !== 'win32') return Promise.reject(new Error('Windows 専用'));
+  return new Promise((resolve, reject) => {
+    winShell.queue.push({ script, resolve, reject, timer: null });
+    winShellNext();
+  });
 }
 
 // ---- 診断ログ (userData/bridge.log) ----
@@ -293,8 +419,68 @@ function placeDockInstantly(display, shown) {
   dockSpring.value = shown ? 1 : 0;
   dockSpring.target = dockSpring.value;
   dockSpring.velocity = 0;
+  if (IS_WINDOWS) {
+    // Windows ではつまみは別ウインドウ (各モニターに 1 つ) なので、シェルフは格納 = 非表示
+    if (shown) {
+      win.setBounds(dockedBoundsForDisplay(display, true), false);
+      if (!win.isVisible()) win.showInactive();
+    } else {
+      win.hide();
+    }
+    return;
+  }
   win.setBounds(dockedBoundsForDisplay(display, shown), false);
 }
+
+// ---- Windows: モニターごとの「つまみ」ウインドウ ----
+// シェルフ本体は 1 枚だが、つまみは全モニターの右端に 1 つずつ置く。どのつまみに触れても
+// そのモニターにシェルフを出す。カーソル座標は使わず、つまみウインドウ自身のホバーで判定する
+const tabWindows = new Map(); // displayId → BrowserWindow
+
+function createTabWindow(display) {
+  const bounds = dockedBoundsForDisplay(display, false);
+  const tab = new BrowserWindow({
+    ...bounds,
+    show: false,
+    frame: false,
+    transparent: true,
+    hasShadow: false,
+    resizable: false,
+    movable: false,
+    minimizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    focusable: false, // ホバーやクリックで作業中のアプリからフォーカスを奪わない
+    skipTaskbar: true,
+    alwaysOnTop: true,
+    type: 'toolbar',
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+  tab.loadFile('tab.html', { query: { display: String(display.id) } });
+  tab.once('ready-to-show', () => {
+    if (!tab.isDestroyed()) tab.showInactive();
+  });
+  tabWindows.set(display.id, tab);
+}
+
+function refreshTabWindows() {
+  if (!IS_WINDOWS) return;
+  for (const tab of tabWindows.values()) {
+    if (!tab.isDestroyed()) tab.destroy();
+  }
+  tabWindows.clear();
+  for (const display of screen.getAllDisplays()) createTabWindow(display);
+}
+
+ipcMain.on('tab-activate', (_event, displayId) => {
+  const display = screen.getAllDisplays().find((d) => String(d.id) === String(displayId));
+  if (!display) return;
+  expandShelter({ display });
+});
 
 // ウインドウを表示 (show/focus) する直前に、カーソルのあるディスプレイの
 // workArea 基準で計算した右端座標へ強制配置する。
@@ -310,6 +496,7 @@ function placeOnCursorDisplay(shown) {
 // 格納時には必ず元のアプリへ返す (クリックでコピー → そのまま ⌘V できる状態にする)
 function releaseFocus() {
   if (!winAlive() || !win.isFocused()) return;
+  if (IS_WINDOWS) return; // 格納時にウインドウごと隠すので、Windows が前面を次のウインドウへ返す
   // blur() (orderBack) ではキーウインドウを手放さないため、一度隠して非アクティブで出し直す。
   // 常に表示されているつまみが 1 フレーム消えるだけで、次のキー入力は元のアプリへ戻る
   win.hide();
@@ -317,7 +504,7 @@ function releaseFocus() {
 }
 
 // focus: true は明示的な呼び出し (ホットキー等)。展開後に検索バーへフォーカスする
-function expandShelter({ focus = false } = {}) {
+function expandShelter({ focus = false, display: targetDisplay = null } = {}) {
   if (!winAlive()) return;
   if (collapseTimer) {
     clearTimeout(collapseTimer);
@@ -331,7 +518,7 @@ function expandShelter({ focus = false } = {}) {
   // 比較相手は「いまドックしているディスプレイ」。アニメーション中のウインドウ矩形から
   // getDisplayMatching で求めると、画面外へ滑り出した瞬間に隣のディスプレイと判定されて
   // 閉じる → 開き直すを繰り返す (マルチモニターでの暴れの原因)
-  const display = currentDisplay();
+  const display = targetDisplay || currentDisplay();
   const sameDisplay = dockSpring.display ? display.id === dockSpring.display.id : false;
   if (expanded && sameDisplay) {
     if (focus) {
@@ -622,7 +809,7 @@ function createWindow() {
     // (クリックしても作業中のアプリが背面に下がらない)
     ...(process.platform === 'darwin' ? { type: 'panel' } : {}),
     // Windows: ツールウインドウにしてタスクバーと Alt+Tab に出さない (常駐パネルとして振る舞う)
-    ...(process.platform === 'win32' ? { type: 'toolbar' } : {}),
+    ...(process.platform === 'win32' ? { type: 'toolbar', show: false } : {}),
     skipTaskbar: true,
     title: 'Bridge',
     // Apple ライクなすりガラス背景 (macOS の vibrancy)。
@@ -1112,7 +1299,6 @@ async function getFrontmostAppMac() {
 
 // GetForegroundWindow → そのプロセスの exe パスを取得する。ウインドウタイトルは取得しない
 const WIN_FRONT_APP_PS = [
-  'Add-Type -MemberDefinition \'[DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow(); [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint procId);\' -Name Win32 -Namespace Native | Out-Null',
   '$hwnd = [Native.Win32]::GetForegroundWindow()',
   '$procId = 0',
   '[Native.Win32]::GetWindowThreadProcessId($hwnd, [ref]$procId) | Out-Null',
@@ -1120,12 +1306,7 @@ const WIN_FRONT_APP_PS = [
 ].join('; ');
 
 async function getFrontmostAppWindows() {
-  const { stdout } = await execFileAsync(
-    'powershell',
-    ['-NoProfile', '-NonInteractive', '-Command', WIN_FRONT_APP_PS],
-    { timeout: 2000, windowsHide: true }, // コンソール窓を一瞬でも出さない
-  );
-  const exePath = stdout.trim();
+  const exePath = await winShellRun(WIN_FRONT_APP_PS);
   if (!exePath) return null;
   const name = path.basename(exePath).replace(/\.exe$/i, '');
   const icon = await getExeIconDataUrl(exePath);
@@ -1261,17 +1442,41 @@ function readCopiedFilePathsMac() {
 // これを最優先で読む。ただし CF_FILENAMEW は仕様上 1 ファイル分しか保持できず、Electron から
 // CF_HDROP (複数ファイルの本来のフォーマット) を読む手段が無いため、複数選択時も先頭の 1 件だけが
 // 取れる制約が残る (ベストエフォート)
-function readCopiedFilePathsWindows() {
+let lastFileNameWKey = '';
+let lastFileDropList = [];
+
+async function readCopiedFilePathsWindows() {
   let paths = [];
+  let fileNameW = '';
 
   try {
     const buf = clipboard.readBuffer('FileNameW');
-    if (buf && buf.length > 0) {
-      const p = buf.toString('utf16le').replace(/\u0000+$/, '').trim();
-      if (p) paths.push(p);
-    }
+    if (buf && buf.length > 0) fileNameW = buf.toString('utf16le').replace(/\u0000+$/, '').trim();
   } catch {
     // フォーマットが無い環境では読み出し自体が失敗するので無視
+  }
+
+  if (fileNameW) {
+    // CF_FILENAMEW は 1 件しか持てないため、常駐ヘルパーの Get-Clipboard -Format FileDropList で
+    // 選択された全ファイルを取る。同じコピーが載り続けている間は前回の結果を使い回す
+    if (fileNameW === lastFileNameWKey && lastFileDropList.length > 0) {
+      paths = lastFileDropList.slice();
+    } else {
+      try {
+        const out = await winShellRun(
+          '$f = Get-Clipboard -Format FileDropList; if ($f) { $f | ForEach-Object { $_.FullName } }'
+        );
+        paths = out ? out.split(/\r?\n/).map((s) => s.trim()).filter(Boolean) : [];
+      } catch {
+        paths = [];
+      }
+      if (paths.length === 0) paths = [fileNameW];
+      lastFileNameWKey = fileNameW;
+      lastFileDropList = paths.slice();
+    }
+  } else {
+    lastFileNameWKey = '';
+    lastFileDropList = [];
   }
 
   // 保険: 将来の Electron/Chromium の挙動変更や、text/uri-list・独自 MIME データに
@@ -1293,10 +1498,10 @@ function readCopiedFilePathsWindows() {
     }
   }
 
+  // プレーンテキストは「テキスト全体がパスだけで構成されている」ときに限ってファイル扱いにする。
+  // ターミナルのプロンプト行のように、文中に "C:\..." が含まれるだけのコピーをファイルと誤認しない
   if (paths.length === 0) {
-    const plain = clipboard.readText();
-    paths = extractFileUrlPaths(plain);
-    if (paths.length === 0) paths = extractWindowsAbsolutePaths(plain);
+    paths = extractWholeTextPaths(clipboard.readText());
   }
 
   // 誤検知したただの文字列を弾くため、実在するパスだけを残す
@@ -1309,7 +1514,7 @@ function readCopiedFilePathsWindows() {
   });
 }
 
-function readCopiedFilePaths() {
+async function readCopiedFilePaths() {
   return process.platform === 'win32' ? readCopiedFilePathsWindows() : readCopiedFilePathsMac();
 }
 
@@ -1348,6 +1553,19 @@ function clipboardImageSignature(formats) {
   }
   return `${formats.join(',')}|${length}`;
 }
+
+// Windows: Snipping Tool (Win+Shift+S) などは PNG 形式を載せないため長さで区別できない。
+// その場合は OS のクリップボード連番 (GetClipboardSequenceNumber、変更のたびに増える) を署名にする
+async function clipboardImageSignatureAsync(formats) {
+  const base = clipboardImageSignature(formats);
+  if (process.platform !== 'win32' || !base.endsWith('|0')) return base;
+  try {
+    const seq = await winShellRun('[Native.Win32]::GetClipboardSequenceNumber()');
+    return `${base}|seq:${seq}`;
+  } catch {
+    return base;
+  }
+}
 let lastImageSignature = '';
 
 async function pollClipboard() {
@@ -1358,7 +1576,7 @@ async function pollClipboard() {
     // 停止中にコピーした内容がまとめて載ることを防ぐ
     if (clipboardPaused) {
       lastClipText = clipboard.readText();
-      lastClipFileKey = readCopiedFilePaths().join('\n');
+      lastClipFileKey = (await readCopiedFilePaths()).join('\n');
       const formats = clipboard.availableFormats();
       lastImageSignature = formats.some((f) => f.startsWith('image/')) ? clipboardImageSignature(formats) : '';
       return;
@@ -1375,7 +1593,7 @@ async function pollClipboard() {
     // ファイル: Finder で ⌘C されたファイルを最優先で検知し、リストへ自動追加する。
     // ファイルコピー時はパス文字列などの付随テキストも載るため、その tick の
     // テキスト/画像判定はスキップして誤検知 (偽のテキスト履歴) を防ぐ
-    const copiedFiles = readCopiedFilePaths();
+    const copiedFiles = await readCopiedFilePaths();
     if (copiedFiles.length > 0) {
       const key = copiedFiles.join('\n');
       if (key !== lastClipFileKey) {
@@ -1418,7 +1636,7 @@ async function pollClipboard() {
     const hasImage = formats.some((f) => f.startsWith('image/'));
     if (hasImage) {
       // 安価な署名が前回と同じなら、デコードもハッシュもせずに終える
-      const signature = clipboardImageSignature(formats);
+      const signature = await clipboardImageSignatureAsync(formats);
       if (signature === lastImageSignature) return;
       lastImageSignature = signature;
 
@@ -1459,7 +1677,7 @@ async function pollClipboard() {
   }
 }
 
-function startClipboardWatcher() {
+async function startClipboardWatcher() {
   // 起動時点でクリップボードに入っている内容は履歴に入れない (基準値として記録するだけ)。
   // 初期読み取りが環境依存で失敗しても、監視の定期実行そのものは必ず開始する
   try {
@@ -1470,7 +1688,7 @@ function startClipboardWatcher() {
       const image = clipboard.readImage();
       lastClipImageKey = image.isEmpty() ? '' : imageKey(image);
     }
-    lastClipFileKey = readCopiedFilePaths().join('\n');
+    lastClipFileKey = (await readCopiedFilePaths()).join('\n');
   } catch (err) {
     console.error('クリップボードの初期読み取りに失敗:', err);
   }
@@ -1498,10 +1716,7 @@ ipcMain.on('clipboard-write-text', (_event, text) => {
 // 実ファイル添付として乗るようにする
 function writeFilesToWindowsClipboard(paths) {
   const psLiteral = (s) => `'${s.replace(/'/g, "''")}'`;
-  const script = `Set-Clipboard -LiteralPath @(${paths.map(psLiteral).join(',')})`;
-  return execFileAsync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], {
-    windowsHide: true,
-  });
+  return winShellRun(`Set-Clipboard -LiteralPath @(${paths.map(psLiteral).join(',')})`);
 }
 
 // パスを OS の「ファイル形式」でクリップボードへ。
@@ -1702,6 +1917,10 @@ ipcMain.on('delete-temp-file', (_event, filePath) => {
 app.on('will-quit', () => {
   globalShortcut.unregisterAll();
   if (popupAlive()) popupWin.destroy();
+  for (const tab of tabWindows.values()) {
+    if (!tab.isDestroyed()) tab.destroy();
+  }
+  if (winShell.proc) winShell.proc.kill();
   // 最後の一覧を必ず書き出してから、リストに残っていない裏生成ファイルを掃除する
   if (historyWriteTimer) clearTimeout(historyWriteTimer);
   for (const p of sessionTempFiles) {
@@ -2764,6 +2983,16 @@ function popupItems() {
 
 function showPastePopup() {
   if (!popupAlive()) createPopupWindow();
+  if (process.platform === 'win32') {
+    // ペースト先をポップアップが前面になる前に控える (ヘルパーは常駐なので数十 ms)
+    pasteTargetHwnd = null;
+    winShellRun('[Native.Win32]::GetForegroundWindow().ToInt64()')
+      .then((out) => {
+        const n = Number(out);
+        if (Number.isFinite(n) && n > 0) pasteTargetHwnd = n;
+      })
+      .catch(() => {});
+  }
   const cursor = screen.getCursorScreenPoint();
   const area = screen.getDisplayNearestPoint(cursor).workArea;
   // カーソルのすぐ右下。画面からはみ出すなら内側へ寄せる
@@ -2822,16 +3051,39 @@ function sendPasteKeystroke() {
     return true;
   }
   if (process.platform === 'win32') {
-    execFile(
-      'powershell.exe',
-      ['-NoProfile', '-NonInteractive', '-Command', 'Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait("^v")'],
-      { windowsHide: true },
-      () => {}
-    );
+    // ポップアップを隠しただけでは前面が元のアプリに戻る保証がないため、
+    // ポップアップを出す前に控えておいた前面ウインドウを明示的に前面へ戻してから Ctrl+V を送る。
+    // SetForegroundWindow が拒否されたときは AttachThreadInput で入力キューを結合して再試行する
+    const hwnd = pasteTargetHwnd;
+    const script = [
+      hwnd
+        ? [
+            `$h = [IntPtr]${hwnd}`,
+            'if (-not [Native.Win32]::SetForegroundWindow($h)) {',
+            '  $fg = [Native.Win32]::GetForegroundWindow(); $pid2 = 0',
+            '  $fgThread = [Native.Win32]::GetWindowThreadProcessId($fg, [ref]$pid2)',
+            '  $me = [Native.Win32]::GetCurrentThreadId()',
+            '  [Native.Win32]::AttachThreadInput($me, $fgThread, $true) | Out-Null',
+            '  [Native.Win32]::SetForegroundWindow($h) | Out-Null',
+            '  [Native.Win32]::AttachThreadInput($me, $fgThread, $false) | Out-Null',
+            '}',
+            'Start-Sleep -Milliseconds 80',
+          ].join('\n')
+        : '',
+      "[System.Windows.Forms.SendKeys]::SendWait('^v')",
+      '$fg2 = [Native.Win32]::GetForegroundWindow(); $p3 = 0; [Native.Win32]::GetWindowThreadProcessId($fg2, [ref]$p3) | Out-Null; (Get-Process -Id $p3).ProcessName',
+    ].join('\n');
+    winShellRun(script)
+      .then((front) => logEvent('paste', `Ctrl+V を送信: 前面=${front} (hwnd=${hwnd || 'なし'})`))
+      .catch((err) => logEvent('paste', `Ctrl+V の送信に失敗: ${err.message}`))
+      .finally(() => hidePastePopup());
     return true;
   }
   return false;
 }
+
+// Windows: ポップアップを出す直前の前面ウインドウ (= ペースト先)。ヘルパーが非同期に埋める
+let pasteTargetHwnd = null;
 
 ipcMain.on('popup-choose', async (_event, choice) => {
   if (!choice || typeof choice !== 'object') return;
@@ -2844,12 +3096,21 @@ ipcMain.on('popup-choose', async (_event, choice) => {
   } else if (choice.kind === 'file' && typeof choice.path === 'string') {
     ok = await writeFileToClipboard(choice.path);
   }
+  if (!ok || !autoPasteEnabled) {
+    hidePastePopup();
+    return;
+  }
+  if (process.platform === 'win32') {
+    // Windows はヘルパーが前面を元のアプリへ戻して Ctrl+V を送り、終わってからポップアップを隠す
+    // (先に隠すと Electron が前面プロセスでなくなり、SetForegroundWindow が拒否される)
+    sendPasteKeystroke();
+    return;
+  }
   hidePastePopup();
-  if (!ok) return;
   // シェルフがキーウインドウのままだと ⌘V が Bridge 自身に届くので、先に返しておく
   releaseFocus();
   // ポップアップが閉じて前のアプリに入力が戻るのを待ってからキーを送る
-  if (autoPasteEnabled) setTimeout(sendPasteKeystroke, 150);
+  setTimeout(sendPasteKeystroke, 150);
 });
 
 ipcMain.on('popup-close', () => hidePastePopup());
@@ -2913,6 +3174,13 @@ app.whenReady().then(() => {
   if (process.platform === 'darwin' && app.dock) app.dock.hide();
   createWindow();
   createTray();
+  if (IS_WINDOWS) {
+    winShellSpawn(); // 常駐ヘルパーを先に温めておく
+    refreshTabWindows();
+    for (const evt of ['display-added', 'display-removed', 'display-metrics-changed']) {
+      screen.on(evt, () => setTimeout(refreshTabWindows, 500));
+    }
+  }
   registerToggleShortcut();
   startClipboardWatcher();
   startEdgeRevealWatcher();

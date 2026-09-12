@@ -118,6 +118,9 @@ contextBridge.exposeInMainWorld('bridge', {
   onUpdateAvailable: (callback) => ipcRenderer.on('update-available', (_event, info) => callback(info)),
   onUpdateNone: (callback) => ipcRenderer.on('update-none', (_event, info) => callback(info)),
 
+  // Windows のつまみウインドウ (tab.html 専用): ホバー滞留 / クリック / ドラッグ進入でそのモニターにシェルフを出す
+  tabActivate: (displayId) => ipcRenderer.send('tab-activate', displayId),
+
   // ペースト用ポップアップ (popup.html 専用)
   onPopupItems: (callback) => ipcRenderer.on('popup-items', (_event, payload) => callback(payload)),
   popupChoose: (choice) => ipcRenderer.send('popup-choose', choice),

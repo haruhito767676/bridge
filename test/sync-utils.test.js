@@ -50,3 +50,12 @@ test('compareVersions', () => {
   assert.ok(S.compareVersions('0.1.0', '0.1.1') < 0);
   assert.ok(S.compareVersions('1.0', '0.9.9') > 0);
 });
+
+test('extractWholeTextPaths: 行全体がパスのときだけ拾う', () => {
+  assert.deepEqual(S.extractWholeTextPaths('C:\\Users\\me\\a.txt'), ['C:\\Users\\me\\a.txt']);
+  assert.deepEqual(S.extractWholeTextPaths('C:\\a b\\x.pdf\r\nD:\\y.zip\n'), ['C:\\a b\\x.pdf', 'D:\\y.zip']);
+  assert.deepEqual(S.extractWholeTextPaths('PS C:\\Users\\me\\GitHub\\bridge> npm start'), []);
+  assert.deepEqual(S.extractWholeTextPaths('see C:\\tmp\\x.txt for details'), []);
+  assert.deepEqual(S.extractWholeTextPaths(''), []);
+  assert.deepEqual(S.extractWholeTextPaths(null), []);
+});

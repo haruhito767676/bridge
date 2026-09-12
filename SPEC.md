@@ -64,12 +64,15 @@
 - `BrowserWindow` オプション: `frame: false` / `resizable: false` / `alwaysOnTop: true` / `fullscreenable: false` / `vibrancy: 'sidebar'`（macOS すりガラス）/ `backgroundMaterial: 'acrylic'`（Windows 11）/ 背景透過。macOS では `type: 'panel'`（NSPanel）として生成し、クリックしても作業中のアプリを背面に下げない
 - macOS では `app.dock.hide()` によりメニューバー常駐のユーティリティとして振る舞う（Dock・⌘Tab に出ない）。Windows では `type: 'toolbar'` + `skipTaskbar` でタスクバーと Alt+Tab に出さない
 
-### 2.1.1 Windows の開閉方式（フライアウト）
+### 2.1.1 Windows の開閉方式（フライアウト）と常駐ヘルパー
+
+Windows では Electron から触れない Win32 API を **常駐 PowerShell ヘルパー** (`winShellRun`) に任せる。`powershell.exe -Command <読み取りループ>` を 1 つ起動しっぱなしにし、命令を Base64 の 1 行で標準入力へ、応答を `<<END>>` 番兵まで標準出力から受け取る（直列実行、8 秒でタイムアウトして作り直し）。初期化で `user32` の `GetForegroundWindow` / `SetForegroundWindow` / `AttachThreadInput` / `GetClipboardSequenceNumber` と `System.Windows.Forms` を読み込む。用途: 前面アプリの取得、ファイルのクリップボード書き込み (`Set-Clipboard -LiteralPath`)、コピーされた全ファイルの列挙 (`Get-Clipboard -Format FileDropList`)、クリップボード連番、ペースト先の復帰 + `SendKeys ^v`。毎回 PowerShell を起動していた頃の数百 ms の待ちとコンソール窓のちらつきが無くなる。
 
 Windows では macOS 向けの「毎フレームの `setBounds`」と「カーソル座標のポーリング」を**一切使わない**。DPI の異なるマルチモニターでは DIP 座標系が食い違い、展開 → 強制格納 → 再展開の無限ループ（暴れ）になるため。
 
 - ウインドウは「つまみ幅」と「全幅」の 2 状態を即時に切り替える。滑る動きは Renderer の CSS（`body.expanded #shell` に 250ms の減速スライドイン、`body.collapsing #shell` に 150ms のスライドアウト）が担い、Main は格納時に 170ms 待ってから幅を縮める（`animateDock` の `IS_WINDOWS` 分岐）
-- 展開のきっかけは Renderer 自身の `mouseenter`（つまみに 250ms 留まる）/ `dragenter` / クリック / ホットキー / メニューバー。格納は Renderer の `mouseleave` から 220ms 後（その間に再進入があれば取り消し）。カーソル座標による強制格納と離脱判定は行わない（`startEdgeRevealWatcher` は Windows では起動しない）
+- **つまみはモニターごとに別ウインドウ** (`tab.html`、15px 幅・透明・`focusable: false`・`toolbar`)。全ディスプレイの右端中央に 1 枚ずつ置き、`display-added` / `removed` / `metrics-changed` で作り直す。つまみへの 250ms 滞留 / クリック / `dragenter` で `tab-activate` (displayId) を送り、Main はそのディスプレイにシェルフを出す (`expandShelter({ display })`)。シェルフ本体は格納 = `hide()`、展開 = 全幅で `showInactive()`（ホットキー等は `focus()`）
+- 格納は Renderer の `mouseleave` から 220ms 後（その間に再進入があれば取り消し）。カーソル座標による強制格納と離脱判定は行わない（`startEdgeRevealWatcher` は Windows では起動しない）
 - 見た目は `body.platform-win32` の Fluent スキン（§ 9.4）
 - Windows で起動する PowerShell（前面アプリ取得・ファイルのクリップボード書き込み・zip 化・⌘V 送信）はすべて `windowsHide: true` で、コンソール窓を一瞬も出さない
 - `setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })` により仮想デスクトップ・フルスクリーンアプリ上でも追従
@@ -236,10 +239,10 @@ Windows では macOS 向けの「毎フレームの `setBounds`」と「カー�
 
 1. **ファイルコピー検知**（最優先）。検知したらその tick のテキスト / 画像判定はスキップ（ファイルコピーに付随するパス文字列テキストを偽履歴にしない）
    - macOS: `NSFilenamesPboardType`（XML plist、複数対応）→ フォールバック `public.file-url`（単一）
-   - Windows: `FileNameW`（CF_FILENAMEW、**仕様上 1 件のみ**）→ `Chromium Web Custom MIME Data` → `text/uri-list` → プレーンテキスト中の `file://` / `C:\...` パス抽出。最後に `fs.existsSync` で実在確認して誤検知を排除
+   - Windows: `FileNameW`（CF_FILENAMEW）で「ファイルがコピーされた」ことを検知し、常駐ヘルパーの `Get-Clipboard -Format FileDropList` で**選択された全ファイル**を列挙する（同じコピーが載り続けている間は前回の結果を再利用）→ `Chromium Web Custom MIME Data` → `text/uri-list` → プレーンテキストは**全体が 1 行 1 パスのときだけ**（`extractWholeTextPaths`。プロンプト行に作業フォルダのパスが混じるだけのコピーをファイルと誤認しない）。最後に `fs.existsSync` で実在確認
    - 検知したファイルは `addFileQuietly` でシェルフへ追加（ウインドウは奪わない）
 2. **テキスト**: 前回と異なる非空テキストなら履歴化。`.txt` はこの時点では作らず、ドラッグアウト / クイックルック時に `ensure-clipboard-text-file` で**遅延生成**する（コピーのたびにディスクへ書かない）。同期台帳へ登録 → ピアへ即時プッシュ
-3. **画像**: `availableFormats()` に `image/*` がある場合のみ対象。まず**安価な署名**（フォーマット一覧 + macOS は `public.tiff` / Windows は `PNG` バッファの長さ）を前回と比べ、同じならデコードもハッシュもしない（スクリーンショットが載ったまま放置されても CPU を使わない）。変わっていたら `readImage()` し、同一判定キーは「サイズ + バイト数 + bitmap の等間隔サンプル（最大 256KB）の MD5」。新規なら `clipboard_<ts>.png` として即ファイル化 → 履歴化・同期登録
+3. **画像**: `availableFormats()` に `image/*` がある場合のみ対象。まず**安価な署名**（フォーマット一覧 + macOS は `public.tiff` / Windows は `PNG` バッファの長さ。Windows で `PNG` が無いとき（Snipping Tool など）はクリップボード連番 `GetClipboardSequenceNumber` を署名に加える）を前回と比べ、同じならデコードもハッシュもしない（スクリーンショットが載ったまま放置されても CPU を使わない）。変わっていたら `readImage()` し、同一判定キーは「サイズ + バイト数 + bitmap の等間隔サンプル（最大 256KB）の MD5」。新規なら `clipboard_<ts>.png` として即ファイル化 → 履歴化・同期登録
 
 Main 側履歴 (`clipHistory`) の上限はテキスト 100 / 画像 30。**Main はディスク削除を行わず配列長のみ管理**する（表示の真実を持つ Renderer 側のトリミング → `delete-temp-file` IPC が削除を担う。両者の並びズレによる「表示中ファイルの誤削除」を防ぐための設計）。
 
@@ -347,7 +350,7 @@ Main 側履歴 (`clipHistory`) の上限はテキスト 100 / 画像 30。**Main
 
 - `⌘⇧V`（Windows: `Ctrl+Shift+V`）でカーソルの右下に 300×380 のパネルを出す。中身は `history.json` 用の最新一覧（テキスト / 画像 / 実体のあるファイル、ピン留め先頭、最大 60 件）
 - 打ち始めると絞り込み、↑↓ / 1〜9 キー / クリックで選択、⏎ でクリップボードへ書いて閉じる。`⌘⏎` は URL をブラウザで開く。フォーカスを失うと閉じる
-- 「選んだあと自動でペースト」(`autoPaste`、既定 on) なら、閉じた 120ms 後に前面アプリへ ⌘V / Ctrl+V を送る（macOS: `osascript` の `keystroke`、アクセシビリティ未許可なら初回に OS の許可ダイアログを出してその回はコピーだけ / Windows: `SendKeys`）
+- 「選んだあと自動でペースト」(`autoPaste`、既定 on)。macOS: 閉じた 150ms 後に `osascript` の `keystroke` で ⌘V（アクセシビリティ未許可なら OS の許可ダイアログ + トーストで案内し、その回はコピーだけ）。Windows: ポップアップを出す**前に**前面ウインドウの HWND を控えておき、選択後はポップアップを出したまま常駐ヘルパーで `SetForegroundWindow(HWND)`（拒否されたら `AttachThreadInput` で再試行）→ `SendKeys ^v` → 完了後にポップアップを隠す（先に隠すと Electron が前面プロセスでなくなり前面復帰が拒否される）。結果は `bridge.log` の `[paste]` に残す
 
 ### 8.3 診断ログ（`bridge.log`）
 
@@ -451,10 +454,10 @@ Main 側履歴 (`clipHistory`) の上限はテキスト 100 / 画像 30。**Main
 
 ## 11. 既知の制約・非目標
 
-1. **Windows の複数ファイルコピー検知は先頭 1 件のみ**: エクスプローラーの Ctrl+C は実体パスを `CF_FILENAMEW`（1 件のみ保持）にしか載せず、Electron から `CF_HDROP` を読む手段がないため（実機検証済み。`text/uri-list` 等は列挙されるが読むと空になる）
+1. **Windows のファイルコピー検知は常駐 PowerShell ヘルパーに依存**: Electron からは `CF_HDROP` を読めないため、`CF_FILENAMEW` で検知したうえで `Get-Clipboard -Format FileDropList` で全件を取る。ヘルパーが応答しない環境では先頭 1 件にフォールバックする
 2. **同期チャネルは平文**: トークン認証はあるが暗号化はない。信頼できる LAN 内での利用が前提。インターネット越しの利用は非目標
 3. **クイックルック・`mdls` は macOS 専用**: 他 OS は拡張子ベース表示にフォールバック
-4. **画像履歴の変化検知は安価な署名に依存**: Windows で `PNG` 形式を載せないアプリから、直前と同じフォーマット構成・同じテキストで別の画像が続けてコピーされた場合、2 枚目を取りこぼす可能性がある（macOS は `public.tiff` の長さで判別できる）
+4. **画像履歴の変化検知は安価な署名に依存**: macOS は `public.tiff` の長さ、Windows は `PNG` の長さかクリップボード連番で判別する。連番の取得は常駐ヘルパー経由（応答が無いときは長さのみになり、同じ構成の画像を取りこぼしうる）
 5. **マルチキャストが通らないネットワーク**（ゲスト Wi-Fi の AP 分離など）では自動発見できない。「いま探す」のサブネットスキャン（/24 固定）か `peers` への静的登録が必要
 6. `secretToken` の共有は手動運用（設定シートの「同期キー」をコピーして各デバイスに貼り付ける。ペアリングコード方式は非目標）
 7. `port` の変更は設定ファイルの直接編集が必要で、再起動後に反映される

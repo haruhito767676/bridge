@@ -1,0 +1,30 @@
+/* Windows のつまみウインドウ。透明な 15px の帯に、Windows 11 の選択インジケーターと同じピルだけを描く */
+body.tab {
+  background: transparent;
+  margin: 0;
+  overflow: hidden;
+}
+
+body.tab #handle {
+  position: absolute;
+  inset: 0;
+  width: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+body.tab #handle::before {
+  content: "";
+  width: 3px;
+  height: 32px;
+  border-radius: 2px;
+  background: var(--accent);
+  opacity: 0.85;
+  transition: transform 0.15s ease-out, opacity 0.15s;
+}
+
+body.tab #handle:hover::before {
+  opacity: 1;
+  transform: scaleY(1.25);
+}

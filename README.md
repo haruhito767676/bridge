@@ -144,6 +144,7 @@ bridge/
 ├── index.html             # UI 骨格 (CSP 付き)
 ├── styles.css              # デザイントークン + すりガラス UI (ライト/ダーク対応)
 ├── popup.html / popup.js / popup.css  # ⌘⇧V のペースト用ポップアップ
+├── tab.html / tab.js / tab.css        # Windows: モニターごとの「つまみ」ウインドウ
 ├── lib/format.js          # 表示用の純粋関数 (Renderer とテストで共用)
 ├── lib/sync-utils.js      # 同期・検知の純粋関数 (Main とテストで共用)
 ├── test/                  # node --test のテスト
@@ -162,7 +163,7 @@ bridge/
 
 ## 既知の制約
 
-- Windows のエクスプローラーでの複数ファイルコピー検知は、クリップボードフォーマットの制約（`CF_FILENAMEW` は 1 件のみ保持、Electron から `CF_HDROP` を読む手段がない）により**先頭の 1 件のみ**取得されます
+- Windows のファイル関連の検知・書き込みと自動ペーストは、常駐の PowerShell ヘルパー（起動時に 1 プロセス）に依存します。PowerShell が実行できない環境では、コピー検知は先頭 1 件のみ、自動ペーストは無効になります
 - Finder 純正の「種類」ラベル（`mdls`）とクイックルックは macOS のみ。他 OS では拡張子ベースの表示にフォールバックします
 - 同期チャネルはトークン認証付きですが平文 TCP/HTTP です。信頼できる LAN 内での利用を前提としています
 
