@@ -1065,6 +1065,15 @@ function copyItemToClipboard(item) {
   } else {
     return false; // ダウンロード中などコピーできないアイテムは何もしない
   }
+  // クリックコピーも「再コピー」と同じ扱いにする: 履歴内の位置を最上位へ、時刻も更新する。
+  // ここでは render() を呼ばない (パネルが COPIED_FEEDBACK_MS 後に閉じる際の
+  // resetSelectionAndFocus() が描き直すので、並び替わる瞬間はユーザーに見えない)
+  const index = items.indexOf(item);
+  if (index > 0) {
+    items.splice(index, 1);
+    items.unshift(item);
+  }
+  if (index !== -1) item.timestamp = Date.now();
   showCopiedFeedback(item);
   return true;
 }
