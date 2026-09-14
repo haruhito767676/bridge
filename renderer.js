@@ -22,7 +22,9 @@ const emptyLabel = emptyEl.querySelector('.empty-label');
 const emptySub = emptyEl.querySelector('.empty-sub');
 const countEl = document.getElementById('item-count');
 const syncDot = document.getElementById('sync-dot');
-const lastSyncLabel = document.getElementById('last-sync-label');
+const deviceFilterLabel = document.getElementById('device-filter-label');
+const deviceFilterText = document.getElementById('device-filter-text');
+const deviceFilterClearBtn = document.getElementById('device-filter-clear');
 const clearBtn = document.getElementById('clear-button');
 const settingsBtn = document.getElementById('settings-button');
 const searchBar = document.getElementById('search-bar');
@@ -88,6 +90,18 @@ let searchQuery = '';
 // Mail.app のメールボックスフィルタと同じ、見えるボタンで選ばせる方式 (コマンド入力は不要)
 let filterMode = null; // 'file' | 'clip' | null
 
+// デバイス絞り込みは、常設のUIではなく右クリックメニュー「◯◯のアイテムだけ表示」から入る。
+// 台数分の選択肢を常設ボタンで持つと環境依存でUIが膨らむため、必要なときだけ効く一時的な状態として持つ
+// (フッターに「絞り込み中: ◯◯ ✕」が出ている間だけ有効。他は変わらず全デバイス混在で表示)
+const LOCAL_DEVICE_FILTER = Symbol('local-device-filter'); // 文字列のデバイス名と衝突しない専用の値
+let deviceFilter = null; // null | LOCAL_DEVICE_FILTER | <他デバイスの fromDevice 名>
+
+// 表示名: ローカルは常に「このデバイス」、他拠点はそのデバイス名をそのまま使う
+function deviceFilterLabelText() {
+  if (!deviceFilter) return '';
+  return deviceFilter === LOCAL_DEVICE_FILTER ? 'このデバイスのみ' : `"${deviceFilter}" のみ`;
+}
+
 // 表示はピン留めを先頭に、その後は時刻の新しい順。
 // 他拠点から古いアイテムが後から届いても、日付セクションの並びが崩れない
 function sortedByTime(list) {
@@ -99,11 +113,14 @@ function sortedByTime(list) {
 
 function filterItems() {
   const keyword = searchQuery.trim().toLowerCase();
-  if (!filterMode && !keyword) return sortedByTime(items);
+  if (!filterMode && !deviceFilter && !keyword) return sortedByTime(items);
 
   return sortedByTime(items).filter((item) => {
     if (filterMode === 'file' && item.kind !== 'file') return false;
     if (filterMode === 'clip' && item.kind === 'file') return false;
+    const isLocalItem = !item.fromDevice || item.fromDevice === localDeviceName;
+    if (deviceFilter === LOCAL_DEVICE_FILTER && !isLocalItem) return false;
+    if (deviceFilter && deviceFilter !== LOCAL_DEVICE_FILTER && item.fromDevice !== deviceFilter) return false;
     if (!keyword) return true;
     // ファイル名・パス・テキストの中身への部分一致
     const haystack = [item.name, item.path, item.text]
@@ -113,6 +130,22 @@ function filterItems() {
     return haystack.includes(keyword);
   });
 }
+
+// 右クリックメニューの「◯◯のアイテムだけ表示」から呼ばれる
+function setDeviceFilter(target) {
+  if (deviceFilter === target) return;
+  deviceFilter = target;
+  selectedItems.clear();
+  lastSelectedIndex = null;
+  render();
+}
+
+function clearDeviceFilter() {
+  if (!deviceFilter) return;
+  setDeviceFilter(null);
+}
+
+deviceFilterClearBtn.addEventListener('click', clearDeviceFilter);
 
 // セグメントボタンのクリックで種別を切り替える
 function setFilterMode(mode) {
@@ -132,11 +165,12 @@ segmentButtons.forEach((btn) => {
   btn.addEventListener('click', () => setFilterMode(btn.dataset.mode || null));
 });
 
-// 検索窓・種別セグメント・選択状態をまとめて初期状態へ戻す (全リスト表示に復帰)
+// 検索窓・種別セグメント・デバイス絞り込み・選択状態をまとめて初期状態へ戻す (全リスト表示に復帰)
 function resetSearchState() {
   searchBar.value = '';
   searchQuery = '';
   setFilterMode(null);
+  deviceFilter = null;
   selectedItems.clear();
   lastSelectedIndex = null;
   render();
@@ -169,7 +203,7 @@ searchBar.addEventListener('keydown', (e) => {
   // Esc: 検索中なら検索をクリア、何も入力していなければパネルを閉じる
   if (e.key === 'Escape') {
     e.preventDefault();
-    if (searchBar.value || filterMode) {
+    if (searchBar.value || filterMode || deviceFilter) {
       resetSearchState();
     } else {
       searchBar.blur();
@@ -645,7 +679,7 @@ window.bridge.onShelterExpanded(({ focus }) => {
   document.body.classList.add('expanded');
   refreshMissingFiles();
   // アニメーション開始と同時にリストを組み直すとコマ落ちするため、状態が残っているときだけリセットする
-  if (searchBar.value || filterMode || selectedItems.size > 0) resetSearchState();
+  if (searchBar.value || filterMode || deviceFilter || selectedItems.size > 0) resetSearchState();
   closeContextMenu();
   dropZone.scrollTop = 0; // 開いたときは常に最新 (先頭) から
   if (focus) searchBar.focus();
@@ -1330,6 +1364,18 @@ function openContextMenu(e, item) {
       },
     });
   }
+  // デバイス絞り込みは、複数デバイスのアイテムが実際に混ざっているときだけ意味があるので出す。
+  // ローカルアイテムには出身チップを表示しない設計 (§ origin-chip) との非対称を、
+  // 常設チップではなく右クリックの入り口で吸収する
+  const isLocalItem = !item.fromDevice || item.fromDevice === localDeviceName;
+  const hasOtherDeviceItems = items.some((it) => it.fromDevice && it.fromDevice !== localDeviceName);
+  if (hasOtherDeviceItems) {
+    entries.push({ type: 'separator' });
+    entries.push({
+      label: isLocalItem ? 'このデバイスのアイテムだけ表示' : `"${item.fromDevice}" のアイテムだけ表示`,
+      run: () => setDeviceFilter(isLocalItem ? LOCAL_DEVICE_FILTER : item.fromDevice),
+    });
+  }
   entries.push({ type: 'separator' });
   entries.push({
     label: item.pinned ? 'ピン留めを解除' : 'ピン留め',
@@ -1652,11 +1698,16 @@ function render() {
   emptySub.hidden = !noItems;
   emptyEl.hidden = !noVisible;
   listEl.hidden = noVisible;
-  // 絞り込み中 (検索で件数が減っている) だけ「X / Y 個」を出す。
-  // 全件表示中はアクションに繋がらない数字なので出さない
-  countEl.textContent =
-    !noItems && visibleItems.length !== items.length ? `${visibleItems.length} / ${items.length} 個` : '';
+  // 絞り込み中 (検索で件数が減っている) だけヒット数を出す。全体の母数は履歴の上限で
+  // すぐ頭打ちになり比率として意味を持たなくなるため、Finder/Spotlight の検索結果と同じく
+  // ヒット数だけを見せる。全件表示中はアクションに繋がらない数字なので出さない
+  countEl.textContent = !noItems && visibleItems.length !== items.length ? `${visibleItems.length} 個` : '';
   clearBtn.hidden = noItems;
+
+  // デバイス絞り込み中だけ、右クリックの入り口だけでは見えない「今どのデバイスに
+  // 絞っているか」を footer に一時的なピルとして出す (✕ で解除)
+  deviceFilterText.textContent = deviceFilterLabelText();
+  deviceFilterLabel.hidden = !deviceFilter;
 
   // 終了時クリーンアップ (残骸ファイル削除) の判定用に、
   // 「現在リストに保持しているパス」を Main プロセスへ常時共有する
@@ -1795,13 +1846,8 @@ function renderSyncStatus() {
         : '';
   pauseLabel.hidden = !paused;
 
-  // 最終同期時刻: 今つながっているかは sync-dot の色が伝えるので、ここでは
-  // 「今見えている内容がどれだけ新しいか」の目安として、全ピア中で一番新しい
-  // 同期成功時刻を出す。一度も同期したことが無ければ (どのピアも 0) 出さない
-  const lastSyncedAt = peers.reduce((max, p) => Math.max(max, p.lastSyncedAt || 0), 0);
-  lastSyncLabel.textContent = lastSyncedAt ? `最終同期 ${formatTime(lastSyncedAt)}` : '';
-  lastSyncLabel.hidden = !lastSyncedAt;
-
+  // 最終同期時刻のサマリーは footer には出さない (今何を見ているかの状態表示に絞る)。
+  // 個別の最終同期時刻はデバイスごとに設定シートのピア一覧で確認できる (renderPeerList 側)
   renderPeerList();
 }
 

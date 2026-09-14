@@ -48,7 +48,12 @@
     <footer id="shelf-footer">
       <div class="footer-status">
         <span id="sync-dot" class="sync-dot" hidden></span>
-        <span id="last-sync-label" hidden></span>
+        <span id="device-filter-label" class="device-filter-label" hidden>
+          <span id="device-filter-text"></span>
+          <button id="device-filter-clear" aria-label="絞り込みを解除" tabindex="-1">
+            <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 3l6 6M9 3l-6 6"/></svg>
+          </button>
+        </span>
         <span id="item-count"></span>
         <span id="pause-label" class="pause-label" hidden></span>
       </div>
