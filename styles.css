@@ -20,6 +20,7 @@
   --accent: #0a84ff;
   --accent-fg: #fff;
   --accent-tint: rgba(10, 132, 255, 0.14);
+  --accent-tint-strong: rgba(10, 132, 255, 0.24); /* --accent-tint のホバー用、一段濃いもの */
   --success: #34c759;
   --destructive: #ff3b30;
 
@@ -46,6 +47,7 @@
     --fg-secondary: rgba(235, 235, 245, 0.6);
     --fg-tertiary: rgba(235, 235, 245, 0.3);
     --accent-tint: rgba(10, 132, 255, 0.24);
+    --accent-tint-strong: rgba(10, 132, 255, 0.36);
 
     --panel-fallback: rgba(40, 40, 44, 0.96);
     --fill: rgba(120, 120, 128, 0.2);
@@ -281,19 +283,19 @@ body.drag-mode #empty-state .empty-sub {
 }
 
 /* デバイス絞り込み中だけ、種別セグメントの下に出るチップ (右クリックの「◯◯のアイテムだけ表示」から入る)。
-   Mail.app / Photos.app の検索トークン・アクティブフィルターチップと同じ、アクセント色の丸いピル。
-   常設ではなく状態の結果として出るので、旧 filter-badge のトークン方式とは違い問題ない */
+   アイテム行の出身デバイスチップ (.origin-chip) と同じ、控えめなタグの視覚言語に揃える
+   (地はニュートラルではなくアクセントのティントにして、能動的なフィルターであることだけ差別化する) */
 #device-filter-chip {
   display: inline-flex;
   align-items: center;
   gap: 3px;
   margin: 6px 0 0;
-  padding: 3px 4px 3px 10px;
+  padding: 2px 4px 2px 8px;
   font-size: 11px;
   font-weight: 500;
-  color: var(--accent-fg);
-  background: var(--accent);
-  border-radius: 999px;
+  color: var(--accent);
+  background: var(--accent-tint);
+  border-radius: 7px;
 }
 
 #device-filter-chip[hidden] {
@@ -312,7 +314,7 @@ body.drag-mode #empty-state .empty-sub {
   border-radius: 50%;
   background: transparent;
   color: currentColor;
-  opacity: 0.8;
+  opacity: 0.7;
   cursor: default;
 }
 
@@ -323,7 +325,7 @@ body.drag-mode #empty-state .empty-sub {
 
 #device-filter-clear:hover {
   opacity: 1;
-  background: rgba(255, 255, 255, 0.25);
+  background: var(--accent-tint-strong);
 }
 
 /* ---- リスト領域 ---- */
