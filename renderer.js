@@ -22,7 +22,7 @@ const emptyLabel = emptyEl.querySelector('.empty-label');
 const emptySub = emptyEl.querySelector('.empty-sub');
 const countEl = document.getElementById('item-count');
 const syncDot = document.getElementById('sync-dot');
-const deviceFilterLabel = document.getElementById('device-filter-label');
+const deviceFilterChip = document.getElementById('device-filter-chip');
 const deviceFilterText = document.getElementById('device-filter-text');
 const deviceFilterClearBtn = document.getElementById('device-filter-clear');
 const clearBtn = document.getElementById('clear-button');
@@ -92,7 +92,7 @@ let filterMode = null; // 'file' | 'clip' | null
 
 // デバイス絞り込みは、常設のUIではなく右クリックメニュー「◯◯のアイテムだけ表示」から入る。
 // 台数分の選択肢を常設ボタンで持つと環境依存でUIが膨らむため、必要なときだけ効く一時的な状態として持つ
-// (フッターに「絞り込み中: ◯◯ ✕」が出ている間だけ有効。他は変わらず全デバイス混在で表示)
+// (種別セグメントの下に「◯◯ のみ ✕」のチップが出ている間だけ有効。他は変わらず全デバイス混在で表示)
 const LOCAL_DEVICE_FILTER = Symbol('local-device-filter'); // 文字列のデバイス名と衝突しない専用の値
 let deviceFilter = null; // null | LOCAL_DEVICE_FILTER | <他デバイスの fromDevice 名>
 
@@ -1704,10 +1704,10 @@ function render() {
   countEl.textContent = !noItems && visibleItems.length !== items.length ? `${visibleItems.length} 個` : '';
   clearBtn.hidden = noItems;
 
-  // デバイス絞り込み中だけ、右クリックの入り口だけでは見えない「今どのデバイスに
-  // 絞っているか」を footer に一時的なピルとして出す (✕ で解除)
+  // デバイス絞り込み中だけ、種別セグメントの下に「今どのデバイスに絞っているか」を
+  // チップとして出す (✕ で解除)。file/clip の絞り込みと同じ並びに置き、footer は状態表示専用に保つ
   deviceFilterText.textContent = deviceFilterLabelText();
-  deviceFilterLabel.hidden = !deviceFilter;
+  deviceFilterChip.hidden = !deviceFilter;
 
   // 終了時クリーンアップ (残骸ファイル削除) の判定用に、
   // 「現在リストに保持しているパス」を Main プロセスへ常時共有する

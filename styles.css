@@ -280,6 +280,52 @@ body.drag-mode #empty-state .empty-sub {
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
 }
 
+/* デバイス絞り込み中だけ、種別セグメントの下に出るチップ (右クリックの「◯◯のアイテムだけ表示」から入る)。
+   Mail.app / Photos.app の検索トークン・アクティブフィルターチップと同じ、アクセント色の丸いピル。
+   常設ではなく状態の結果として出るので、旧 filter-badge のトークン方式とは違い問題ない */
+#device-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin: 6px 0 0;
+  padding: 3px 4px 3px 10px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--accent-fg);
+  background: var(--accent);
+  border-radius: 999px;
+}
+
+#device-filter-chip[hidden] {
+  display: none;
+}
+
+#device-filter-clear {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: currentColor;
+  opacity: 0.8;
+  cursor: default;
+}
+
+#device-filter-clear svg {
+  width: 9px;
+  height: 9px;
+}
+
+#device-filter-clear:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.25);
+}
+
 /* ---- リスト領域 ---- */
 
 #drop-zone {
@@ -806,48 +852,6 @@ body:not(.platform-darwin) #drop-zone::-webkit-scrollbar-thumb:hover {
 
 .pause-label[hidden] {
   display: none;
-}
-
-/* デバイス絞り込み中だけ footer に出る一時的なピル (右クリックの「◯◯のアイテムだけ表示」で入る) */
-.device-filter-label {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  min-width: 0;
-  color: var(--accent);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.device-filter-label[hidden] {
-  display: none;
-}
-
-#device-filter-clear {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 12px;
-  height: 12px;
-  flex-shrink: 0;
-  padding: 0;
-  border: none;
-  border-radius: 50%;
-  background: transparent;
-  color: currentColor;
-  opacity: 0.75;
-  cursor: default;
-}
-
-#device-filter-clear svg {
-  width: 8px;
-  height: 8px;
-}
-
-#device-filter-clear:hover {
-  opacity: 1;
-  background: var(--accent-tint);
 }
 
 .footer-actions {
@@ -1446,6 +1450,10 @@ body.platform-win32 .segment-item.active {
   background: transparent;
   box-shadow: none;
   border-bottom: 2px solid var(--accent);
+}
+
+body.platform-win32 #device-filter-chip {
+  border-radius: var(--radius-s);
 }
 
 /* リスト: ListView。選択は塗りを薄くし、左端の 3px アクセントバーで示す (文字は反転しない) */

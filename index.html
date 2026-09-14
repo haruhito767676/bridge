@@ -25,6 +25,14 @@
         <button type="button" class="segment-item" data-mode="file" role="tab" aria-selected="false">ファイル</button>
         <button type="button" class="segment-item" data-mode="clip" role="tab" aria-selected="false">クリップ</button>
       </div>
+      <!-- デバイス絞り込み中だけ出るチップ (右クリックの「◯◯のアイテムだけ表示」から入る)。
+           種別セグメントと同じ「今何を見ているか」の並びに置き、footer は状態表示専用に保つ -->
+      <span id="device-filter-chip" hidden>
+        <span id="device-filter-text"></span>
+        <button id="device-filter-clear" aria-label="絞り込みを解除" tabindex="-1">
+          <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 3l6 6M9 3l-6 6"/></svg>
+        </button>
+      </span>
     </div>
 
     <div id="drop-zone" tabindex="0">
@@ -48,12 +56,6 @@
     <footer id="shelf-footer">
       <div class="footer-status">
         <span id="sync-dot" class="sync-dot" hidden></span>
-        <span id="device-filter-label" class="device-filter-label" hidden>
-          <span id="device-filter-text"></span>
-          <button id="device-filter-clear" aria-label="絞り込みを解除" tabindex="-1">
-            <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 3l6 6M9 3l-6 6"/></svg>
-          </button>
-        </span>
         <span id="item-count"></span>
         <span id="pause-label" class="pause-label" hidden></span>
       </div>
