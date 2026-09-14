@@ -1182,6 +1182,49 @@ body.settings-open #shelf-footer {
   font-size: 11px;
 }
 
+/* ---- トグルスイッチ (macOS システム設定の NSSwitch 相当) ----
+   input[type=checkbox] の状態管理・アクセシビリティはそのまま流用し、見た目だけ
+   appearance:none で作り直す。Windows での見た目は下のスキンで上書きする */
+.switch {
+  -webkit-appearance: none;
+  appearance: none;
+  margin: 0;
+  flex-shrink: 0;
+  width: 38px;
+  height: 22px;
+  border-radius: 11px;
+  background: var(--fill-strong);
+  position: relative;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.switch::before {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35), 0 0 0 0.5px rgba(0, 0, 0, 0.04);
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.switch:checked {
+  background: var(--accent);
+}
+
+.switch:checked::before {
+  transform: translateX(16px);
+}
+
+.switch:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-tint), 0 0 0 1px var(--accent);
+}
+
 .peer-list {
   list-style: none;
   display: flex;
@@ -1271,15 +1314,38 @@ body.settings-open #shelf-footer {
   border-radius: var(--radius-s);
   background: var(--fill);
   color: var(--fg);
+  transition: background-color 0.12s, filter 0.12s, transform 0.08s ease;
 }
 
 .push-button:hover {
   background: var(--fill-hover);
 }
 
+/* macOS のボタンは押した瞬間にわずかに縮んで沈む感触がある */
+.push-button:active {
+  background: var(--fill-strong);
+  transform: scale(0.97);
+}
+
+.push-button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-tint), 0 0 0 1px var(--accent);
+}
+
 .push-button.primary {
   background: var(--accent);
   color: var(--accent-fg);
+  box-shadow: 0 1px 1.5px rgba(0, 0, 0, 0.15);
+}
+
+.push-button.primary:hover {
+  background: var(--accent);
+  filter: brightness(1.08);
+}
+
+.push-button.primary:active {
+  background: var(--accent);
+  filter: brightness(0.92);
 }
 
 /* ---- モーション設定を尊重する ---- */
@@ -1455,6 +1521,48 @@ body.platform-win32 .push-button.primary {
   background: var(--accent);
   border-color: transparent;
   color: var(--accent-fg);
+  box-shadow: none; /* Fluent はボタンに影を持たせない */
+}
+
+/* Fluent のボタンは押しても縮まず、塗りが一段暗くなるだけ */
+body.platform-win32 .footer-button:active,
+body.platform-win32 .push-button:active,
+body.platform-win32 .toast-action:active {
+  background: var(--fill-strong);
+  transform: none;
+}
+
+body.platform-win32 .push-button.primary:active {
+  background: var(--accent);
+  filter: brightness(0.88);
+}
+
+/* Fluent の Reveal フォーカスは角ばった 2px の輪郭 */
+body.platform-win32 .footer-button:focus-visible,
+body.platform-win32 .push-button:focus-visible {
+  box-shadow: none;
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* トグルスイッチ: Fluent の ToggleSwitch (枠線のみ / OFF はグレーのつまみ、ON で塗りつぶし白つまみ) */
+body.platform-win32 .switch {
+  background: transparent;
+  border: 1px solid var(--fg-tertiary);
+}
+
+body.platform-win32 .switch::before {
+  background: var(--fg-secondary);
+  box-shadow: none;
+}
+
+body.platform-win32 .switch:checked {
+  background: var(--accent);
+  border-color: transparent;
+}
+
+body.platform-win32 .switch:checked::before {
+  background: #fff;
 }
 
 body.platform-win32 .text-field {
@@ -1522,9 +1630,4 @@ body.platform-win32 .bridge-tooltip {
 body.platform-win32 #drop-zone::after {
   border-radius: var(--radius-s);
   box-shadow: inset 0 0 0 1px var(--accent);
-}
-
-/* チェックボックスをアクセント色に */
-body.platform-win32 input[type="checkbox"] {
-  accent-color: var(--accent);
 }
