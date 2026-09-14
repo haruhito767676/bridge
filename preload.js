@@ -129,7 +129,8 @@ contextBridge.exposeInMainWorld('bridge', {
   // メニューバーから「設定…」が選ばれたとき
   onOpenSettings: (callback) => ipcRenderer.on('open-settings', () => callback()),
 
-  // アップデートの確認結果
+  // アップデートの確認結果 (設定画面の「アップデートを確認」ボタンからも手動で叩ける)
+  checkForUpdates: () => ipcRenderer.send('check-for-updates'),
   onUpdateAvailable: (callback) => ipcRenderer.on('update-available', (_event, info) => callback(info)),
   onUpdateNone: (callback) => ipcRenderer.on('update-none', (_event, info) => callback(info)),
 

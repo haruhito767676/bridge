@@ -2079,6 +2079,8 @@ const settingHotkeyToggle = document.getElementById('setting-hotkey-toggle');
 const settingHotkeyToggleReset = document.getElementById('setting-hotkey-toggle-reset');
 const settingHotkeyPaste = document.getElementById('setting-hotkey-paste');
 const settingHotkeyPasteReset = document.getElementById('setting-hotkey-paste-reset');
+const settingVersion = document.getElementById('setting-version');
+const settingCheckUpdate = document.getElementById('setting-check-update');
 setupHotkeyField(settingHotkeyToggle, settingHotkeyToggleReset, '', '');
 setupHotkeyField(settingHotkeyPaste, settingHotkeyPasteReset, '', '');
 
@@ -2136,7 +2138,8 @@ async function openSettings() {
     settingHotkeyPaste.dataset.default = s.defaultPasteShortcut || '';
     settingHotkeyPaste.dataset.defaultLabel = s.defaultPasteShortcutLabel || '';
     settingHotkeyPaste.textContent = s.pasteHotkeyLabel || '';
-    settingHotkeyHelp.textContent = 'フィールドをクリックして押したいキーの組み合わせを押してください。Ctrl / Alt / ⌘ のいずれかを含める必要があります。Bridge ' + (s.version || '');
+    settingHotkeyHelp.textContent = 'フィールドをクリックして押したいキーの組み合わせを押してください。Ctrl / Alt / ⌘ のいずれかを含める必要があります。';
+    settingVersion.textContent = s.version ? `Bridge ${s.version}` : '';
     settingPasteHelp.textContent = IS_MAC
       ? '自動ペーストには「システム設定 > プライバシーとセキュリティ > アクセシビリティ」で Bridge の許可が必要です。'
       : '';
@@ -2237,6 +2240,7 @@ settingTokenCopy.addEventListener('click', () => {
   window.bridge.copyPlainText(settingToken.value);
   showToast({ icon: 'check', title: '同期キーをコピーしました', durationMs: 1800 });
 });
+settingCheckUpdate.addEventListener('click', () => window.bridge.checkForUpdates());
 window.bridge.onOpenSettings(() => openSettings());
 
 // 自動ペーストにアクセシビリティの許可が無いとき (macOS)
