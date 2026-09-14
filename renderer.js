@@ -1764,11 +1764,10 @@ function render() {
   emptySub.hidden = !noItems;
   emptyEl.hidden = !noVisible;
   listEl.hidden = noVisible;
-  countEl.textContent = noItems
-    ? ''
-    : visibleItems.length === items.length
-      ? `${items.length} 個`
-      : `${visibleItems.length} / ${items.length} 個`;
+  // 絞り込み中 (検索で件数が減っている) だけ「X / Y 個」を出す。
+  // 全件表示中はアクションに繋がらない数字なので出さない
+  countEl.textContent =
+    !noItems && visibleItems.length !== items.length ? `${visibleItems.length} / ${items.length} 個` : '';
   clearBtn.hidden = noItems;
 
   // 終了時クリーンアップ (残骸ファイル削除) の判定用に、
