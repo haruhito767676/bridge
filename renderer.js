@@ -22,6 +22,7 @@ const emptyLabel = emptyEl.querySelector('.empty-label');
 const emptySub = emptyEl.querySelector('.empty-sub');
 const countEl = document.getElementById('item-count');
 const syncDot = document.getElementById('sync-dot');
+const lastSyncLabel = document.getElementById('last-sync-label');
 const clearBtn = document.getElementById('clear-button');
 const settingsBtn = document.getElementById('settings-button');
 const searchBar = document.getElementById('search-bar');
@@ -1906,6 +1907,14 @@ function renderSyncStatus() {
         ? '同期を停止中'
         : '';
   pauseLabel.hidden = !paused;
+
+  // 最終同期時刻: 今つながっているかは sync-dot の色が伝えるので、ここでは
+  // 「今見えている内容がどれだけ新しいか」の目安として、全ピア中で一番新しい
+  // 同期成功時刻を出す。一度も同期したことが無ければ (どのピアも 0) 出さない
+  const lastSyncedAt = peers.reduce((max, p) => Math.max(max, p.lastSyncedAt || 0), 0);
+  lastSyncLabel.textContent = lastSyncedAt ? `最終同期 ${formatTime(lastSyncedAt)}` : '';
+  lastSyncLabel.hidden = !lastSyncedAt;
+
   renderPeerList();
 }
 
