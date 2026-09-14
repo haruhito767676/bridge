@@ -28,6 +28,7 @@
   --fill-hover: rgba(120, 120, 128, 0.18);
   --fill-strong: rgba(120, 120, 128, 0.24);
   --search-fill: rgba(0, 0, 0, 0.05); /* Finder の検索欄と同じ、やや濃いめの地 */
+  --segment-active-bg: #fff; /* セグメントコントロールの選択つまみ (macOS 標準の白いピル) */
   --divider: rgba(60, 60, 67, 0.12);
   --popover-bg: rgba(246, 246, 246, 0.94);
   --popover-border: rgba(0, 0, 0, 0.1);
@@ -51,6 +52,7 @@
     --fill-hover: rgba(120, 120, 128, 0.3);
     --fill-strong: rgba(120, 120, 128, 0.4);
     --search-fill: rgba(0, 0, 0, 0.25);
+    --segment-active-bg: rgba(120, 120, 128, 0.5);
     --divider: rgba(235, 235, 245, 0.12);
     --popover-bg: rgba(44, 44, 46, 0.94);
     --popover-border: rgba(255, 255, 255, 0.12);
@@ -189,10 +191,9 @@ body.drag-mode #empty-state .empty-sub {
   visibility: hidden;
 }
 
-/* ---- 検索フィールド (フィルタートークン + サジェスト) ---- */
+/* ---- 検索フィールド + 種別セグメント ---- */
 
 #search-area {
-  position: relative; /* サジェストの浮き出し位置の基準 */
   flex-shrink: 0;
   margin: 12px 0 0 12px;
 }
@@ -245,94 +246,38 @@ body.drag-mode #empty-state .empty-sub {
   -webkit-appearance: none;
 }
 
-/* フィルタートークン (NSTokenField のようなアクセント色の丸いピル) */
-#filter-badge {
+/* 種別セグメント (すべて / ファイル / クリップ)。
+   Mail.app のメールボックスフィルタと同じ、くぼんだ地に丸いつまみが乗る macOS 標準のセグメントコントロール */
+#filter-segment {
   display: flex;
-  align-items: center;
   gap: 2px;
-  flex-shrink: 0;
-  height: 18px;
-  padding: 0 3px 0 7px;
-  font-size: 11px;
-  font-weight: 500;
-  border-radius: 9px;
-  background: var(--accent);
-  color: var(--accent-fg);
-}
-
-#filter-badge[hidden] {
-  display: none;
-}
-
-#filter-badge-remove {
-  width: 14px;
-  height: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  border: none;
-  border-radius: 50%;
-  background: transparent;
-  color: currentColor;
-  opacity: 0.8;
-  cursor: default;
-}
-
-#filter-badge-remove svg {
-  width: 9px;
-  height: 9px;
-}
-
-#filter-badge-remove:hover {
-  background: rgba(255, 255, 255, 0.25);
-  opacity: 1;
-}
-
-/* 「:」入力で検索窓の直下に浮き出すサジェスト */
-#search-suggest {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  right: 0;
-  z-index: 30;
-  list-style: none;
-  padding: 4px;
-  background: var(--popover-bg);
-  border: 1px solid var(--popover-border);
-  border-radius: var(--radius-m);
-  backdrop-filter: blur(20px) saturate(1.5);
-  -webkit-backdrop-filter: blur(20px) saturate(1.5);
-  box-shadow: var(--popover-shadow);
-}
-
-#search-suggest[hidden] {
-  display: none;
-}
-
-#search-suggest li {
-  padding: 5px 8px;
-  font-size: 13px;
-  color: var(--fg);
+  margin: 6px 0 0;
+  padding: 2px;
+  background: var(--search-fill);
   border-radius: var(--radius-s);
 }
 
-#search-suggest li .suggest-hint {
-  margin-left: 6px;
+.segment-item {
+  flex: 1;
+  padding: 3px 0;
+  font-family: inherit;
   font-size: 11px;
+  font-weight: 500;
   color: var(--fg-secondary);
+  background: transparent;
+  border: none;
+  border-radius: calc(var(--radius-s) - 2px);
+  cursor: default;
 }
 
-#search-suggest li.active,
-#search-suggest li:hover {
-  background: var(--accent);
-  color: var(--accent-fg);
+.segment-item:hover {
+  color: var(--fg);
 }
 
-#search-suggest li.active .suggest-hint,
-#search-suggest li:hover .suggest-hint {
-  color: inherit;
-  opacity: 0.8;
+.segment-item.active {
+  color: var(--fg);
+  background: var(--segment-active-bg);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
 }
 
 /* ---- リスト領域 ---- */
@@ -1441,8 +1386,24 @@ body.platform-win32 #search-field:focus-within {
   box-shadow: inset 0 -2px 0 var(--accent);
 }
 
-body.platform-win32 #filter-badge {
-  border-radius: var(--radius-s);
+/* 種別セグメント: Fluent の Pivot (地は敷かず、選択項目だけ下線で示す) */
+body.platform-win32 #filter-segment {
+  gap: 12px;
+  padding: 0;
+  background: transparent;
+  border-bottom: 1px solid var(--divider);
+}
+
+body.platform-win32 .segment-item {
+  flex: none;
+  padding: 4px 2px 6px;
+  border-radius: 0;
+}
+
+body.platform-win32 .segment-item.active {
+  background: transparent;
+  box-shadow: none;
+  border-bottom: 2px solid var(--accent);
 }
 
 /* リスト: ListView。選択は塗りを薄くし、左端の 3px アクセントバーで示す (文字は反転しない) */
@@ -1595,22 +1556,18 @@ body.platform-win32 #control-toast.toast-accent-red {
   border-left-color: var(--destructive);
 }
 
-/* コンテキストメニュー / ツールチップ / サジェスト: Fluent の MenuFlyout */
-body.platform-win32 #context-menu,
-body.platform-win32 #search-suggest {
+/* コンテキストメニュー / ツールチップ: Fluent の MenuFlyout */
+body.platform-win32 #context-menu {
   border-radius: var(--radius-l);
   padding: 4px;
 }
 
-body.platform-win32 #context-menu li:not(.separator),
-body.platform-win32 #search-suggest li {
+body.platform-win32 #context-menu li:not(.separator) {
   border-radius: var(--radius-s);
   padding: 6px 10px;
 }
 
-body.platform-win32 #context-menu li:hover,
-body.platform-win32 #search-suggest li.active,
-body.platform-win32 #search-suggest li:hover {
+body.platform-win32 #context-menu li:hover {
   background: var(--fill-hover);
   color: var(--fg);
 }

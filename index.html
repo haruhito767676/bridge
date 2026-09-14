@@ -13,21 +13,18 @@
        左側から自然に隠れていく (つまみだけが最後まで残る) -->
   <div id="root">
   <div id="shell">
-    <!-- 検索フィールド。
-         「:」入力で file / clip のサジェストが浮き出し、Tab / Enter でトークンとして
-         左端に吸着 → トークンで種別を絞りつつ続けてキーワード検索できる -->
+    <!-- 検索フィールド + 種別セグメント (すべて / ファイル / クリップ)。
+         Mail.app のメールボックスフィルタと同じ、見えるボタンで切り替える方式 -->
     <div id="search-area">
       <div id="search-field">
-        <span id="filter-badge" hidden>
-          <span id="filter-badge-label"></span>
-          <button id="filter-badge-remove" aria-label="フィルターを解除" tabindex="-1">
-            <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 3l6 6M9 3l-6 6"/></svg>
-          </button>
-        </span>
         <input id="search-bar" type="search" placeholder="検索"
                spellcheck="false" autocomplete="off" aria-label="アイテムを検索" />
       </div>
-      <ul id="search-suggest" role="listbox" hidden></ul>
+      <div id="filter-segment" role="tablist" aria-label="種別で絞り込み">
+        <button type="button" class="segment-item active" data-mode="" role="tab" aria-selected="true">すべて</button>
+        <button type="button" class="segment-item" data-mode="file" role="tab" aria-selected="false">ファイル</button>
+        <button type="button" class="segment-item" data-mode="clip" role="tab" aria-selected="false">クリップ</button>
+      </div>
     </div>
 
     <div id="drop-zone" tabindex="0">
