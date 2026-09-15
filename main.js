@@ -3778,72 +3778,113 @@ app.whenReady().then(() => {
         const DAY = 24 * HOUR;
         const seedFile = (name, origin, sourceApp) =>
           win.webContents.send('add-file', addFilePayload(path.join(__dirname, name), origin, sourceApp));
+        (async () => {
         if (process.env.BRIDGE_DEV_SEED !== 'restore') {
+        // 撮影用には「アプリ名だけ」ではなくバッジとして見えるアイコンも欲しいので、実際に
+        // インストール済みのアプリの本物のアイコンを流用する (パッケージ版のロジックとは無関係)
+        const iconFor = async (bundlePath) => {
+          try {
+            return await getMacAppIconDataUrl(bundlePath);
+          } catch {
+            return null;
+          }
+        };
+        const appExcel = { name: 'Excel', icon: await iconFor('/Applications/Microsoft Excel.app') };
+        const appNotes = { name: 'メモ', icon: await iconFor('/System/Applications/Notes.app') };
+        const appFigma = { name: 'Figma', icon: await iconFor('/Applications/Figma.app') };
+        const appPages = { name: 'Pages', icon: await iconFor('/Applications/Pages.app') };
+        const appNumbers = { name: 'Numbers', icon: await iconFor('/Applications/Numbers.app') };
+        const appSafari = { name: 'Safari', icon: await iconFor('/Applications/Safari.app') };
+        const appLine = { name: 'LINE', icon: await iconFor('/Applications/LINE.app') };
+        const appTerminal = { name: 'ターミナル', icon: await iconFor('/System/Applications/Utilities/Terminal.app') };
+
         seedFile(
           'assets/demo/見積書_ECサイト改修_v2.pdf',
           { fromDevice: '会社用PC', fromPlatform: 'win32', timestamp: Date.now() - 40 * MIN },
-          { name: 'Excel', icon: null },
+          appExcel,
         );
         seedFile(
           'assets/demo/議事録_1010_定例MTG.txt',
           { timestamp: Date.now() - 4 * HOUR },
-          { name: 'メモ', icon: null },
+          appNotes,
         );
         seedFile(
           'assets/demo/ロゴ差分_v3.png',
           { fromDevice: '会社用PC', fromPlatform: 'win32', timestamp: Date.now() - DAY - 5 * HOUR },
-          { name: 'Figma', icon: null },
+          appFigma,
         );
         seedFile(
           'assets/demo/検収書_9月分.pdf',
           { fromDevice: '自宅iMac', fromPlatform: 'darwin', timestamp: Date.now() - 3 * DAY - 4 * HOUR },
-          { name: 'Pages', icon: null },
+          appPages,
         );
         seedFile(
           'assets/demo/進行スケジュール.csv',
           { timestamp: Date.now() - 2 * DAY },
-          { name: 'Numbers', icon: null },
+          appNumbers,
         );
         seedFile(
           'assets/demo/リリースノート_v1.2.txt',
           { fromDevice: '会社用PC', fromPlatform: 'win32', timestamp: Date.now() - 5 * DAY },
-          { name: 'メモ', icon: null },
+          appNotes,
         );
-        win.webContents.send('clipboard-item', {
-          type: 'clipboard-text',
-          text: 'https://github.com/example-team/ec-renewal/pull/42',
-          timestamp: Date.now() - 5 * MIN,
-          sourceApp: { name: 'Safari', icon: null },
-        });
+        // クリップボードは普段づかいの道具なので、1〜数十分おきに次々コピーしている
+        // ような密度で並べる (数時間おきにしか使っていないような不自然な間隔にしない)
         win.webContents.send('clipboard-item', {
           type: 'clipboard-text',
           text: '会議室Bを10:00〜11:00で予約しました。プロジェクターの予約も忘れずに。',
           timestamp: Date.now() - MIN,
-          sourceApp: { name: 'メモ', icon: null },
+          sourceApp: appNotes,
+        });
+        win.webContents.send('clipboard-item', {
+          type: 'clipboard-text',
+          text: 'https://github.com/example-team/ec-renewal/pull/42',
+          timestamp: Date.now() - 8 * MIN,
+          sourceApp: appSafari,
         });
         win.webContents.send('clipboard-item', {
           type: 'clipboard-text',
           text: '本日17時までにデザイン差し戻しをお願いします🙏',
-          timestamp: Date.now() - 2 * HOUR,
+          timestamp: Date.now() - 35 * MIN,
           fromDevice: '自宅iMac',
           fromPlatform: 'darwin',
-          sourceApp: { name: 'Slack', icon: null },
+          sourceApp: appLine,
+        });
+        win.webContents.send('clipboard-item', {
+          type: 'clipboard-text',
+          text: 'https://api.example.com/v2/orders?status=pending',
+          timestamp: Date.now() - 55 * MIN,
+          sourceApp: appSafari,
+        });
+        win.webContents.send('clipboard-item', {
+          type: 'clipboard-text',
+          text: '在庫アラートのしきい値を10→15に変更してもらえますか？',
+          timestamp: Date.now() - 80 * MIN,
+          fromDevice: '会社用PC',
+          fromPlatform: 'win32',
+          sourceApp: appLine,
+        });
+        win.webContents.send('clipboard-item', {
+          type: 'clipboard-text',
+          text: '03-1234-5678（サポート窓口）',
+          timestamp: Date.now() - 130 * MIN,
+          sourceApp: appNotes,
         });
         win.webContents.send('clipboard-item', {
           type: 'clipboard-image',
           path: path.join(__dirname, 'assets/demo/ロゴ差分_v3.png'),
-          timestamp: Date.now() - DAY,
+          timestamp: Date.now() - DAY + 5 * HOUR,
           fromDevice: '会社用PC',
           fromPlatform: 'win32',
-          sourceApp: { name: 'Figma', icon: null },
+          sourceApp: appFigma,
         });
         win.webContents.send('clipboard-item', {
           type: 'clipboard-text',
           text: 'ssh deploy@192.168.1.42 -p 2222',
-          timestamp: Date.now() - 30 * HOUR,
+          timestamp: Date.now() - DAY - 4 * HOUR,
           fromDevice: '会社用PC',
           fromPlatform: 'win32',
-          sourceApp: { name: 'Terminal', icon: null },
+          sourceApp: appTerminal,
         });
         // ピン留め・タイトル編集も紹介用スクショに含めたいので、シード直後に1件ずつ適用する
         setTimeout(() => {
@@ -3865,11 +3906,18 @@ app.whenReady().then(() => {
           `);
         }, 200);
         }
+        })();
         devHoldOpen = true;
         // focus: true にしておかないとウインドウが「非アクティブ」扱いのままで、
         // macOS の vibrancy (すりガラス) が暗くくすんだ配色になり、スクリーンショット映えが悪い
         expandShelter({ focus: true });
         if (process.env.BRIDGE_DEV_SEED === 'settings') win.webContents.send('open-settings');
+        // デバイス絞り込み機能の紹介スクショ用: 「会社用PC」由来だけに絞った状態で開く
+        if (process.env.BRIDGE_DEV_SEED === 'devicefilter') {
+          setTimeout(() => {
+            win.webContents.executeJavaScript(`setDeviceFilter('会社用PC'); render();`);
+          }, 400);
+        }
         if (process.env.BRIDGE_DEV_SEED === 'keystroke') {
           // ⌘V 送信の自己テスト: 自分の検索欄をキーにして送り、入ったかを読む (他アプリには影響しない)
           setTimeout(() => {
