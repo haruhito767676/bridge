@@ -77,7 +77,11 @@
     position:sticky;top:0;height:100vh;
     display:flex;align-items:center;justify-content:center;
     background:radial-gradient(120% 100% at 50% 0%, var(--panel) 0%, var(--paper) 62%);
-    overflow:hidden;
+    /* overflow:hiddenだと、ズームでlaptop-cropが100vhを超えたときに下側だけ
+       中途半端に切れて見える (ブラウザのビューポート端そのものでの自然なクリップに
+       任せた方が上下対称になる)。パネルのオフスクリーン非表示はopacityで
+       別途制御しているため、ここでhiddenにする必要はない */
+    overflow:visible;
   }
   .laptop-crop{
     position:relative;width:min(980px,92vw);aspect-ratio:16/10;border-radius:22px;overflow:hidden;
@@ -136,10 +140,6 @@
   }
   .laptop-bridge-dock .brd{height:100%;display:flex;flex-direction:column;}
   .laptop-bridge-dock .drop-zone{flex:1;height:auto;}
-  .laptop-caption{
-    position:absolute;left:0;right:0;bottom:18px;
-    font-family:var(--mono);font-size:12px;color:var(--ink-faint);text-align:center;
-  }
 
   /* ---- features ---- */
   .features{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;}
@@ -349,9 +349,9 @@
   <div class="laptop-stage-inner">
     <div class="laptop-crop" role="img" aria-label="ノートPCの画面右端からBridgeのパネルがスライドして現れる演出">
       <div class="laptop-desktop"></div>
-      <div class="laptop-desktop-icon" style="top:46px;left:28px;"></div>
-      <div class="laptop-desktop-icon" style="top:112px;left:28px;"></div>
-      <div class="laptop-desktop-icon" style="top:178px;left:28px;"></div>
+      <div class="laptop-desktop-icon" style="top:64px;left:52px;"></div>
+      <div class="laptop-desktop-icon" style="top:144px;left:52px;"></div>
+      <div class="laptop-desktop-icon" style="top:224px;left:52px;"></div>
       <div class="laptop-menubar">
         <span class="status">
           <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 6.5a9 9 0 0 1 12 0M4.5 9a5.5 5.5 0 0 1 7 0M7 11.5a2 2 0 0 1 2 0"/><circle cx="8" cy="13" r="0.8" fill="currentColor" stroke="none"/></svg>
@@ -399,7 +399,6 @@
       </div>
     </div>
       </div>
-    <p class="laptop-caption">スクロールすると、画面の右端からBridgeが現れます</p>
   </div>
 </div>
 
