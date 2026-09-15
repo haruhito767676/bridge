@@ -14,12 +14,14 @@ site/
 
 ## プレビュー
 
-`index.html` をブラウザで直接開くだけ（外部ビルドツール不要、Google Fontsの読み込みだけネット接続が要る）。
+`index.html` は普通の完結したHTML文書（`<!DOCTYPE html>` 〜 `</html>`）なので、ブラウザで直接開くか、VSCodeの「Go Live」等どんな方法でプレビューしても問題ない（外部ビルドツール不要、Google Fontsの読み込みだけネット接続が要る）。
 
 ```bash
 open site/portfolio/index.html
 open site/public/index.html
 ```
+
+> 補足: Artifactへpublishする形式は逆に「`<title>`と`<style>`と中身だけ、`<html>`/`<head>`/`<body>`なし」という断片が前提（ツール側が自動でラップする）。なので `<!DOCTYPE>`〜`</html>`のタグは、Artifactに戻すときは無くても動く（ブラウザは二重ラップも許容するので付けたままでも壊れないはず）が、気になる場合は publish 前に外す。
 
 ## スクリーンショットの撮り直し方
 
