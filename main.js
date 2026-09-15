@@ -3777,7 +3777,9 @@ app.whenReady().then(() => {
         });
         }
         devHoldOpen = true;
-        expandShelter();
+        // focus: true にしておかないとウインドウが「非アクティブ」扱いのままで、
+        // macOS の vibrancy (すりガラス) が暗くくすんだ配色になり、スクリーンショット映えが悪い
+        expandShelter({ focus: true });
         if (process.env.BRIDGE_DEV_SEED === 'settings') win.webContents.send('open-settings');
         if (process.env.BRIDGE_DEV_SEED === 'keystroke') {
           // ⌘V 送信の自己テスト: 自分の検索欄をキーにして送り、入ったかを読む (他アプリには影響しない)
