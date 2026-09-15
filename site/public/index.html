@@ -75,7 +75,7 @@
   .laptop-stage{margin-top:56px;height:280vh;position:relative;}
   .laptop-stage-inner{
     position:sticky;top:0;height:100vh;
-    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;
+    display:flex;align-items:center;justify-content:center;
     background:radial-gradient(120% 100% at 50% 0%, var(--panel) 0%, var(--paper) 62%);
     overflow:hidden;
   }
@@ -95,19 +95,35 @@
   }
   .laptop-menubar{
     position:absolute;top:0;left:0;right:0;height:30px;
-    display:flex;align-items:center;justify-content:space-between;padding:0 16px;
+    display:flex;align-items:center;justify-content:flex-end;padding:0 16px;
     background:rgba(255,255,255,0.14);backdrop-filter:blur(14px) saturate(1.6);-webkit-backdrop-filter:blur(14px) saturate(1.6);
     font:500 11px -apple-system,BlinkMacSystemFont,"Hiragino Sans",sans-serif;color:rgba(255,255,255,0.92);
   }
-  .laptop-menubar .app-name{font-weight:600;}
   .laptop-menubar .status{display:flex;align-items:center;gap:10px;opacity:0.85;font-variant-numeric:tabular-nums;}
   .laptop-dock{
     position:absolute;left:50%;bottom:14px;transform:translateX(-50%);
-    display:flex;gap:10px;padding:8px 12px;background:rgba(255,255,255,0.16);backdrop-filter:blur(16px);border-radius:16px;
+    display:flex;gap:8px;padding:8px 12px;background:rgba(255,255,255,0.16);backdrop-filter:blur(16px);border-radius:16px;
   }
-  .laptop-dock span{width:28px;height:28px;border-radius:9px;background:rgba(255,255,255,0.55);}
-  .laptop-dock span:nth-child(2){background:rgba(255,255,255,0.4);}
-  .laptop-dock span:nth-child(3){background:rgba(255,255,255,0.3);}
+  .laptop-dock span{width:26px;height:26px;border-radius:8px;background:rgba(255,255,255,0.55);}
+  .laptop-dock span:nth-child(2){background:rgba(255,255,255,0.42);}
+  .laptop-dock span:nth-child(3){background:rgba(255,255,255,0.32);}
+  .laptop-dock span:nth-child(4){background:rgba(255,255,255,0.5);}
+  .laptop-dock span:nth-child(5){background:rgba(255,255,255,0.38);}
+  .laptop-dock span:nth-child(6){background:rgba(255,255,255,0.46);}
+  .laptop-dock span:nth-child(7){background:rgba(255,255,255,0.3);}
+  .laptop-dock span:nth-child(8){background:rgba(255,255,255,0.4);}
+  .laptop-dock .dock-divider{width:1px;height:26px;border-radius:0;background:rgba(255,255,255,0.25);}
+
+  .laptop-desktop-icon{position:absolute;width:44px;height:36px;}
+  .laptop-desktop-icon::before{
+    content:"";position:absolute;top:-6px;left:0;width:20px;height:7px;border-radius:3px 3px 0 0;
+    background:linear-gradient(160deg,#9fc8ff 0%,#6ba3ee 100%);
+  }
+  .laptop-desktop-icon::after{
+    content:"";position:absolute;inset:0;border-radius:3px 6px 6px 6px;
+    background:linear-gradient(160deg,#8fc0ff 0%,#5b9bf0 100%);
+    box-shadow:0 3px 8px rgba(0,0,0,0.25);
+  }
   .laptop-bezel-edge{
     position:absolute;top:0;right:0;bottom:0;width:18px;
     background:linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.28) 55%, rgba(10,10,14,0.6) 100%);
@@ -120,7 +136,10 @@
   }
   .laptop-bridge-dock .brd{height:100%;display:flex;flex-direction:column;}
   .laptop-bridge-dock .drop-zone{flex:1;height:auto;}
-  .laptop-caption{font-family:var(--mono);font-size:12px;color:var(--ink-faint);text-align:center;}
+  .laptop-caption{
+    position:absolute;left:0;right:0;bottom:18px;
+    font-family:var(--mono);font-size:12px;color:var(--ink-faint);text-align:center;
+  }
 
   /* ---- features ---- */
   .features{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;}
@@ -330,14 +349,20 @@
   <div class="laptop-stage-inner">
     <div class="laptop-crop" role="img" aria-label="ノートPCの画面右端からBridgeのパネルがスライドして現れる演出">
       <div class="laptop-desktop"></div>
+      <div class="laptop-desktop-icon" style="top:46px;left:28px;"></div>
+      <div class="laptop-desktop-icon" style="top:112px;left:28px;"></div>
+      <div class="laptop-desktop-icon" style="top:178px;left:28px;"></div>
       <div class="laptop-menubar">
-        <span class="app-name">Finder</span>
         <span class="status">
           <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 6.5a9 9 0 0 1 12 0M4.5 9a5.5 5.5 0 0 1 7 0M7 11.5a2 2 0 0 1 2 0"/><circle cx="8" cy="13" r="0.8" fill="currentColor" stroke="none"/></svg>
           <span>9:41</span>
         </span>
       </div>
-      <div class="laptop-dock"><span></span><span></span><span></span></div>
+      <div class="laptop-dock">
+        <span></span><span></span><span></span><span></span>
+        <div class="dock-divider"></div>
+        <span></span><span></span><span></span><span></span>
+      </div>
       <div class="laptop-bezel-edge"></div>
 
     </div>
@@ -1118,10 +1143,9 @@
 
     var ZOOM_END = 0.45;  // 0〜45%: ズーム
     var SLIDE_END = 0.65; // 45〜65%: Bridgeがスライドイン、残り35%はホールド (十分な猶予を持たせる)
-    var TARGET_CROP_HEIGHT = 850; // ズームはPC画面の高さがここに達したら止める
+    var TARGET_CROP_HEIGHT = 850; // ズームはPC画面の高さがここに達したら止める (アスペクト比は保ったまま)
     var BRIDGE_W = 320; // 本物のBridgeの実寸
     var BRIDGE_H = 600;
-    var EDGE_OVERLAP = 6; // ベゼルに少し食い込ませて、画面から生えている感じにする
 
     var targetScale = 1;
 
@@ -1136,7 +1160,8 @@
       var cropRect = crop.getBoundingClientRect();
       var innerRect = stageInner.getBoundingClientRect();
       return {
-        left: cropRect.right - innerRect.left - BRIDGE_W + EDGE_OVERLAP,
+        // Bridgeパネルの右端をlaptop-cropの右端に正確に一致させる
+        left: cropRect.right - innerRect.left - BRIDGE_W,
         top: cropRect.top - innerRect.top + (cropRect.height - BRIDGE_H) / 2
       };
     }
