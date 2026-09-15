@@ -82,6 +82,9 @@
   .laptop-crop{
     position:relative;width:min(980px,92vw);aspect-ratio:16/10;border-radius:22px;overflow:hidden;
     box-shadow:0 50px 120px -30px rgba(20,20,25,0.35), 0 0 0 1px var(--line);
+    /* 実際のノートPC画面に対するBridgeの実寸割合はごく一部なので、静止時はその通り小さく描く。
+       スクロールで右端へズームしてから、その拡大された領域の中でBridgeを見せる */
+    transform-origin:88% 50%;will-change:transform;
   }
   .laptop-desktop{
     position:absolute;inset:0;
@@ -110,9 +113,9 @@
     background:linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.28) 55%, rgba(10,10,14,0.6) 100%);
   }
   .laptop-bridge-dock{
-    /* 本物のBridgeは320×600pt。余白を切り詰めて、できるだけ縮小せず実寸に近いサイズで収める */
-    position:absolute;top:4%;bottom:4%;right:18px;width:min(320px,72%);
-    transform:translateX(105%);opacity:0.15;will-change:transform,opacity;
+    /* 画面全体に対する実際の比率 (だいたい20%幅) で静止させ、ズーム後に画面いっぱいへ広がって見えるようにする */
+    position:absolute;top:4%;bottom:4%;right:18px;width:19%;
+    transform:translateX(105%);opacity:0;will-change:transform,opacity;
   }
   .laptop-bridge-dock .brd{height:100%;display:flex;flex-direction:column;}
   .laptop-bridge-dock .drop-zone{flex:1;height:auto;}
@@ -1134,16 +1137,23 @@
 })();
 </script>
 <script>
-  // ---- laptop-stage: スクロール量に応じてBridgeパネルをスライドインさせる ----
-  // ズームは行わない (常にノートPC画面の右端に寄ったアングルで固定表示) ため、
-  // 必要な計算は「このセクション内での進行度 (0〜1)」だけで済む
+  // ---- laptop-stage: スクロールで (1) 画面右端へズーム → (2) Bridgeをスライドイン → (3) ホールド ----
+  // Bridgeの実寸は画面全体のごく一部 (静止時は .laptop-bridge-dock を約19%幅にしてある) なので、
+  // 比率をごまかさずに大きく見せるには結局ズームが要る。transform-origin を右寄りに固定して
+  // scale するだけなので、ビューポート幅ごとの座標計算は不要 (%指定なので自動で追従する)
   (function () {
     var stage = document.getElementById('laptop-stage');
+    var crop = document.querySelector('.laptop-crop');
     var panel = document.getElementById('laptop-bridge-dock');
-    if (!stage || !panel) return;
+    if (!stage || !crop || !panel) return;
+
+    var ZOOM_END = 0.5;   // 0〜50%: ズーム
+    var SLIDE_END = 0.82; // 50〜82%: Bridgeがスライドイン、以降はホールド
+    var MAX_SCALE = 2.5;
 
     var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (reduceMotion) {
+      crop.style.transform = 'scale(' + MAX_SCALE + ')';
       panel.style.transform = 'translateX(0)';
       panel.style.opacity = '1';
       return;
@@ -1151,17 +1161,23 @@
 
     var ticking = false;
 
+    function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
+
     function update() {
       ticking = false;
       var rect = stage.getBoundingClientRect();
       var vh = window.innerHeight;
       var scrollable = stage.offsetHeight - vh; // sticky区間の実スクロール量
       var progress = scrollable > 0 ? Math.min(1, Math.max(0, -rect.top / scrollable)) : 0;
-      // 進行度の最初の45%でスライドインを終え、残りはBridgeを出したままホールドする
-      var slide = Math.min(1, progress / 0.45);
-      var eased = 1 - Math.pow(1 - slide, 3); // easeOutCubic
+
+      var zoomT = Math.min(1, progress / ZOOM_END);
+      var zoomEased = easeOutCubic(zoomT);
+      crop.style.transform = 'scale(' + (1 + zoomEased * (MAX_SCALE - 1)) + ')';
+
+      var slideT = Math.min(1, Math.max(0, (progress - ZOOM_END) / (SLIDE_END - ZOOM_END)));
+      var eased = easeOutCubic(slideT);
       panel.style.transform = 'translateX(' + (105 - eased * 105) + '%)';
-      panel.style.opacity = String(0.15 + eased * 0.85);
+      panel.style.opacity = String(eased);
     }
 
     function onScroll() {
