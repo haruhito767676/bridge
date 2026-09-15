@@ -587,28 +587,36 @@ body:not(.platform-darwin) #drop-zone::-webkit-scrollbar-thumb:hover {
 }
 
 /* コピー元アプリのアイコンバッジ (先頭スロットの右下に重ねる。名前はツールチップ)。
+   このルール自体は macOS 向け (他のスタイルと同じく、無印がデフォルトの macOS 向けで
+   body.platform-win32 側が Windows 向けの上書き。実際のアイコン取得も getFrontmostAppMac /
+   getFrontmostAppWindows でロジックが分かれている)。
    macOS のアプリアイコンは Big Sur 以降どれも「角丸正方形の絵」として書き出されている
    (背景色・形は既にアイコン自体が持っている) ので、後ろに別の塗り地を敷くと二重の縁取りに
-   なって窮屈に見える。地は敷かず、輪郭を示すごく薄いリング (box-shadow) だけを残して
-   そのぶんバッジ自体を大きく (16px → 20px) して視認性を上げる */
+   なって窮屈に見える。地は敷かず、輪郭を示すごく薄いリング (box-shadow) だけを残す */
 .source-app-badge {
   position: absolute;
-  right: -5px;
-  bottom: -5px;
-  width: 24px;
-  height: 24px;
-  border-radius: 6px;
+  right: -4px;
+  bottom: -4px;
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
   /* 背景の塗りを敷かなくなった分、リング (0 0 0 1.5px) も外す。塗りと組みで初めて自然な
      縁取りに見える色で、地の無いところに単体で残すと逆に不自然な輪郭線として浮いて見えるため。
      主アイコンとの境目は落ち影だけで十分つく */
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
-  /* macOS のアプリアイコン (.icns) は Big Sur 以降どれも「影を落とすための余白」を
-     アイコン自身の画像内に既に持っている (実測でおおよそ縁から 8〜9%)。box が実寸そのままだと
-     この余白ぶん小さく・遠く見えるので、枠を一回り大きくして余白を相殺し、絵柄自体が
-     枠いっぱいに見えるようにする。アイコンによって余白の量は多少ばらつくが、これは
-     どのアプリにも一律にかけられる調整として妥当な範囲 */
   object-fit: contain;
   pointer-events: auto;
+}
+
+/* Windows は今回の調整の対象外。元の (地を敷いた) 見た目のまま据え置く */
+body.platform-win32 .source-app-badge {
+  right: -3px;
+  bottom: -3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  background: var(--popover-bg);
+  box-shadow: 0 0 0 1.5px var(--popover-bg), 0 1px 2px rgba(0, 0, 0, 0.25);
 }
 
 /* 画像ファイルの実物サムネイル */
