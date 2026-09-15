@@ -132,6 +132,23 @@
     position:absolute;top:0;right:0;bottom:0;width:18px;
     background:linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.28) 55%, rgba(10,10,14,0.6) 100%);
   }
+  /* ---- fake-window: デスクトップに「何か別のウィンドウが既に開いている」雰囲気を出し、
+     デモカーソルの出発点に自然な理由を与えるための、文字を使わないダミーウィンドウ ---- */
+  .laptop-fake-window{
+    position:absolute;top:150px;left:340px;width:230px;height:150px;border-radius:10px;overflow:hidden;
+    background:rgba(246,246,246,0.95);box-shadow:0 24px 50px -20px rgba(0,0,0,0.45),0 0 0 1px rgba(0,0,0,0.08);
+  }
+  .laptop-fake-window .titlebar{
+    height:26px;display:flex;align-items:center;gap:6px;padding:0 10px;
+    background:rgba(255,255,255,0.75);border-bottom:1px solid rgba(0,0,0,0.06);
+  }
+  .laptop-fake-window .dot{width:10px;height:10px;border-radius:50%;}
+  .laptop-fake-window .dot.red{background:#ff5f57;}
+  .laptop-fake-window .dot.yellow{background:#febc2e;}
+  .laptop-fake-window .dot.green{background:#28c840;}
+  .laptop-fake-window .body{padding:14px;display:flex;flex-direction:column;gap:9px;}
+  .laptop-fake-window .line{height:8px;border-radius:4px;background:rgba(60,60,67,0.12);}
+  .laptop-fake-window .line.short{width:45%;}
   .laptop-bridge-dock{
     /* .laptop-cropの中には入れない (scaleの入れ子でフォントがサブピクセルになり滲むため)。
        常に実寸320×600pxで描画し、位置だけJSで.laptop-cropの右端に毎フレーム合わせる */
@@ -140,6 +157,17 @@
   }
   .laptop-bridge-dock .brd{height:100%;display:flex;flex-direction:column;}
   .laptop-bridge-dock .drop-zone{flex:1;height:auto;}
+
+  /* ---- demo-cursor: 「ここは触れる」ことを言葉ではなく動きで伝えるための、
+     スライドイン完了後に一度だけ自動再生されるクリック演出。macOS標準の矢印カーソルを模す */
+  .demo-cursor{
+    position:absolute;left:0;top:0;width:20px;height:22px;z-index:50;pointer-events:none;
+    opacity:0;transform:scale(1);
+    transition:left 1.6s cubic-bezier(0.45,0.05,0.15,1), top 1.6s cubic-bezier(0.45,0.05,0.15,1),
+      opacity 0.5s ease, transform 0.15s ease;
+  }
+  .demo-cursor.pressed{transform:scale(0.9);}
+  .demo-cursor svg{width:100%;height:100%;filter:drop-shadow(0 1px 3px rgba(0,0,0,0.4));}
 
   /* ---- features ---- */
   .features{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;}
@@ -352,6 +380,16 @@
       <div class="laptop-desktop-icon" style="top:64px;left:52px;"></div>
       <div class="laptop-desktop-icon" style="top:144px;left:52px;"></div>
       <div class="laptop-desktop-icon" style="top:224px;left:52px;"></div>
+      <div class="laptop-fake-window" id="laptop-fake-window">
+        <div class="titlebar">
+          <span class="dot red"></span><span class="dot yellow"></span><span class="dot green"></span>
+        </div>
+        <div class="body">
+          <div class="line" style="width:78%;"></div>
+          <div class="line" style="width:92%;"></div>
+          <div class="line short"></div>
+        </div>
+      </div>
       <div class="laptop-menubar">
         <span class="status">
           <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 6.5a9 9 0 0 1 12 0M4.5 9a5.5 5.5 0 0 1 7 0M7 11.5a2 2 0 0 1 2 0"/><circle cx="8" cy="13" r="0.8" fill="currentColor" stroke="none"/></svg>
@@ -399,6 +437,11 @@
       </div>
     </div>
       </div>
+    <div class="demo-cursor" id="laptop-demo-cursor">
+      <svg viewBox="0 0 20 22" xmlns="http://www.w3.org/2000/svg">
+        <path d="M2 1.2 L2 17.6 L6.6 13.8 L9.4 20.2 L12.1 19 L9.3 12.7 L15.7 12.4 Z" fill="#111213" stroke="#fff" stroke-width="1.3" stroke-linejoin="round" stroke-linecap="round"/>
+      </svg>
+    </div>
   </div>
 </div>
 
@@ -1165,6 +1208,60 @@
       };
     }
 
+    // ---- ここが触れることを、文字ではなくクリック動作の自己再生で伝える演出 ----
+    // スライドインが完了した最初の1回だけ、デスクトップ上の別ウィンドウのあたりに
+    // カーソルが現れ (「さっきまで他の作業をしていた」という体で)、少し間を置いてから
+    // ゆっくりBridgeの1件目のアイテムまで移動してクリックし、実物と同じ
+    // 「コピーしました」チェックマークを表示する。座標はすべて.laptop-stage-inner基準
+    // (crop・panelどちらもgetBoundingClientRectで実際の画面座標を取るので、
+    // cropのズームtransformを自前で計算し直す必要がない)
+    var demoCursor = document.getElementById('laptop-demo-cursor');
+    var fakeWindow = document.getElementById('laptop-fake-window');
+    var demoScheduled = false;
+
+    function playClickDemo() {
+      var li = document.querySelector('#laptop-brd-file-list .file-item');
+      if (!li || !demoCursor || !fakeWindow) return;
+      var innerRect = stageInner.getBoundingClientRect();
+      var winRect = fakeWindow.getBoundingClientRect();
+      var liRect = li.getBoundingClientRect();
+
+      var startX = winRect.left - innerRect.left + winRect.width * 0.68;
+      var startY = winRect.top - innerRect.top + winRect.height * 0.6;
+      var targetX = liRect.left - innerRect.left + liRect.width * 0.82;
+      var targetY = liRect.top - innerRect.top + liRect.height * 0.35;
+
+      // 1. 別ウィンドウのあたりにカーソルがふっと現れる (まだ動かない)
+      demoCursor.style.transition = 'none';
+      demoCursor.style.left = startX + 'px';
+      demoCursor.style.top = startY + 'px';
+      requestAnimationFrame(function () {
+        demoCursor.style.transition = '';
+        demoCursor.style.opacity = '1';
+      });
+
+      // 2. 一呼吸置いてから、Bridgeの1件目までゆっくり移動する
+      setTimeout(function () {
+        demoCursor.style.left = targetX + 'px';
+        demoCursor.style.top = targetY + 'px';
+      }, 1100);
+
+      // 3. 到着後にクリック (押し込み + コピー済みチェック表示)
+      setTimeout(function () {
+        demoCursor.classList.add('pressed');
+        li.classList.add('copied');
+        var mark = document.createElement('div');
+        mark.className = 'copied-mark';
+        mark.innerHTML = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.2 3.2L13 5"/></svg>';
+        li.appendChild(mark);
+        setTimeout(function () { demoCursor.classList.remove('pressed'); }, 260);
+        setTimeout(function () { li.classList.remove('copied'); mark.remove(); }, 1000);
+      }, 2900);
+
+      // 4. しばらく余韻を置いてからカーソルをフェードアウト
+      setTimeout(function () { demoCursor.style.opacity = '0'; }, 4300);
+    }
+
     var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (reduceMotion) {
       computeTargetScale();
@@ -1198,6 +1295,11 @@
       panel.style.left = (offscreenLeft + (pos.left - offscreenLeft) * eased) + 'px';
       panel.style.top = pos.top + 'px';
       panel.style.opacity = String(eased);
+
+      if (slideT >= 1 && !demoScheduled) {
+        demoScheduled = true;
+        setTimeout(playClickDemo, 450);
+      }
     }
 
     function onScroll() {
