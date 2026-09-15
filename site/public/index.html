@@ -145,34 +145,69 @@
   }
   @media (prefers-reduced-motion: reduce){ *{animation:none !important;transition:none !important;} }
 
-  /* ---- live demo (実際に動くパネルの縮小再現) ---- */
+  /* ---- live demo: 本物の styles.css / index.html から該当ルールをそのまま移植 (#brd 配下に限定) ----
+     変数名・クラス名・値は /styles.css と同じ (ライトモード側の値をそのまま採用) */
   .demo-wrap{display:flex;flex-direction:column;align-items:center;gap:14px;}
-  .brd{width:100%;max-width:380px;background:#fff;border:1px solid var(--line);border-radius:var(--radius-m);padding:10px;box-shadow:0 24px 60px -30px rgba(20,20,25,0.28);}
-  .brd-bar{display:flex;align-items:center;gap:8px;height:36px;padding:0 10px;background:var(--panel);border-radius:var(--radius-s);border:1px solid var(--line);}
-  .brd-bar svg{width:14px;height:14px;flex-shrink:0;color:var(--ink-faint);}
-  .brd-input{flex:1;min-width:0;background:transparent;border:none;outline:none;font:500 13.5px var(--sans);color:var(--ink);}
-  .brd-input::placeholder{color:var(--ink-faint);}
-  .brd-segment{position:relative;display:flex;gap:2px;margin:8px 0 0;padding:2px;background:var(--panel);border-radius:9px;}
-  .brd-segment-thumb{position:absolute;top:2px;bottom:2px;left:2px;width:calc((100% - 4px) / 3);background:#fff;border-radius:7px;box-shadow:0 1px 3px rgba(20,20,25,0.16);transition:transform 0.25s cubic-bezier(0.2,0.8,0.2,1);}
-  .brd-segment-item{position:relative;z-index:1;flex:1;padding:6px 0;font:500 11.5px var(--sans);color:var(--ink-dim);background:none;border:none;border-radius:7px;cursor:pointer;}
-  .brd-segment-item:hover{color:var(--ink);}
-  .brd-segment-item.active{color:var(--ink);}
-  .brd-list{margin-top:8px;max-height:340px;overflow-y:auto;}
-  .brd-row{display:flex;align-items:flex-start;gap:10px;padding:8px 6px;border-radius:9px;cursor:pointer;}
-  .brd-row:hover{background:var(--panel);}
-  .brd-row-ic{width:26px;height:26px;flex-shrink:0;border-radius:7px;background:var(--panel);display:flex;align-items:center;justify-content:center;color:var(--ink-dim);}
-  .brd-row-ic svg{width:14px;height:14px;}
-  .brd-row-body{min-width:0;flex:1;}
-  .brd-row-title{font:500 13.5px var(--sans);color:var(--ink);line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  .brd-row-meta{margin-top:2px;font:400 11.5px var(--sans);color:var(--ink-faint);display:flex;align-items:center;gap:5px;flex-wrap:wrap;}
-  .brd-pin{color:var(--ink-faint);}
-  .brd-chip{display:inline-flex;align-items:center;gap:4px;padding:1px 6px;background:var(--panel-2);border-radius:6px;font-size:10px;color:var(--ink-dim);}
-  .brd-chip::before{content:"";width:5px;height:5px;border-radius:50%;background:var(--accent);}
-  .brd-empty{padding:24px 8px;text-align:center;font:400 12.5px var(--sans);color:var(--ink-faint);}
-  .brd-empty[hidden]{display:none;}
-  .brd-caption{font-family:var(--mono);font-size:12.5px;color:var(--ink-faint);text-align:center;max-width:380px;}
-  .brd-toast{position:fixed;left:50%;bottom:28px;transform:translate(-50%,12px);background:var(--ink);color:#fff;font:500 12.5px var(--sans);padding:8px 14px;border-radius:9px;opacity:0;pointer-events:none;transition:opacity 0.2s ease,transform 0.2s ease;z-index:50;max-width:88vw;text-align:center;}
-  .brd-toast.show{opacity:1;transform:translate(-50%,0);}
+  #brd{
+    --fg:#1d1d1f; --fg-secondary:rgba(60,60,67,0.6); --fg-tertiary:rgba(60,60,67,0.3);
+    --accent:#0a84ff; --accent-fg:#fff; --accent-tint:rgba(10,132,255,0.14); --success:#34c759;
+    --panel-fallback:rgba(236,236,238,0.96); --fill:rgba(120,120,128,0.1); --fill-strong:rgba(120,120,128,0.24);
+    --search-fill:rgba(0,0,0,0.05); --segment-active-bg:#fff;
+    --divider:rgba(60,60,67,0.12); --popover-bg:rgba(246,246,246,0.94); --popover-border:rgba(0,0,0,0.1);
+    --radius-s:6px; --radius-m:10px; --radius-l:14px;
+    width:100%;max-width:340px;background:var(--panel-fallback);border-radius:var(--radius-l);
+    padding:10px 10px 6px;box-shadow:0 24px 60px -30px rgba(20,20,25,0.28),0 0 0 1px var(--divider);
+    font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Segoe UI","Yu Gothic UI",sans-serif;
+    font-size:13px;line-height:1.35;color:var(--fg);
+  }
+  #brd-search-area{flex-shrink:0;}
+  #brd-search-field{
+    display:flex;align-items:center;height:30px;padding:0 12px 0 32px;background-color:var(--search-fill);
+    border-radius:999px;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23898989' stroke-width='2.5' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;background-position:12px center;background-size:14px 14px;
+    transition:box-shadow 0.15s;
+  }
+  #brd-search-field:focus-within{box-shadow:0 0 0 3px var(--accent),0 0 5px 1px var(--accent-tint);}
+  #brd-search-bar{flex:1;min-width:0;height:100%;padding:0;font:inherit;font-size:13px;color:var(--fg);background:transparent;border:none;outline:none;}
+  #brd-search-bar::placeholder{color:var(--fg-secondary);}
+  #brd-filter-segment{position:relative;display:flex;gap:2px;margin:6px 0 0;padding:2px;background:var(--search-fill);border-radius:var(--radius-s);}
+  #brd-filter-segment-thumb{position:absolute;top:2px;bottom:2px;left:2px;width:calc((100% - 4px) / 3);background:var(--segment-active-bg);border-radius:calc(var(--radius-s) - 2px);box-shadow:0 1px 2px rgba(0,0,0,0.15);transition:transform 0.25s cubic-bezier(0.2,0.8,0.2,1);}
+  #brd .segment-item{position:relative;z-index:1;flex:1;padding:3px 0;font:500 11px inherit;color:var(--fg-secondary);background:transparent;border:none;border-radius:calc(var(--radius-s) - 2px);cursor:pointer;}
+  #brd .segment-item:hover{color:var(--fg);}
+  #brd .segment-item.active{color:var(--fg);}
+  #brd-drop-zone{position:relative;max-height:360px;overflow-y:auto;overflow-x:hidden;margin-top:6px;padding:0 2px 8px 0;}
+  #brd .file-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px;}
+  #brd .section-header{padding:8px 6px 4px;font-size:11px;font-weight:600;color:var(--fg-secondary);list-style:none;}
+  #brd .section-header:first-child{padding-top:0;}
+  #brd .file-item{position:relative;display:flex;align-items:center;gap:10px;padding:7px 6px;border-radius:var(--radius-m);cursor:pointer;transition:background-color 0.12s;}
+  #brd .file-item:hover{background:var(--fill);}
+  #brd .file-item:active{transform:scale(0.985);}
+  #brd .file-item.copied .remove-button{opacity:0;}
+  #brd .item-leading{position:relative;width:36px;height:36px;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
+  #brd .file-icon{width:30px;height:30px;object-fit:contain;}
+  #brd .file-icon.thumbnail{width:36px;height:36px;object-fit:cover;border-radius:var(--radius-s);box-shadow:inset 0 0 0 0.5px var(--divider);background:var(--fill);}
+  #brd .source-app-badge{position:absolute;right:-3px;bottom:-3px;width:15px;height:15px;border-radius:4px;background:var(--popover-bg);box-shadow:0 0 0 1.5px var(--popover-bg),0 1px 2px rgba(0,0,0,0.25);object-fit:contain;}
+  #brd .clip-glyph{width:30px;height:30px;display:flex;align-items:center;justify-content:center;border-radius:8px;background:var(--fill);color:var(--fg-secondary);}
+  #brd .clip-glyph svg{width:16px;height:16px;}
+  #brd .item-lines{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;}
+  #brd .item-title{display:block;width:100%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-size:13px;}
+  #brd .item-title.clip-preview{white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;}
+  #brd .item-meta-line{font-size:11px;color:var(--fg-secondary);overflow:hidden;white-space:nowrap;text-overflow:ellipsis;}
+  #brd .meta-pin{width:10px;height:10px;margin-right:3px;vertical-align:-1px;color:var(--fg-secondary);}
+  #brd .item-badge-line{display:flex;align-items:center;gap:4px;margin-top:2px;}
+  #brd .origin-chip{display:inline-flex;align-items:center;gap:3px;max-width:120px;padding:1px 6px;font-size:10.5px;line-height:14px;border-radius:7px;background:var(--fill);color:var(--fg-secondary);overflow:hidden;white-space:nowrap;}
+  #brd .origin-chip span{overflow:hidden;text-overflow:ellipsis;}
+  #brd .origin-chip img, #brd .origin-chip svg{width:11px;height:11px;flex-shrink:0;}
+  #brd .remove-button{flex-shrink:0;width:18px;height:18px;display:flex;align-items:center;justify-content:center;padding:0;border:none;border-radius:50%;background:transparent;color:var(--fg-tertiary);opacity:0;transition:opacity 0.12s,color 0.12s;}
+  #brd .remove-button svg{width:16px;height:16px;}
+  #brd .file-item:hover .remove-button{opacity:1;}
+  #brd .copied-mark{position:absolute;right:10px;top:50%;width:20px;height:20px;transform:translateY(-50%) scale(0.6);border-radius:50%;background:var(--success);color:#fff;display:flex;align-items:center;justify-content:center;animation:brd-copied-pop 0.22s cubic-bezier(0.2,0.9,0.3,1.2) forwards;}
+  #brd .copied-mark svg{width:11px;height:11px;}
+  @keyframes brd-copied-pop{to{transform:translateY(-50%) scale(1);}}
+  #brd-empty{padding:28px 8px;text-align:center;font-size:12.5px;color:var(--fg-secondary);}
+  #brd-empty[hidden]{display:none;}
+  .brd-caption{font-family:var(--mono);font-size:12.5px;color:var(--ink-faint);text-align:center;max-width:340px;}
 </style>
 </head>
 <body>
@@ -237,25 +272,26 @@
     <p style="max-width:520px;margin:10px auto 0;">アプリを落とさなくても、ここで動きだけ試せます。検索・切り替え・クリックコピーは全部本物です。</p>
   </div>
   <div class="demo-wrap">
-    <div class="brd" id="brd">
-      <div class="brd-bar">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
-        <input class="brd-input" id="brd-search" type="search" placeholder="検索" autocomplete="off" />
+    <div id="brd">
+      <div id="brd-search-area">
+        <div id="brd-search-field">
+          <input id="brd-search-bar" type="search" placeholder="検索" autocomplete="off" spellcheck="false" aria-label="アイテムを検索" />
+        </div>
+        <div id="brd-filter-segment" role="tablist" aria-label="種別で絞り込み">
+          <div id="brd-filter-segment-thumb" aria-hidden="true"></div>
+          <button type="button" class="segment-item active" data-mode="">すべて</button>
+          <button type="button" class="segment-item" data-mode="file">ファイル</button>
+          <button type="button" class="segment-item" data-mode="clip">クリップ</button>
+        </div>
       </div>
-      <div class="brd-segment" id="brd-segment">
-        <div class="brd-segment-thumb" id="brd-segment-thumb"></div>
-        <button type="button" class="brd-segment-item active" data-mode="all">すべて</button>
-        <button type="button" class="brd-segment-item" data-mode="file">ファイル</button>
-        <button type="button" class="brd-segment-item" data-mode="clip">クリップ</button>
+      <div id="brd-drop-zone">
+        <ul class="file-list" id="brd-file-list" role="listbox" aria-label="アイテム"></ul>
+        <div id="brd-empty" hidden>一致するアイテムがありません</div>
       </div>
-      <div class="brd-list" id="brd-list"></div>
-      <div class="brd-empty" id="brd-empty" hidden>一致するアイテムがありません</div>
     </div>
-    <p class="brd-caption">コピー先はあなた自身のクリップボードです（このページの外へは送られません）</p>
+    <p class="brd-caption">index.html / styles.css をそのまま移植（コピー先はあなた自身のクリップボードです）</p>
   </div>
 </section>
-
-<div class="brd-toast" id="brd-toast"></div>
 
 <section>
   <div class="trust">
@@ -351,45 +387,57 @@
 
 <script>
 (function () {
-  // 本物の Bridge (renderer.js) の「検索 + セグメントフィルタ + クリックコピー」だけを
-  // 移植した縮小レプリカ。データは撮影用シードと同じ架空案件のダミー内容
-  var ICONS = {
-    file: '<path d="M6 3h9l5 5v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M15 3v5h5"/>',
-    image: '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M21 16l-5.5-5.5L4 20"/>',
-    text: '<rect x="6" y="3" width="12" height="18" rx="1.5"/><path d="M9 8h6M9 12h6M9 16h4"/>'
+  // 本物の index.html / styles.css / renderer.js から「検索欄・セグメントコントロール・
+  // リスト行 (ピン留め・出身デバイスチップ・コピー元アプリバッジ含む)・クリックコピーの
+  // 見た目とロジック」をそのまま移植した縮小レプリカ。OS 依存部分 (実ファイルアイコン取得・
+  // 実クリップボード監視・ドラッグアウト) だけ、あらかじめ書き出した画像とダミー配列に差し替えている。
+  // データは撮影用シード (main.js の BRIDGE_DEV_SEED) と同じ架空案件の内容
+  var ICON_DIR = '../icons/';
+  var GLYPHS = {
+    clipboard: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="12" height="14" rx="2.5"/><path d="M7.5 4V3.5A1.5 1.5 0 0 1 9 2h2a1.5 1.5 0 0 1 1.5 1.5V4M7.5 9.5h5M7.5 13h3.5"/></svg>',
+    check: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.2 3.2L13 5"/></svg>',
+    xmark: '<svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 1 1 0 14A7 7 0 0 1 8 1zm-2.2 3.9a.65.65 0 0 0-.9.9L7.1 8l-2.2 2.2a.65.65 0 1 0 .9.9L8 8.9l2.2 2.2a.65.65 0 1 0 .9-.9L8.9 8l2.2-2.2a.65.65 0 1 0-.9-.9L8 7.1 5.8 4.9z"/></svg>',
+    pin: '<svg viewBox="0 0 16 16" fill="currentColor"><path d="M9.5 1.5 14.5 6.5l-1.2 1.2-.9-.3-2.6 2.6.3 2.6-1.2 1.2L6 11 2.5 14.5l-1-1L5 10 2.2 7.1l1.2-1.2 2.6.3 2.6-2.6-.3-.9z"/></svg>',
+    laptop: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3.5" width="10" height="7" rx="1"/><path d="M1.5 12.5h13"/></svg>',
+    desktop: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="12" height="8" rx="1"/><path d="M6 13.5h4M8 11v2.5"/></svg>'
   };
+  function glyph(name) {
+    var span = document.createElement('span');
+    span.innerHTML = GLYPHS[name] || '';
+    return span.firstElementChild;
+  }
+
+  // kind: 'file' | 'clip-text' | 'clip-image'。group は section-header (ピン留め/今日/昨日/...) を出す境目
   var DATA = [
-    { kind: 'file', pinned: true, name: '見積書_ECサイト改修_v2.pdf', meta: 'PDF書類 · 14:38', device: '会社用PC', copy: '見積書_ECサイト改修_v2.pdf' },
-    { kind: 'text', name: '会議室Bを10:00〜11:00で予約しました。プロジェクターの予約も忘れずに。', meta: 'テキスト · 15:26', copy: '会議室Bを10:00〜11:00で予約しました。プロジェクターの予約も忘れずに。' },
-    { kind: 'text', name: 'https://github.com/example-team/ec-renewal/pull/42', meta: 'リンク · 15:19', copy: 'https://github.com/example-team/ec-renewal/pull/42' },
-    { kind: 'text', name: '本日17時までにデザイン差し戻しをお願いします🙏', meta: 'テキスト · 14:52', device: '自宅iMac', copy: '本日17時までにデザイン差し戻しをお願いします🙏' },
-    { kind: 'text', name: 'https://api.example.com/v2/orders?status=pending', meta: 'リンク · 14:32', copy: 'https://api.example.com/v2/orders?status=pending' },
-    { kind: 'text', name: '在庫アラートのしきい値を10→15に変更してもらえますか？', meta: 'テキスト · 14:07', device: '会社用PC', copy: '在庫アラートのしきい値を10→15に変更してもらえますか？' },
-    { kind: 'text', name: '03-1234-5678（サポート窓口）', meta: 'テキスト · 13:08', copy: '03-1234-5678（サポート窓口）' },
-    { kind: 'file', name: '10/10 定例MTG（要リリース日確認）', meta: '標準テキスト書類 · 11:18', copy: '議事録_1010_定例MTG.txt' },
-    { kind: 'image', name: 'clipboard_2026-09-14_20-10-00.png', meta: '画像 · 20:27', device: '会社用PC', copy: 'clipboard_2026-09-14_20-10-00.png' },
-    { kind: 'text', name: 'ssh deploy@192.168.1.42 -p 2222', meta: 'テキスト · 11:27', device: '会社用PC', copy: 'ssh deploy@192.168.1.42 -p 2222' },
-    { kind: 'file', name: 'ロゴ差分_v3.png', meta: 'PNG画像 · 10:27', device: '会社用PC', copy: 'ロゴ差分_v3.png' },
-    { kind: 'file', name: '進行スケジュール.csv', meta: 'CSV書類 · 昨日 15:18', copy: '進行スケジュール.csv' },
-    { kind: 'file', name: '検収書_9月分.pdf', meta: 'PDF書類 · 一昨日 11:18', device: '自宅iMac', copy: '検収書_9月分.pdf' },
-    { kind: 'file', name: 'リリースノート_v1.2.txt', meta: '標準テキスト書類 · 5日前', device: '会社用PC', copy: 'リリースノート_v1.2.txt' }
+    { group: 'ピン留め', pinned: true, kind: 'file', name: '見積書_ECサイト改修_v2.pdf', meta: 'PDF書類 · 14:38', icon: ICON_DIR + 'file-pdf.png', device: '会社用PC', copy: '見積書_ECサイト改修_v2.pdf' },
+    { group: '今日', kind: 'clip-text', name: '会議室Bを10:00〜11:00で予約しました。プロジェクターの予約も忘れずに。', meta: 'テキスト · 15:26', sourceApp: { name: 'Notion', icon: ICON_DIR + 'notion.png' }, copy: '会議室Bを10:00〜11:00で予約しました。プロジェクターの予約も忘れずに。' },
+    { group: '今日', kind: 'clip-text', name: 'https://github.com/example-team/ec-renewal/pull/42', meta: 'リンク · 15:19', sourceApp: { name: 'Chrome', icon: ICON_DIR + 'chrome.png' }, copy: 'https://github.com/example-team/ec-renewal/pull/42' },
+    { group: '今日', kind: 'clip-text', name: '本日17時までにデザイン差し戻しをお願いします🙏', meta: 'テキスト · 14:52', sourceApp: { name: 'Slack', icon: ICON_DIR + 'slack.png' }, device: '自宅iMac', copy: '本日17時までにデザイン差し戻しをお願いします🙏' },
+    { group: '今日', kind: 'clip-text', name: 'https://api.example.com/v2/orders?status=pending', meta: 'リンク · 14:32', sourceApp: { name: 'Chrome', icon: ICON_DIR + 'chrome.png' }, copy: 'https://api.example.com/v2/orders?status=pending' },
+    { group: '今日', kind: 'clip-text', name: '在庫アラートのしきい値を10→15に変更してもらえますか？', meta: 'テキスト · 14:07', sourceApp: { name: 'Slack', icon: ICON_DIR + 'slack.png' }, device: '会社用PC', copy: '在庫アラートのしきい値を10→15に変更してもらえますか？' },
+    { group: '今日', kind: 'clip-text', name: '03-1234-5678（サポート窓口）', meta: 'テキスト · 13:08', sourceApp: { name: 'Notion', icon: ICON_DIR + 'notion.png' }, copy: '03-1234-5678（サポート窓口）' },
+    { group: '今日', kind: 'file', name: '10/10 定例MTG（要リリース日確認）', meta: '標準テキスト書類 · 11:18', icon: ICON_DIR + 'file-txt.png', copy: '議事録_1010_定例MTG.txt' },
+    { group: '昨日', kind: 'clip-image', name: 'clipboard_2026-09-14_20-10-00.png', meta: '画像 · 20:27', thumb: ICON_DIR + 'thumb-clipboard.png', sourceApp: { name: 'Figma', icon: ICON_DIR + 'figma.png' }, device: '会社用PC', copy: 'clipboard_2026-09-14_20-10-00.png' },
+    { group: '昨日', kind: 'clip-text', name: 'ssh deploy@192.168.1.42 -p 2222', meta: 'テキスト · 11:27', sourceApp: { name: 'ターミナル', icon: ICON_DIR + 'terminal.png' }, device: '会社用PC', copy: 'ssh deploy@192.168.1.42 -p 2222' },
+    { group: '昨日', kind: 'file', name: 'ロゴ差分_v3.png', meta: 'PNG画像 · 10:27', thumb: ICON_DIR + 'thumb-logo.png', device: '会社用PC', copy: 'ロゴ差分_v3.png' },
+    { group: '9月13日 (日)', kind: 'file', name: '進行スケジュール.csv', meta: 'CSV書類 · 15:18', icon: ICON_DIR + 'file-csv.png', copy: '進行スケジュール.csv' },
+    { group: '9月12日 (土)', kind: 'file', name: '検収書_9月分.pdf', meta: 'PDF書類 · 11:18', icon: ICON_DIR + 'file-pdf.png', device: '自宅iMac', copy: '検収書_9月分.pdf' },
+    { group: '9月10日 (木)', kind: 'file', name: 'リリースノート_v1.2.txt', meta: '標準テキスト書類 · 15:18', icon: ICON_DIR + 'file-txt.png', device: '会社用PC', copy: 'リリースノート_v1.2.txt' }
   ];
 
   var root = document.getElementById('brd');
   if (!root) return;
-  var searchEl = document.getElementById('brd-search');
-  var segmentEl = document.getElementById('brd-segment');
-  var thumbEl = document.getElementById('brd-segment-thumb');
-  var listEl = document.getElementById('brd-list');
+  var searchEl = document.getElementById('brd-search-bar');
+  var segmentEl = document.getElementById('brd-filter-segment');
+  var thumbEl = document.getElementById('brd-filter-segment-thumb');
+  var listEl = document.getElementById('brd-file-list');
   var emptyEl = document.getElementById('brd-empty');
-  var toastEl = document.getElementById('brd-toast');
-  var mode = 'all';
-  var toastTimer = null;
+  var mode = ''; // '' | 'file' | 'clip' (本物の data-mode と同じ空文字が「すべて」)
 
   function matchesMode(item) {
-    if (mode === 'all') return true;
+    if (mode === '') return true;
     if (mode === 'file') return item.kind === 'file';
-    return item.kind === 'text' || item.kind === 'image';
+    return item.kind === 'clip-text' || item.kind === 'clip-image';
   }
 
   function matchesQuery(item, q) {
@@ -397,41 +445,129 @@
     return item.name.toLowerCase().indexOf(q) !== -1;
   }
 
+  // ---- renderer.js の createLeading / createDeviceChip 相当 (実ファイルは同じ関数名を保った) ----
+  function createChip(label, iconEl) {
+    var chip = document.createElement('div');
+    chip.className = 'origin-chip';
+    if (iconEl) chip.appendChild(iconEl);
+    var span = document.createElement('span');
+    span.textContent = label;
+    chip.appendChild(span);
+    return chip;
+  }
+
+  function createDeviceChip(item) {
+    if (!item.device) return null; // デモではローカル生まれのアイテムに device を持たせていない
+    var icon = glyph(item.device === '会社用PC' ? 'desktop' : 'laptop'); // 会社用PC=win32, 自宅iMac=darwin
+    return createChip(item.device, icon);
+  }
+
+  function createSourceAppBadge(item) {
+    if (item.kind === 'file' || !item.sourceApp || !item.sourceApp.icon) return null;
+    var badge = document.createElement('img');
+    badge.className = 'source-app-badge';
+    badge.src = item.sourceApp.icon;
+    badge.draggable = false;
+    badge.alt = item.sourceApp.name || '';
+    badge.title = item.sourceApp.name || '';
+    return badge;
+  }
+
+  function createLeading(item) {
+    var leading = document.createElement('div');
+    leading.className = 'item-leading';
+    if (item.kind === 'clip-text') {
+      var g = document.createElement('div');
+      g.className = 'clip-glyph';
+      g.appendChild(glyph('clipboard'));
+      leading.appendChild(g);
+    } else {
+      var img = document.createElement('img');
+      img.draggable = false;
+      img.alt = '';
+      if (item.thumb) {
+        img.className = 'file-icon thumbnail';
+        img.src = item.thumb;
+      } else {
+        img.className = 'file-icon';
+        img.src = item.icon;
+      }
+      leading.appendChild(img);
+    }
+    var badge = createSourceAppBadge(item);
+    if (badge) leading.appendChild(badge);
+    return leading;
+  }
+
   function render() {
     var q = searchEl.value.trim().toLowerCase();
     var visible = DATA.filter(function (it) { return matchesMode(it) && matchesQuery(it, q); });
     listEl.innerHTML = '';
+    var currentGroup = null;
     visible.forEach(function (item) {
-      var row = document.createElement('div');
-      row.className = 'brd-row';
-      var chip = item.device ? '<span class="brd-chip">' + item.device + '</span>' : '';
-      var pin = item.pinned ? '<span class="brd-pin">📌</span> ' : '';
-      row.innerHTML =
-        '<div class="brd-row-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + ICONS[item.kind] + '</svg></div>' +
-        '<div class="brd-row-body">' +
-        '<div class="brd-row-title">' + pin + escapeHtml(item.name) + '</div>' +
-        '<div class="brd-row-meta"><span>' + item.meta + '</span>' + chip + '</div>' +
-        '</div>';
-      row.addEventListener('click', function () { copyItem(item); });
-      listEl.appendChild(row);
+      if (item.group !== currentGroup) {
+        currentGroup = item.group;
+        var header = document.createElement('li');
+        header.className = 'section-header';
+        header.textContent = currentGroup;
+        listEl.appendChild(header);
+      }
+      var li = document.createElement('li');
+      li.className = 'file-item';
+      li.setAttribute('role', 'option');
+      li.appendChild(createLeading(item));
+
+      var lines = document.createElement('div');
+      lines.className = 'item-lines';
+
+      var titleEl = document.createElement('div');
+      titleEl.className = 'item-title' + (item.kind === 'clip-text' ? ' clip-preview' : '');
+      titleEl.textContent = item.name;
+      lines.appendChild(titleEl);
+
+      var metaLine = document.createElement('div');
+      metaLine.className = 'item-meta-line';
+      metaLine.textContent = item.meta;
+      if (item.pinned) {
+        var pinIcon = glyph('pin');
+        pinIcon.classList.add('meta-pin');
+        metaLine.prepend(pinIcon);
+      }
+      lines.appendChild(metaLine);
+
+      var deviceChip = createDeviceChip(item);
+      if (deviceChip) {
+        var badgeLine = document.createElement('div');
+        badgeLine.className = 'item-badge-line';
+        badgeLine.appendChild(deviceChip);
+        lines.appendChild(badgeLine);
+      }
+
+      var removeBtn = document.createElement('button');
+      removeBtn.className = 'remove-button';
+      removeBtn.setAttribute('aria-label', 'リストから外す');
+      removeBtn.tabIndex = -1;
+      removeBtn.appendChild(glyph('xmark'));
+      removeBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var idx = DATA.indexOf(item);
+        if (idx !== -1) DATA.splice(idx, 1);
+        render();
+      });
+
+      li.append(lines, removeBtn);
+      li.addEventListener('click', function () { copyItem(item, li); });
+      listEl.appendChild(li);
     });
     emptyEl.hidden = visible.length !== 0;
   }
 
-  function escapeHtml(s) {
-    return s.replace(/[&<>]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]; });
-  }
-
-  function copyItem(item) {
+  // ---- renderer.js の copyItemToClipboard / showCopiedFeedback 相当 ----
+  function copyItem(item, li) {
     var text = item.copy;
-    var done = function () {
-      var msg = item.kind === 'text'
-        ? 'コピーしました'
-        : 'コピーしました（実際のアプリでは本物のファイルとして貼り付けられます）';
-      showToast(msg);
-    };
+    var afterCopy = function () { showCopiedFeedback(li); };
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).then(done, done);
+      navigator.clipboard.writeText(text).then(afterCopy, afterCopy);
     } else {
       var ta = document.createElement('textarea');
       ta.value = text;
@@ -441,18 +577,23 @@
       ta.select();
       try { document.execCommand('copy'); } catch (e) {}
       document.body.removeChild(ta);
-      done();
+      afterCopy();
     }
   }
 
-  function showToast(msg) {
-    toastEl.textContent = msg;
-    toastEl.classList.add('show');
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(function () { toastEl.classList.remove('show'); }, 1800);
+  function showCopiedFeedback(li) {
+    li.classList.add('copied');
+    var mark = document.createElement('div');
+    mark.className = 'copied-mark';
+    mark.appendChild(glyph('check'));
+    li.appendChild(mark);
+    setTimeout(function () {
+      li.classList.remove('copied');
+      mark.remove();
+    }, 900);
   }
 
-  var buttons = Array.prototype.slice.call(segmentEl.querySelectorAll('.brd-segment-item'));
+  var buttons = Array.prototype.slice.call(segmentEl.querySelectorAll('.segment-item'));
   buttons.forEach(function (btn, index) {
     btn.addEventListener('click', function () {
       mode = btn.dataset.mode;
