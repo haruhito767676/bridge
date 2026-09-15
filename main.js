@@ -3799,6 +3799,10 @@ app.whenReady().then(() => {
         const appChrome = { name: 'Chrome', icon: await iconFor('/Applications/Google Chrome.app') };
         const appSlack = { name: 'Slack', icon: await iconFor('/Applications/Slack.app') };
         const appTerminal = { name: 'ターミナル', icon: await iconFor('/System/Applications/Utilities/Terminal.app') };
+        const appWord = { name: 'Word', icon: await iconFor('/Applications/Microsoft Word.app') };
+        const appOutlook = { name: 'Outlook', icon: await iconFor('/Applications/Microsoft Outlook.app') };
+        const appTeams = { name: 'Teams', icon: await iconFor('/Applications/Microsoft Teams.app') };
+        const appPowerPoint = { name: 'PowerPoint', icon: await iconFor('/Applications/Microsoft PowerPoint.app') };
 
         seedFile(
           'assets/demo/見積書_ECサイト改修_v2.pdf',
@@ -3828,6 +3832,37 @@ app.whenReady().then(() => {
         seedFile(
           'assets/demo/リリースノート_v1.2.txt',
           { fromDevice: '会社用PC', fromPlatform: 'win32', timestamp: Date.now() - 5 * DAY },
+          appNotion,
+        );
+        // 3台のファイル数が偏らないよう (自分のMac / 会社用PC / 自宅iMac が 4件ずつになるよう) 追加
+        seedFile(
+          'assets/demo/契約書_業務委託.docx',
+          { timestamp: Date.now() - DAY - 2 * HOUR },
+          appWord,
+        );
+        seedFile(
+          'assets/demo/提案資料_リニューアル方針.pptx',
+          { timestamp: Date.now() - 5 * DAY - 2 * HOUR },
+          appPowerPoint,
+        );
+        seedFile(
+          'assets/demo/経費精算_9月.xlsx',
+          { fromDevice: '会社用PC', fromPlatform: 'win32', timestamp: Date.now() - 2 * DAY - 3 * HOUR },
+          appExcel,
+        );
+        seedFile(
+          'assets/demo/納品リスト_10月.xlsx',
+          { fromDevice: '自宅iMac', fromPlatform: 'darwin', timestamp: Date.now() - DAY - 8 * HOUR },
+          appExcel,
+        );
+        seedFile(
+          'assets/demo/バナー案_A案.png',
+          { fromDevice: '自宅iMac', fromPlatform: 'darwin', timestamp: Date.now() - 3 * DAY - HOUR },
+          appPages,
+        );
+        seedFile(
+          'assets/demo/議事録_商店会訪問.txt',
+          { fromDevice: '自宅iMac', fromPlatform: 'darwin', timestamp: Date.now() - 4 * DAY - 5 * HOUR },
           appNotion,
         );
         // クリップボードは普段づかいの道具なので、1〜数十分おきに次々コピーしている
@@ -3890,25 +3925,71 @@ app.whenReady().then(() => {
           fromPlatform: 'win32',
           sourceApp: appTerminal,
         });
-        // ピン留め・タイトル編集も紹介用スクショに含めたいので、シード直後に1件ずつ適用する
-        setTimeout(() => {
-          win.webContents.executeJavaScript(`
+        win.webContents.send('clipboard-item', {
+          type: 'clipboard-text',
+          text: '第3四半期の売上比較表を送ります。セルB2:D10を参照してください。',
+          timestamp: Date.now() - 95 * MIN,
+          fromDevice: '会社用PC',
+          fromPlatform: 'win32',
+          sourceApp: appExcel,
+        });
+        win.webContents.send('clipboard-item', {
+          type: 'clipboard-text',
+          text: '契約書の第3条、支払い条件の文言を統一してください。',
+          timestamp: Date.now() - 150 * MIN,
+          sourceApp: appWord,
+        });
+        win.webContents.send('clipboard-item', {
+          type: 'clipboard-text',
+          text: '本日15:00〜Teams会議です。 https://teams.microsoft.com/l/meetup-join/xxxx',
+          timestamp: Date.now() - 3 * HOUR,
+          fromDevice: '自宅iMac',
+          fromPlatform: 'darwin',
+          sourceApp: appTeams,
+        });
+        // ピン留めのメール署名 (社内向け)。会議室予約などと違い「ずっと使い回す定型文」なので
+        // ピン留めの実例として分かりやすい
+        win.webContents.send('clipboard-item', {
+          type: 'clipboard-text',
+          text: '-------------------\n山田 太郎\nECサイト改修プロジェクト担当 / example-team\nTel: 03-1234-5678\n-------------------',
+          timestamp: Date.now() - 6 * HOUR,
+          sourceApp: appOutlook,
+        });
+        // ピン留め・タイトル編集も紹介用スクショに含めたいので、シード直後に1件ずつ適用する。
+        // アイコン取得 (sips 起動) がアプリの数だけ増えた分、固定の待ち時間だと間に合わないことが
+        // あるため、setTimeout を待ってから実行する形にして「全部 send し終わった後」を保証する
+        await new Promise((r) => setTimeout(r, 300));
+        win.webContents.executeJavaScript(`
             (function () {
-              const est = items.find((it) => it.name && it.name.includes('見積書'));
+              // clip-text の name はコピー本文そのものになるため、ファイル名のキーワードが
+              // 別のクリップ本文に偶然含まれて誤爆することがある (例:「契約書」を含む Word の
+              // クリップ本文と、ファイル名が「契約書...」のファイル)。file だけに絞って探す
+              const findFile = (keyword) => items.find((it) => it.kind === 'file' && it.name && it.name.includes(keyword));
+              const est = findFile('見積書');
               if (est) est.pinned = true;
-              const mtg = items.find((it) => it.name && it.name.includes('議事録'));
+              const mtg = findFile('議事録_1010');
               if (mtg) {
                 mtg.customTitle = '10/10 定例MTG（要リリース日確認）';
                 mtg.timestamp = Date.now() - 4 * 3600000;
               }
               // Main 側は「ローカル生まれ (fromDevice なし) の add-file」には origin.timestamp を
               // 渡さない仕様 (実プロダクトでは常に「今」でよいため)。撮影用にここで直接上書きする
-              const schedule = items.find((it) => it.name && it.name.includes('進行スケジュール'));
+              const schedule = findFile('進行スケジュール');
               if (schedule) schedule.timestamp = Date.now() - 2 * 86400000;
+              const contract = findFile('契約書_業務委託');
+              if (contract) contract.timestamp = Date.now() - 26 * 3600000;
+              const proposal = findFile('提案資料');
+              if (proposal) proposal.timestamp = Date.now() - 122 * 3600000;
+              // メール署名はピン留めの実例として、定型文らしいタイトルを付けて固定する
+              // (本文の部分一致だと Word 由来のクリップ等と衝突しうるため、出身アプリで判定する)
+              const signature = items.find((it) => it.kind === 'clip-text' && it.sourceApp && it.sourceApp.name === 'Outlook');
+              if (signature) {
+                signature.pinned = true;
+                signature.customTitle = 'メール署名（社内向け）';
+              }
               render();
             })();
           `);
-        }, 200);
         }
         })();
         devHoldOpen = true;

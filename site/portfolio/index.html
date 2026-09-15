@@ -528,19 +528,29 @@
   // (pinned な行は実装と同じく group を無視して常に「ピン留め」セクションへ浮く)
   var DATA = [
     { group: '今日', pinned: true, kind: 'file', name: '見積書_ECサイト改修_v2.pdf', meta: 'PDF書類 · 14:38', icon: ICON_DIR + 'file-pdf.png', device: '会社用PC', copy: '見積書_ECサイト改修_v2.pdf' },
-    { group: '今日', kind: 'clip-text', name: '会議室Bを10:00〜11:00で予約しました。プロジェクターの予約も忘れずに。', meta: 'テキスト · 15:26', sourceApp: { name: 'Notion', icon: ICON_DIR + 'notion.png' }, copy: '会議室Bを10:00〜11:00で予約しました。プロジェクターの予約も忘れずに。' },
-    { group: '今日', kind: 'clip-text', name: 'https://github.com/example-team/ec-renewal/pull/42', meta: 'リンク · 15:19', sourceApp: { name: 'Chrome', icon: ICON_DIR + 'chrome.png' }, copy: 'https://github.com/example-team/ec-renewal/pull/42' },
-    { group: '今日', kind: 'clip-text', name: '本日17時までにデザイン差し戻しをお願いします🙏', meta: 'テキスト · 14:52', sourceApp: { name: 'Slack', icon: ICON_DIR + 'slack.png' }, device: '自宅iMac', copy: '本日17時までにデザイン差し戻しをお願いします🙏' },
-    { group: '今日', kind: 'clip-text', name: 'https://api.example.com/v2/orders?status=pending', meta: 'リンク · 14:32', sourceApp: { name: 'Chrome', icon: ICON_DIR + 'chrome.png' }, copy: 'https://api.example.com/v2/orders?status=pending' },
-    { group: '今日', kind: 'clip-text', name: '在庫アラートのしきい値を10→15に変更してもらえますか？', meta: 'テキスト · 14:07', sourceApp: { name: 'Slack', icon: ICON_DIR + 'slack.png' }, device: '会社用PC', copy: '在庫アラートのしきい値を10→15に変更してもらえますか？' },
-    { group: '今日', kind: 'clip-text', name: '03-1234-5678（サポート窓口）', meta: 'テキスト · 13:08', sourceApp: { name: 'Notion', icon: ICON_DIR + 'notion.png' }, copy: '03-1234-5678（サポート窓口）' },
+    { group: '今日', pinned: true, kind: 'clip-text', name: 'メール署名（社内向け）', meta: 'テキスト · 11:01', sourceApp: { name: 'Outlook', icon: ICON_DIR + 'outlook.png' }, copy: '-------------------\n山田 太郎\nECサイト改修プロジェクト担当 / example-team\nTel: 03-1234-5678\n-------------------' },
+    { group: '今日', kind: 'clip-text', name: '会議室Bを10:00〜11:00で予約しました。プロジェクターの予約も忘れずに。', meta: 'テキスト · 17:00', sourceApp: { name: 'Notion', icon: ICON_DIR + 'notion.png' }, copy: '会議室Bを10:00〜11:00で予約しました。プロジェクターの予約も忘れずに。' },
+    { group: '今日', kind: 'clip-text', name: 'https://github.com/example-team/ec-renewal/pull/42', meta: 'リンク · 16:53', sourceApp: { name: 'Chrome', icon: ICON_DIR + 'chrome.png' }, copy: 'https://github.com/example-team/ec-renewal/pull/42' },
+    { group: '今日', kind: 'clip-text', name: '本日17時までにデザイン差し戻しをお願いします🙏', meta: 'テキスト · 16:26', sourceApp: { name: 'Slack', icon: ICON_DIR + 'slack.png' }, device: '自宅iMac', copy: '本日17時までにデザイン差し戻しをお願いします🙏' },
+    { group: '今日', kind: 'clip-text', name: 'https://api.example.com/v2/orders?status=pending', meta: 'リンク · 16:06', sourceApp: { name: 'Chrome', icon: ICON_DIR + 'chrome.png' }, copy: 'https://api.example.com/v2/orders?status=pending' },
+    { group: '今日', kind: 'clip-text', name: '在庫アラートのしきい値を10→15に変更してもらえますか？', meta: 'テキスト · 15:43', sourceApp: { name: 'Slack', icon: ICON_DIR + 'slack.png' }, device: '会社用PC', copy: '在庫アラートのしきい値を10→15に変更してもらえますか？' },
+    { group: '今日', kind: 'clip-text', name: '第3四半期の売上比較表を送ります。セルB2:D10を参照してください。', meta: 'テキスト · 15:00', sourceApp: { name: 'Excel', icon: ICON_DIR + 'excel.png' }, device: '会社用PC', copy: '第3四半期の売上比較表を送ります。セルB2:D10を参照してください。' },
+    { group: '今日', kind: 'clip-text', name: '契約書の第3条、支払い条件の文言を統一してください。', meta: 'テキスト · 14:24', sourceApp: { name: 'Word', icon: ICON_DIR + 'word.png' }, copy: '契約書の第3条、支払い条件の文言を統一してください。' },
+    { group: '今日', kind: 'clip-text', name: '03-1234-5678（サポート窓口）', meta: 'テキスト · 13:53', sourceApp: { name: 'Notion', icon: ICON_DIR + 'notion.png' }, copy: '03-1234-5678（サポート窓口）' },
     { group: '今日', kind: 'file', name: '10/10 定例MTG（要リリース日確認）', meta: '標準テキスト書類 · 11:18', icon: ICON_DIR + 'file-txt.png', copy: '議事録_1010_定例MTG.txt' },
     { group: '昨日', kind: 'clip-image', name: 'clipboard_2026-09-14_20-10-00.png', meta: '画像 · 20:27', thumb: ICON_DIR + 'thumb-clipboard.png', sourceApp: { name: 'Figma', icon: ICON_DIR + 'figma.png' }, device: '会社用PC', copy: 'clipboard_2026-09-14_20-10-00.png' },
+    { group: '昨日', kind: 'clip-text', name: '本日15:00〜Teams会議です。 https://teams.microsoft.com/l/meetup-join/xxxx', meta: 'テキスト · 17:11', sourceApp: { name: 'Teams', icon: ICON_DIR + 'teams.png' }, device: '自宅iMac', copy: '本日15:00〜Teams会議です。 https://teams.microsoft.com/l/meetup-join/xxxx' },
     { group: '昨日', kind: 'clip-text', name: 'ssh deploy@192.168.1.42 -p 2222', meta: 'テキスト · 11:27', sourceApp: { name: 'ターミナル', icon: ICON_DIR + 'terminal.png' }, device: '会社用PC', copy: 'ssh deploy@192.168.1.42 -p 2222' },
+    { group: '昨日', kind: 'file', name: '契約書_業務委託.docx', meta: 'Microsoft Word document (.docx) · 09:39', icon: ICON_DIR + 'file-docx.png', copy: '契約書_業務委託.docx' },
     { group: '昨日', kind: 'file', name: 'ロゴ差分_v3.png', meta: 'PNG画像 · 10:27', thumb: ICON_DIR + 'thumb-logo.png', device: '会社用PC', copy: 'ロゴ差分_v3.png' },
+    { group: '昨日', kind: 'file', name: '納品リスト_10月.xlsx', meta: 'Microsoft Excel Workbook (.xlsx) · 08:11', icon: ICON_DIR + 'file-xlsx.png', device: '自宅iMac', copy: '納品リスト_10月.xlsx' },
     { group: '9月13日 (日)', kind: 'file', name: '進行スケジュール.csv', meta: 'CSV書類 · 15:18', icon: ICON_DIR + 'file-csv.png', copy: '進行スケジュール.csv' },
-    { group: '9月12日 (土)', kind: 'file', name: '検収書_9月分.pdf', meta: 'PDF書類 · 11:18', icon: ICON_DIR + 'file-pdf.png', device: '自宅iMac', copy: '検収書_9月分.pdf' },
-    { group: '9月10日 (木)', kind: 'file', name: 'リリースノート_v1.2.txt', meta: '標準テキスト書類 · 15:18', icon: ICON_DIR + 'file-txt.png', device: '会社用PC', copy: 'リリースノート_v1.2.txt' }
+    { group: '9月13日 (日)', kind: 'file', name: '経費精算_9月.xlsx', meta: 'Microsoft Excel Workbook (.xlsx) · 13:05', icon: ICON_DIR + 'file-xlsx.png', device: '会社用PC', copy: '経費精算_9月.xlsx' },
+    { group: '9月12日 (土)', kind: 'file', name: 'バナー案_A案.png', meta: 'PNG画像 · 16:01', thumb: ICON_DIR + 'thumb-banner.png', device: '自宅iMac', copy: 'バナー案_A案.png' },
+    { group: '9月12日 (土)', kind: 'file', name: '検収書_9月分.pdf', meta: 'PDF書類 · 13:01', icon: ICON_DIR + 'file-pdf.png', device: '自宅iMac', copy: '検収書_9月分.pdf' },
+    { group: '9月11日 (金)', kind: 'file', name: '議事録_商店会訪問.txt', meta: '標準テキスト書類 · 12:01', icon: ICON_DIR + 'file-txt.png', device: '自宅iMac', copy: '議事録_商店会訪問.txt' },
+    { group: '9月10日 (木)', kind: 'file', name: 'リリースノート_v1.2.txt', meta: '標準テキスト書類 · 17:01', icon: ICON_DIR + 'file-txt.png', device: '会社用PC', copy: 'リリースノート_v1.2.txt' },
+    { group: '9月10日 (木)', kind: 'file', name: '提案資料_リニューアル方針.pptx', meta: 'PowerPoint プレゼンテーション (.pptx) · 15:01', icon: ICON_DIR + 'file-pptx.png', copy: '提案資料_リニューアル方針.pptx' }
   ];
 
   var root = document.getElementById('brd');
