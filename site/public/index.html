@@ -1150,18 +1150,19 @@
 
     var ZOOM_END = 0.5;   // 0〜50%: ズーム
     var SLIDE_END = 0.82; // 50〜82%: Bridgeがスライドイン、以降はホールド
-    var REAL_W = 320;
-    var REAL_H = 600;
+    var TARGET_CROP_HEIGHT = 750; // ズームはPC画面の高さがここに達したら止める
+    var BRIDGE_W = 320; // 本物のBridgeの実寸 (750pt四方の画面の中なら、縮小せずそのまま収まる)
+    var BRIDGE_H = 600;
 
     var targetScale = 1;
 
     function computeTargetScale() {
       // crop.offsetHeightはtransformの影響を受けない (layout box基準) ので、
-      // 現在の実寸高さから「600ptに達するズーム倍率」を逆算できる
+      // 現在の実寸高さから「TARGET_CROP_HEIGHTに達するズーム倍率」を逆算できる
       var naturalHeight = crop.offsetHeight;
-      targetScale = naturalHeight > 0 ? Math.max(1, REAL_H / naturalHeight) : 1;
-      panel.style.width = (REAL_W / targetScale) + 'px';
-      panel.style.height = (REAL_H / targetScale) + 'px';
+      targetScale = naturalHeight > 0 ? Math.max(1, TARGET_CROP_HEIGHT / naturalHeight) : 1;
+      panel.style.width = (BRIDGE_W / targetScale) + 'px';
+      panel.style.height = (BRIDGE_H / targetScale) + 'px';
     }
 
     var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
