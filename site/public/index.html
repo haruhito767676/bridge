@@ -113,9 +113,10 @@
     background:linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.28) 55%, rgba(10,10,14,0.6) 100%);
   }
   .laptop-bridge-dock{
-    /* 画面全体に対する実際の比率 (だいたい20%幅) で静止させ、ズーム後に画面いっぱいへ広がって見えるようにする */
-    position:absolute;top:4%;bottom:4%;right:18px;width:19%;
-    transform:translateX(105%);opacity:0;will-change:transform,opacity;
+    /* width/heightはJSで動的に設定 (ズーム後に本物と同じ320×600ptになるよう、
+       ズーム倍率の逆数を掛けたサイズを親のscaleで打ち消す) */
+    position:absolute;top:50%;right:18px;
+    transform:translate(105%,-50%);opacity:0;will-change:transform,opacity;
   }
   .laptop-bridge-dock .brd{height:100%;display:flex;flex-direction:column;}
   .laptop-bridge-dock .drop-zone{flex:1;height:auto;}
@@ -1138,9 +1139,9 @@
 </script>
 <script>
   // ---- laptop-stage: スクロールで (1) 画面右端へズーム → (2) Bridgeをスライドイン → (3) ホールド ----
-  // Bridgeの実寸は画面全体のごく一部 (静止時は .laptop-bridge-dock を約19%幅にしてある) なので、
-  // 比率をごまかさずに大きく見せるには結局ズームが要る。transform-origin を右寄りに固定して
-  // scale するだけなので、ビューポート幅ごとの座標計算は不要 (%指定なので自動で追従する)
+  // ズームは「.laptop-cropの高さが本物のBridgeと同じ600ptになる」ところで止める。
+  // そのうえでBridgeパネル自身は、ズーム倍率の逆数のサイズで置いておき、親のscaleで
+  // 打ち消して画面上は常にちょうど320×600ptで見えるようにする (実寸と完全に一致させる)
   (function () {
     var stage = document.getElementById('laptop-stage');
     var crop = document.querySelector('.laptop-crop');
@@ -1149,12 +1150,25 @@
 
     var ZOOM_END = 0.5;   // 0〜50%: ズーム
     var SLIDE_END = 0.82; // 50〜82%: Bridgeがスライドイン、以降はホールド
-    var MAX_SCALE = 2.5;
+    var REAL_W = 320;
+    var REAL_H = 600;
+
+    var targetScale = 1;
+
+    function computeTargetScale() {
+      // crop.offsetHeightはtransformの影響を受けない (layout box基準) ので、
+      // 現在の実寸高さから「600ptに達するズーム倍率」を逆算できる
+      var naturalHeight = crop.offsetHeight;
+      targetScale = naturalHeight > 0 ? Math.max(1, REAL_H / naturalHeight) : 1;
+      panel.style.width = (REAL_W / targetScale) + 'px';
+      panel.style.height = (REAL_H / targetScale) + 'px';
+    }
 
     var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (reduceMotion) {
-      crop.style.transform = 'scale(' + MAX_SCALE + ')';
-      panel.style.transform = 'translateX(0)';
+      computeTargetScale();
+      crop.style.transform = 'scale(' + targetScale + ')';
+      panel.style.transform = 'translate(0,-50%)';
       panel.style.opacity = '1';
       return;
     }
@@ -1172,11 +1186,11 @@
 
       var zoomT = Math.min(1, progress / ZOOM_END);
       var zoomEased = easeOutCubic(zoomT);
-      crop.style.transform = 'scale(' + (1 + zoomEased * (MAX_SCALE - 1)) + ')';
+      crop.style.transform = 'scale(' + (1 + zoomEased * (targetScale - 1)) + ')';
 
       var slideT = Math.min(1, Math.max(0, (progress - ZOOM_END) / (SLIDE_END - ZOOM_END)));
       var eased = easeOutCubic(slideT);
-      panel.style.transform = 'translateX(' + (105 - eased * 105) + '%)';
+      panel.style.transform = 'translate(' + (105 - eased * 105) + '%,-50%)';
       panel.style.opacity = String(eased);
     }
 
@@ -1187,8 +1201,14 @@
       }
     }
 
+    function onResize() {
+      computeTargetScale();
+      onScroll();
+    }
+
     window.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('resize', onScroll);
+    window.addEventListener('resize', onResize);
+    computeTargetScale();
     update();
   })();
 </script>
