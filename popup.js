@@ -62,12 +62,22 @@ function createLeading(item) {
   const leading = document.createElement('div');
   leading.className = 'item-leading';
   if (item.kind === 'clip-text') {
-    const g = document.createElement('div');
-    g.className = 'clip-glyph';
-    g.innerHTML = CLIPBOARD_GLYPH;
-    leading.appendChild(g);
-    const sourceBadge = createSourceAppBadge(item);
-    if (sourceBadge) leading.appendChild(sourceBadge);
+    // テキストはサムネイルを持たないので、バッジで小さく添えるより
+    // 出身アプリのアイコンをそのまま主アイコンにした方が一目でわかる
+    if (item.sourceApp && item.sourceApp.icon) {
+      const img = document.createElement('img');
+      img.className = 'file-icon source-app-icon';
+      img.draggable = false;
+      img.alt = '';
+      img.src = item.sourceApp.icon;
+      if (item.sourceApp.name) img.title = item.sourceApp.name;
+      leading.appendChild(img);
+    } else {
+      const g = document.createElement('div');
+      g.className = 'clip-glyph';
+      g.innerHTML = CLIPBOARD_GLYPH;
+      leading.appendChild(g);
+    }
     return leading;
   }
   const img = document.createElement('img');
