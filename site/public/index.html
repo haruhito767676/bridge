@@ -1,0 +1,275 @@
+<title>Bridge</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+  :root{
+    --paper:#fbfbfa;
+    --panel:#f2f1ed;
+    --panel-2:#e9e8e3;
+    --line:rgba(60,60,67,0.13);
+    --ink:#1d1d1f;
+    --ink-dim:rgba(60,60,67,0.66);
+    --ink-faint:rgba(60,60,67,0.42);
+    --accent:#0a84ff;
+    --accent-tint:rgba(10,132,255,0.1);
+    --accent-tint-2:rgba(10,132,255,0.18);
+    --ok:#248a3d;
+    --ok-tint:rgba(52,199,89,0.14);
+    --radius-m:16px;
+    --radius-s:10px;
+    --display:'Sora','Hiragino Sans',sans-serif;
+    --sans:'IBM Plex Sans','Hiragino Sans','Yu Gothic',sans-serif;
+    --mono:'IBM Plex Mono','SF Mono',Menlo,monospace;
+  }
+  *{box-sizing:border-box;}
+  html{color-scheme:light;}
+  body{
+    margin:0;background:var(--paper);color:var(--ink);
+    font-family:var(--sans);font-size:16px;line-height:1.65;
+    -webkit-font-smoothing:antialiased;
+  }
+  img{max-width:100%;display:block;}
+  a{color:var(--accent);text-decoration:none;}
+  a.plain{color:inherit;}
+  ::selection{background:var(--accent-tint-2);}
+
+  .wrap{max-width:1080px;margin:0 auto;padding:0 28px;}
+  .prose{max-width:620px;}
+  section{padding:80px 0;}
+  h1,h2,h3{font-family:var(--display);font-weight:700;letter-spacing:-0.01em;text-wrap:balance;margin:0;color:var(--ink);}
+  p{margin:0 0 1em;color:var(--ink-dim);}
+  p:last-child{margin-bottom:0;}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:0.06em;text-transform:uppercase;color:var(--accent);margin:0 0 12px;font-weight:500;}
+
+  /* ---- nav ---- */
+  nav{display:flex;align-items:center;justify-content:space-between;padding:22px 0;}
+  .brand{display:flex;align-items:center;gap:10px;font-family:var(--display);font-weight:700;font-size:17px;color:var(--ink);}
+  .brand img{width:28px;height:28px;border-radius:7px;}
+  nav .links{display:flex;gap:26px;font-size:14px;font-weight:500;color:var(--ink-dim);}
+  nav .links a{color:var(--ink-dim);}
+  nav .links a:hover{color:var(--ink);}
+
+  /* ---- hero ---- */
+  .hero{padding:56px 0 0;text-align:center;}
+  .hero h1{font-size:52px;line-height:1.08;max-width:760px;margin:0 auto;}
+  .hero h1 span{color:var(--accent);}
+  .hero p.sub{font-size:18.5px;max-width:520px;margin:22px auto 0;line-height:1.6;}
+  .cta-row{display:flex;gap:12px;justify-content:center;margin-top:32px;flex-wrap:wrap;}
+  .btn{
+    font-family:var(--sans);font-weight:600;font-size:15px;padding:13px 24px;border-radius:999px;
+    display:inline-flex;align-items:center;gap:8px;
+  }
+  .btn-primary{background:var(--ink);color:#fff;}
+  .btn-secondary{background:var(--panel);color:var(--ink);}
+  .hero-meta{margin-top:22px;font-family:var(--mono);font-size:12.5px;color:var(--ink-faint);}
+
+  .hero-stage{
+    margin-top:56px;padding:64px 0 0;
+    background:radial-gradient(120% 100% at 50% 0%, var(--panel) 0%, var(--paper) 62%);
+  }
+  .hero-shot{
+    max-width:400px;margin:0 auto;border-radius:20px;overflow:hidden;
+    box-shadow:0 40px 80px -30px rgba(20,20,25,0.28), 0 0 0 1px var(--line);
+  }
+  .hero-shot img{width:100%;display:block;}
+
+  /* ---- features ---- */
+  .features{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;}
+  .feature{background:var(--panel);border-radius:var(--radius-m);padding:28px 26px;}
+  .f-icon{width:40px;height:40px;border-radius:11px;background:#fff;display:flex;align-items:center;justify-content:center;margin-bottom:18px;box-shadow:0 1px 2px rgba(0,0,0,0.06);}
+  .f-icon svg{width:20px;height:20px;stroke:var(--accent);}
+  .feature h3{font-size:18px;margin-bottom:8px;}
+  .feature p{font-size:14.5px;line-height:1.6;}
+
+  /* ---- trust callout ---- */
+  .trust{
+    display:grid;grid-template-columns:auto 1fr;gap:24px;align-items:flex-start;
+    background:var(--ok-tint);border-radius:var(--radius-m);padding:32px 34px;
+  }
+  .trust .dot{width:14px;height:14px;border-radius:50%;background:var(--ok);margin-top:6px;flex-shrink:0;}
+  .trust h3{font-size:19px;margin-bottom:8px;}
+  .trust p{font-size:14.5px;color:#3c5c44;}
+
+  /* ---- detail row (screenshot + text) ---- */
+  .detail-row{display:grid;grid-template-columns:1fr 1fr;gap:52px;align-items:center;}
+  .detail-row.reverse .detail-shot{order:2;}
+  .detail-solo{max-width:640px;margin:0 auto;text-align:center;}
+  .detail-shot img{border-radius:14px;box-shadow:0 20px 50px -24px rgba(20,20,25,0.3),0 0 0 1px var(--line);}
+  .detail-text h3{font-size:24px;margin-bottom:12px;}
+  .detail-text p{font-size:15.5px;line-height:1.7;}
+  .checklist{margin:20px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:10px;text-align:left;}
+  .checklist li{font-size:14.5px;color:var(--ink-dim);padding-left:24px;position:relative;}
+  .checklist li::before{content:"✓";position:absolute;left:0;color:var(--ok);font-weight:700;}
+  .detail-solo .checklist{display:inline-flex;margin:20px auto 0;}
+
+  /* ---- faq ---- */
+  .faq{max-width:720px;}
+  .faq-item{padding:22px 0;border-bottom:1px solid var(--line);}
+  .faq-item:first-child{padding-top:0;}
+  .faq-item h4{font-family:var(--sans);font-size:15.5px;font-weight:600;margin:0 0 8px;color:var(--ink);}
+  .faq-item p{font-size:14.5px;}
+
+  /* ---- footer cta ---- */
+  .footer-cta{
+    background:var(--ink);color:#fff;border-radius:24px;padding:56px 48px;text-align:center;
+  }
+  .footer-cta h2{color:#fff;font-size:30px;}
+  .footer-cta p{color:rgba(255,255,255,0.68);margin-top:12px;font-size:15.5px;}
+  .footer-cta .cta-row{margin-top:28px;}
+  .footer-cta .btn-primary{background:#fff;color:var(--ink);}
+  .footer-cta .btn-secondary{background:rgba(255,255,255,0.12);color:#fff;}
+  .code-line{
+    margin-top:24px;display:inline-flex;align-items:center;gap:10px;
+    font-family:var(--mono);font-size:13.5px;background:rgba(255,255,255,0.1);
+    padding:10px 18px;border-radius:10px;color:rgba(255,255,255,0.85);
+  }
+
+  footer.site{padding:40px 0 60px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;}
+  footer.site .fine{font-size:13px;color:var(--ink-faint);}
+  footer.site .flinks{display:flex;gap:20px;font-size:13.5px;font-weight:500;}
+
+  @media (max-width:860px){
+    .hero h1{font-size:36px;}
+    .features{grid-template-columns:1fr;}
+    .trust{grid-template-columns:1fr;}
+    .detail-row, .detail-row.reverse{grid-template-columns:1fr;}
+    .detail-row.reverse .detail-shot{order:0;}
+    .footer-cta{padding:44px 24px;}
+    nav .links{display:none;}
+  }
+  @media (prefers-reduced-motion: reduce){ *{animation:none !important;transition:none !important;} }
+</style>
+
+<div class="wrap">
+  <nav>
+    <div class="brand"><img src="icon.png" alt="Bridge" />Bridge</div>
+    <div class="links">
+      <a href="#features">機能</a>
+      <a href="#faq">よくある質問</a>
+      <a href="https://github.com/haruhito767676/bridge" target="_blank" rel="noopener">GitHub</a>
+    </div>
+  </nav>
+</div>
+
+<div class="hero">
+  <div class="wrap">
+    <p class="eyebrow">macOS & Windows 用・無料</p>
+    <h1>Mac と Windows、<br><span>コピーひとつ</span>で繋がる。</h1>
+    <p class="sub">ファイルをドロップしてクリップボードに。コピーした内容は、同じ Wi-Fi にいるもう1台にも自動で届く。クラウドは使わない。</p>
+    <div class="cta-row">
+      <a class="btn btn-primary" href="https://github.com/haruhito767676/bridge" target="_blank" rel="noopener">GitHub から取得</a>
+      <a class="btn btn-secondary" href="#features">できることを見る</a>
+    </div>
+    <div class="hero-meta">macOS 12+ ・ Windows 10/11 ・ インストール不要（ソースから起動）</div>
+  </div>
+</div>
+
+<div class="hero-stage">
+  <div class="hero-shot"><img src="hero.png" alt="Bridge のパネル。ファイルとクリップボードの履歴が並び、上部で「すべて/ファイル/クリップ」を切り替えられる" /></div>
+</div>
+
+<div class="wrap">
+
+<section id="features">
+  <div class="prose" style="margin:0 auto 44px;text-align:center;">
+    <h2 style="font-size:30px;">3つのことだけ、うまくやる</h2>
+  </div>
+  <div class="features">
+    <div class="feature">
+      <div class="f-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v10M8 9l4 4 4-4"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg></div>
+      <h3>ファイルの一時置き場</h3>
+      <p>ドラッグ&ドロップで保持して、必要なときにクリック1つでコピー。他のアプリへそのまま貼り付けられる、本物のファイルとして。</p>
+    </div>
+    <div class="feature">
+      <div class="f-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 4V3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1"/></svg></div>
+      <h3>消えないクリップボード履歴</h3>
+      <p>コピーした文字・画像・ファイルを自動で記録。再起動しても残るので、「さっきコピーしたやつ」を探し回らなくていい。</p>
+    </div>
+    <div class="feature">
+      <div class="f-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="12" r="3"/><circle cx="18" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><path d="M8.6 10.5 15.4 7M8.6 13.5l6.8 3.5"/></svg></div>
+      <h3>もう1台にも自動で届く</h3>
+      <p>同じ Wi-Fi にいる Mac と Windows が、設定ひとつでお互いを見つけて繋がる。意識せず使えることを目指した。</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="trust">
+    <div class="dot"></div>
+    <div>
+      <h3>クラウドを、経由しない。</h3>
+      <p>コピーした内容や送ったファイルは、あなたの Wi-Fi の中だけを通る。外部のサーバーには一切送られない。同期したい相手とだけ、同じ「合言葉」を共有するだけでいい。</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="detail-solo">
+    <p class="eyebrow">smooth by design</p>
+    <h3>Mac では Mac らしく、<br>Windows では Windows らしく。</h3>
+    <p>見た目を移植しただけのアプリにはしたくなかった。細かい動き方まで、それぞれの OS の標準に合わせている。</p>
+    <ul class="checklist">
+      <li>macOS: すりガラスの質感とバネのような展開アニメーション</li>
+      <li>Windows: Fluent Design のフライアウトと通知領域の作法</li>
+      <li>どちらもキーボードショートカットとクイックルックに対応</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <div class="detail-row reverse">
+    <div class="detail-shot"><img src="history-usage-light.png" alt="設定画面に表示される履歴の使用状況（テキスト・画像・ファイルそれぞれの件数）" /></div>
+    <div class="detail-text">
+      <p class="eyebrow">small but thoughtful</p>
+      <h3>上限に、気づけるように。</h3>
+      <p>クリップボード履歴には上限があり、古いものから自動で消えていく。それに気づかないまま使うのは不安だと思ったので、設定画面にひと目でわかる内訳を出すようにした。</p>
+    </div>
+  </div>
+</section>
+
+<section id="faq">
+  <div class="prose" style="margin-bottom:36px;">
+    <h2 style="font-size:28px;">よくある質問</h2>
+  </div>
+  <div class="faq">
+    <div class="faq-item">
+      <h4>インターネットに繋がっていなくても使える？</h4>
+      <p>ファイルの一時置き場とクリップボード履歴は単体でも動く。他のデバイスとの同期だけ、同じ Wi-Fi / LAN への接続が必要。</p>
+    </div>
+    <div class="faq-item">
+      <h4>スマートフォンには対応している？</h4>
+      <p>今のところ macOS と Windows のみ。Linux はベストエフォートで動くが、正式には対応していない。</p>
+    </div>
+    <div class="faq-item">
+      <h4>料金はかかる？</h4>
+      <p>無料で、ソースコードも MIT ライセンスで公開している。外部サービスへの課金や登録も一切ない。</p>
+    </div>
+    <div class="faq-item">
+      <h4>コピーした内容はどこかに送信される？</h4>
+      <p>同じ LAN 上の、同じ「同期キー」を持つデバイスにしか送られない。外部のサーバーやクラウドは経由しない。</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="footer-cta">
+    <h2>試してみる</h2>
+    <p>今はソースからの起動のみ。Node.js が入っていれば、2つのコマンドで動く。</p>
+    <div class="code-line">git clone github.com/haruhito767676/bridge &amp;&amp; npm install &amp;&amp; npm start</div>
+    <div class="cta-row">
+      <a class="btn btn-primary" href="https://github.com/haruhito767676/bridge" target="_blank" rel="noopener">GitHub を見る</a>
+    </div>
+  </div>
+</section>
+
+</div>
+
+<footer class="site">
+  <div class="wrap" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;">
+    <span class="fine">MIT License © haruhito767676</span>
+    <div class="flinks">
+      <a class="plain" href="https://github.com/haruhito767676/bridge" target="_blank" rel="noopener">GitHub</a>
+      <a class="plain" href="https://github.com/haruhito767676/bridge/blob/main/README.md" target="_blank" rel="noopener">README</a>
+    </div>
+  </div>
+</footer>

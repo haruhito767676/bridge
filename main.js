@@ -3753,24 +3753,26 @@ app.whenReady().then(() => {
     win.webContents.once('did-finish-load', () => {
       setTimeout(() => {
         if (!winAlive()) return;
+        // スクリーンショット用のダミーデータは、プロジェクト自身のファイル (README/SPEC) ではなく、
+        // 実際の業務で使うようなありふれた内容にする (紹介ページに載せたときの実用性が伝わるように)
         const seedFile = (name) => win.webContents.send('add-file', addFilePayload(path.join(__dirname, name)));
         if (process.env.BRIDGE_DEV_SEED !== 'restore') {
-        seedFile('icon.png');
-        seedFile('README.md');
+        seedFile('assets/demo/見積書_下期.pdf');
+        seedFile('assets/demo/議事録_1010.md');
         win.webContents.send('add-file', {
-          ...addFilePayload(path.join(__dirname, 'SPEC.md')),
+          ...addFilePayload(path.join(__dirname, 'assets/demo/ロゴ案_v3.png')),
           fromDevice: 'Win-Desk',
           fromPlatform: 'win32',
         });
         win.webContents.send('clipboard-item', {
           type: 'clipboard-text',
-          text: 'Apple らしさは見た目より先に「動き」で決まります。ここが今いちばん純正と差がある部分です。',
+          text: '会議室Bを10:00〜11:00で予約しました。プロジェクターの予約も忘れずに。',
           timestamp: Date.now() - 60000,
           sourceApp: { name: 'Notes', icon: null },
         });
         win.webContents.send('clipboard-item', {
           type: 'clipboard-text',
-          text: 'https://developer.apple.com/design/human-interface-guidelines/',
+          text: 'ssh deploy@192.168.1.42 -p 2222',
           timestamp: Date.now() - 3600000 * 30,
           fromDevice: 'MacBook',
           fromPlatform: 'darwin',
