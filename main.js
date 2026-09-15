@@ -3803,6 +3803,11 @@ app.whenReady().then(() => {
         const appOutlook = { name: 'Outlook', icon: await iconFor('/Applications/Microsoft Outlook.app') };
         const appTeams = { name: 'Teams', icon: await iconFor('/Applications/Microsoft Teams.app') };
         const appPowerPoint = { name: 'PowerPoint', icon: await iconFor('/Applications/Microsoft PowerPoint.app') };
+        // フル稼働ユーザー想定でボリュームを積む際、EC改修の実務でよく使う開発/AIツールも追加
+        // (Photoshop/Illustrator はこのマシンに未インストールで本物のアイコンが取得できないため見送る)
+        const appVSCode = { name: 'VSCode', icon: await iconFor('/Applications/Visual Studio Code.app') };
+        const appClaude = { name: 'Claude', icon: await iconFor('/Applications/Claude.app') };
+        const appChatGPT = { name: 'ChatGPT', icon: await iconFor('/Applications/ChatGPT Classic.app') };
 
         seedFile(
           'assets/demo/見積書_ECサイト改修_v2.pdf',
@@ -3951,6 +3956,7 @@ app.whenReady().then(() => {
           { fromDevice: '自宅iMac', fromPlatform: 'darwin', timestamp: Date.now() - 13 * DAY - HOUR },
           appExcel,
         );
+
         // クリップボードは普段づかいの道具なので、1〜数十分おきに次々コピーしている
         // ような密度で並べる (数時間おきにしか使っていないような不自然な間隔にしない)
         win.webContents.send('clipboard-item', {
@@ -4106,6 +4112,158 @@ app.whenReady().then(() => {
         // ピン留め・タイトル編集も紹介用スクショに含めたいので、シード直後に1件ずつ適用する。
         // アイコン取得 (sips 起動) がアプリの数だけ増えた分、固定の待ち時間だと間に合わないことが
         // あるため、setTimeout を待ってから実行する形にして「全部 send し終わった後」を保証する
+        // さらに増量 (フル稼働ユーザー想定: テキスト/画像/ファイルとも上限いっぱいまで積み上げ、
+        // 古いものほど上限に近づいて押し出される直前、というリアルな状態にする)
+        seedFile("assets/demo/障害報告書_0820.docx", { timestamp: Date.now() - 360 * HOUR }, appWord);
+        seedFile("assets/demo/週次レポート_W36.pptx", { timestamp: Date.now() - 366 * HOUR }, appPowerPoint);
+        seedFile("assets/demo/APIキー管理表.xlsx", { timestamp: Date.now() - 384 * HOUR }, appExcel);
+        seedFile("assets/demo/リリースノート_v1.1.txt", { timestamp: Date.now() - 392 * HOUR }, appNotion);
+        seedFile("assets/demo/バックアップ手順.txt", { timestamp: Date.now() - 408 * HOUR }, appTerminal);
+        seedFile("assets/demo/要件定義書_v3.docx", { timestamp: Date.now() - 417 * HOUR }, appWord);
+        seedFile("assets/demo/画面遷移図.png", { timestamp: Date.now() - 432 * HOUR }, appFigma);
+        seedFile("assets/demo/週次レポート_W35.pptx", { timestamp: Date.now() - 437 * HOUR }, appPowerPoint);
+        seedFile("assets/demo/commit-log_export.txt", { timestamp: Date.now() - 456 * HOUR }, appVSCode);
+        seedFile("assets/demo/環境変数一覧_本番.xlsx", { timestamp: Date.now() - 463 * HOUR }, appExcel);
+        seedFile("assets/demo/AIレビュー_コード規約案.txt", { timestamp: Date.now() - 480 * HOUR }, appClaude);
+        seedFile("assets/demo/障害報告書_0806.docx", { timestamp: Date.now() - 486 * HOUR }, appWord);
+        seedFile("assets/demo/見積書_ECサイト改修_v1.pdf", { timestamp: Date.now() - 504 * HOUR }, appExcel);
+        seedFile("assets/demo/負荷試験結果.xlsx", { timestamp: Date.now() - 512 * HOUR }, appExcel);
+        seedFile("assets/demo/週次レポート_W34.pptx", { timestamp: Date.now() - 528 * HOUR }, appPowerPoint);
+        seedFile("assets/demo/ChatGPT_文言案_エラーメッセージ.txt", { timestamp: Date.now() - 533 * HOUR }, appChatGPT);
+        seedFile("assets/demo/バナー案_B案.png", { timestamp: Date.now() - 552 * HOUR }, appFigma);
+        seedFile("assets/demo/DB設計書_v2.docx", { timestamp: Date.now() - 559 * HOUR }, appWord);
+        seedFile("assets/demo/リファクタリング計画.txt", { timestamp: Date.now() - 576 * HOUR }, appVSCode);
+        seedFile("assets/demo/納品リスト_9月.xlsx", { timestamp: Date.now() - 585 * HOUR }, appExcel);
+        seedFile("assets/demo/週次レポート_W33.pptx", { timestamp: Date.now() - 600 * HOUR }, appPowerPoint);
+        seedFile("assets/demo/旧ロゴ_v2.png", { timestamp: Date.now() - 624 * HOUR }, appFigma);
+        seedFile("assets/demo/引継ぎメモ_初期構築.txt", { timestamp: Date.now() - 648 * HOUR }, appNotion);
+        seedFile("assets/demo/請求書_9月.pdf", { fromDevice: '会社用PC', fromPlatform: 'win32', timestamp: Date.now() - 362 * HOUR }, appExcel);
+        seedFile("assets/demo/見積比較_他社_初回版.xlsx", { fromDevice: '会社用PC', fromPlatform: 'win32', timestamp: Date.now() - 370 * HOUR }, appExcel);
+        seedFile("assets/demo/障害報告書_0828.docx", { fromDevice: '会社用PC', fromPlatform: 'win32', timestamp: Date.now() - 387 * HOUR }, appWord);
+        seedFile("assets/demo/請求書送付リスト_9月.xlsx", { fromDevice: '会社用PC', fromPlatform: 'win32', timestamp: Date.now() - 395 * HOUR }, appExcel);
+        seedFile("assets/demo/契約書_業務委託_旧版.docx", { fromDevice: '会社用PC', fromPlatform: 'win32', timestamp: Date.now() - 412 * HOUR }, appWord);
+        seedFile("assets/demo/NDA_秘密保持契約_控え.pdf", { fromDevice: '会社用PC', fromPlatform: 'win32', timestamp: Date.now() - 420 * HOUR }, appWord);
+        seedFile("assets/demo/経費精算_8月.xlsx", { fromDevice: '会社用PC', fromPlatform: 'win32', timestamp: Date.now() - 434 * HOUR }, appExcel);
+        seedFile("assets/demo/ロゴ_v3.png", { fromDevice: '会社用PC', fromPlatform: 'win32', timestamp: Date.now() - 441 * HOUR }, appFigma);
+        seedFile("assets/demo/名刺デザイン案_旧.png", { fromDevice: '会社用PC', fromPlatform: 'win32', timestamp: Date.now() - 459 * HOUR }, appFigma);
+        seedFile("assets/demo/請求書_8月.pdf", { fromDevice: '会社用PC', fromPlatform: 'win32', timestamp: Date.now() - 467 * HOUR }, appExcel);
+        seedFile("assets/demo/見積比較_他社_最終版.xlsx", { fromDevice: '会社用PC', fromPlatform: 'win32', timestamp: Date.now() - 484 * HOUR }, appExcel);
+        seedFile("assets/demo/障害報告書_0815.docx", { fromDevice: '会社用PC', fromPlatform: 'win32', timestamp: Date.now() - 490 * HOUR }, appWord);
+        seedFile("assets/demo/VSCode拡張機能_推奨リスト.txt", { fromDevice: '会社用PC', fromPlatform: 'win32', timestamp: Date.now() - 506 * HOUR }, appVSCode);
+        seedFile("assets/demo/Claude_議事録要約_0810.txt", { fromDevice: '会社用PC', fromPlatform: 'win32', timestamp: Date.now() - 513 * HOUR }, appClaude);
+        seedFile("assets/demo/請求書送付リスト_8月.xlsx", { fromDevice: '会社用PC', fromPlatform: 'win32', timestamp: Date.now() - 531 * HOUR }, appExcel);
+        seedFile("assets/demo/デザインガイドライン_v1.pdf", { fromDevice: '会社用PC', fromPlatform: 'win32', timestamp: Date.now() - 539 * HOUR }, appFigma);
+        seedFile("assets/demo/見積書_ECサイト改修_初版.pdf", { fromDevice: '会社用PC', fromPlatform: 'win32', timestamp: Date.now() - 556 * HOUR }, appExcel);
+        seedFile("assets/demo/NDA_秘密保持契約_下書き.docx", { fromDevice: '会社用PC', fromPlatform: 'win32', timestamp: Date.now() - 562 * HOUR }, appWord);
+        seedFile("assets/demo/経費精算_7月.xlsx", { fromDevice: '会社用PC', fromPlatform: 'win32', timestamp: Date.now() - 578 * HOUR }, appExcel);
+        seedFile("assets/demo/バナー案_C案.png", { fromDevice: '会社用PC', fromPlatform: 'win32', timestamp: Date.now() - 585 * HOUR }, appFigma);
+        seedFile("assets/demo/障害報告書_0801.docx", { fromDevice: '会社用PC', fromPlatform: 'win32', timestamp: Date.now() - 603 * HOUR }, appWord);
+        seedFile("assets/demo/請求書_7月.pdf", { fromDevice: '会社用PC', fromPlatform: 'win32', timestamp: Date.now() - 624 * HOUR }, appExcel);
+        seedFile("assets/demo/デザインガイドライン_v1.5.pdf", { fromDevice: '自宅iMac', fromPlatform: 'darwin', timestamp: Date.now() - 365 * HOUR }, appFigma);
+        seedFile("assets/demo/テスト仕様書_カート機能.xlsx", { fromDevice: '自宅iMac', fromPlatform: 'darwin', timestamp: Date.now() - 373 * HOUR }, appExcel);
+        seedFile("assets/demo/契約更新のご案内_下書き.docx", { fromDevice: '自宅iMac', fromPlatform: 'darwin', timestamp: Date.now() - 390 * HOUR }, appWord);
+        seedFile("assets/demo/プロジェクト計画書_v1.pptx", { fromDevice: '自宅iMac', fromPlatform: 'darwin', timestamp: Date.now() - 398 * HOUR }, appPowerPoint);
+        seedFile("assets/demo/顧客リスト_8月版.xlsx", { fromDevice: '自宅iMac', fromPlatform: 'darwin', timestamp: Date.now() - 415 * HOUR }, appExcel);
+        seedFile("assets/demo/アイコンセット_v1.png", { fromDevice: '自宅iMac', fromPlatform: 'darwin', timestamp: Date.now() - 423 * HOUR }, appFigma);
+        seedFile("assets/demo/テスト仕様書_検索機能.xlsx", { fromDevice: '自宅iMac', fromPlatform: 'darwin', timestamp: Date.now() - 438 * HOUR }, appExcel);
+        seedFile("assets/demo/契約更新のご案内_最終.docx", { fromDevice: '自宅iMac', fromPlatform: 'darwin', timestamp: Date.now() - 446 * HOUR }, appWord);
+        seedFile("assets/demo/プロジェクト計画書_v2.pptx", { fromDevice: '自宅iMac', fromPlatform: 'darwin', timestamp: Date.now() - 464 * HOUR }, appPowerPoint);
+        seedFile("assets/demo/顧客リスト_7月版.xlsx", { fromDevice: '自宅iMac', fromPlatform: 'darwin', timestamp: Date.now() - 472 * HOUR }, appExcel);
+        seedFile("assets/demo/Claude_提案文章_ドラフト.txt", { fromDevice: '自宅iMac', fromPlatform: 'darwin', timestamp: Date.now() - 487 * HOUR }, appClaude);
+        seedFile("assets/demo/デザインガイドライン_初版.pdf", { fromDevice: '自宅iMac', fromPlatform: 'darwin', timestamp: Date.now() - 495 * HOUR }, appFigma);
+        seedFile("assets/demo/テスト仕様書_ログイン機能.xlsx", { fromDevice: '自宅iMac', fromPlatform: 'darwin', timestamp: Date.now() - 510 * HOUR }, appExcel);
+        seedFile("assets/demo/VSCode_settings_export.txt", { fromDevice: '自宅iMac', fromPlatform: 'darwin', timestamp: Date.now() - 518 * HOUR }, appVSCode);
+        seedFile("assets/demo/プロジェクト計画書_初版.pptx", { fromDevice: '自宅iMac', fromPlatform: 'darwin', timestamp: Date.now() - 536 * HOUR }, appPowerPoint);
+        seedFile("assets/demo/顧客リスト_6月版.xlsx", { fromDevice: '自宅iMac', fromPlatform: 'darwin', timestamp: Date.now() - 544 * HOUR }, appExcel);
+        seedFile("assets/demo/アイコンセット_v2.png", { fromDevice: '自宅iMac', fromPlatform: 'darwin', timestamp: Date.now() - 559 * HOUR }, appFigma);
+        seedFile("assets/demo/ChatGPT_要件整理メモ.txt", { fromDevice: '自宅iMac', fromPlatform: 'darwin', timestamp: Date.now() - 567 * HOUR }, appChatGPT);
+        seedFile("assets/demo/テスト仕様書_会員登録.xlsx", { fromDevice: '自宅iMac', fromPlatform: 'darwin', timestamp: Date.now() - 582 * HOUR }, appExcel);
+        seedFile("assets/demo/契約書_業務委託_ドラフト.docx", { fromDevice: '自宅iMac', fromPlatform: 'darwin', timestamp: Date.now() - 590 * HOUR }, appWord);
+        seedFile("assets/demo/プロジェクト計画書_議事録反映版.pptx", { fromDevice: '自宅iMac', fromPlatform: 'darwin', timestamp: Date.now() - 608 * HOUR }, appPowerPoint);
+        seedFile("assets/demo/顧客リスト_5月版.xlsx", { fromDevice: '自宅iMac', fromPlatform: 'darwin', timestamp: Date.now() - 616 * HOUR }, appExcel);
+        seedFile("assets/demo/バナー案_初期検討.png", { fromDevice: '自宅iMac', fromPlatform: 'darwin', timestamp: Date.now() - 631 * HOUR }, appFigma);
+
+        // クリップ (テキスト) もさらに増量: 直近の増量分より前 (10日〜17日前) まで密度を保って積む
+        clip("npm install --save-dev @types/node", 244, null, null, appVSCode);
+        clip("この関数、早期returnにリファクタリングして", 247, null, null, appClaude);
+        clip("在庫連携バッチは毎日AM3:00に実行されます", 250, '会社用PC', 'win32', appNotion);
+        clip("https://github.com/example-team/ec-renewal/pull/38", 253, null, null, appChrome);
+        clip("クーポンコード: WELCOME10 (10%オフ)", 256, null, null, appNotion);
+        clip("エラーメッセージをもっと丁寧な言い回しにできますか", 259, null, null, appChatGPT);
+        clip("git rebase -i HEAD~3", 262, null, null, appTerminal);
+        clip("決済代行会社のサポート窓口: 0120-xxx-xxx", 265, '会社用PC', 'win32', appOutlook);
+        clip("次スプリントのゴール: カート離脱率を5%改善", 268, '自宅iMac', 'darwin', appTeams);
+        clip("SELECT COUNT(*) FROM users WHERE created_at > '2026-09-01';", 271, null, null, appTerminal);
+        clip("ロゴのカラーコード: #2E2E30 / #FF7A3E", 274, null, null, appFigma);
+        clip("https://www.notion.so/example-team/QA-Checklist", 277, null, null, appChrome);
+        clip("この見積の内訳、妥当かチェックしてもらえますか", 280, '会社用PC', 'win32', appChatGPT);
+        clip("配送料の無料ラインを¥5,000→¥3,000に変更予定", 283, null, null, appNotion);
+        clip("docker compose up -d --build", 286, null, null, appTerminal);
+        clip("会員登録フォームのバリデーションエラー文言一覧", 289, '自宅iMac', 'darwin', appWord);
+        clip("次回定例は9/29(火) 15:00〜", 292, null, null, appTeams);
+        clip("https://api.example.com/v2/products?category=new", 295, null, null, appChrome);
+        clip("このSQLのインデックス、貼るべき箇所ある？", 298, null, null, appClaude);
+        clip("領収書番号: INV-2026-0912", 301, '会社用PC', 'win32', appExcel);
+        clip("画像の書き出しは@2xでお願いします", 304, null, null, appFigma);
+        clip("テストアカウント: qa-user01@example.com / Passw0rd!", 307, null, null, appNotion);
+        clip("本番反映のロールバック手順を確認しておいてください", 310, '会社用PC', 'win32', appSlack);
+        clip("npm run lint -- --fix", 313, null, null, appVSCode);
+        clip("配送業者の変更、来月から適用予定です", 316, '自宅iMac', 'darwin', appTeams);
+        clip("https://calendar.google.com/calendar/u/0/r", 319, null, null, appChrome);
+        clip("郵便番号検索APIのレスポンス例を貼っておきます", 322, null, null, appNotion);
+        clip("このエラーログの原因、推測できますか", 325, null, null, appClaude);
+        clip("在庫アラートのメール送信先を追加してください", 328, '会社用PC', 'win32', appOutlook);
+        clip("git stash && git pull --rebase && git stash pop", 331, null, null, appTerminal);
+        clip("バナー差し替えのご確認、よろしくお願いします", 334, '自宅iMac', 'darwin', appOutlook);
+        clip("https://www.figma.com/file/xyz789/Banner-v2", 337, null, null, appChrome);
+        clip("会員ランク制度の割引率一覧表を作成しました", 340, null, null, appExcel);
+        clip("この文章、もう少しカジュアルなトーンにできますか", 343, null, null, appChatGPT);
+        clip("次のリリースはv1.3を予定しています", 346, '会社用PC', 'win32', appNotion);
+        clip("npm run build -- --mode=production", 349, null, null, appVSCode);
+        clip("決済APIのタイムアウト設定を10秒に延長しました", 352, null, null, appTerminal);
+        clip("お問い合わせフォームの必須項目を見直したいです", 355, '自宅iMac', 'darwin', appSlack);
+        clip("https://github.com/example-team/ec-renewal/issues/61", 358, null, null, appChrome);
+        clip("週次定例の議題: リリース日、残タスク、リスク", 361, null, null, appNotion);
+        clip("このコンポーネント、props設計を見直すべきか相談したい", 364, null, null, appClaude);
+        clip("請求書のフォーマットをインボイス対応に更新済み", 367, '会社用PC', 'win32', appExcel);
+        clip("画面収録のリンクを共有します", 370, null, null, appTeams);
+        clip("パスワードポリシー: 英数記号混在12文字以上", 373, null, null, appNotion);
+        clip("git checkout -b feature/coupon-v2", 376, null, null, appTerminal);
+        clip("Figmaのコンポーネント名、命名規則に揃えてください", 379, '自宅iMac', 'darwin', appFigma);
+        clip("https://docs.google.com/document/d/xxxx/edit", 382, null, null, appChrome);
+        clip("この関数のテストケース、網羅できてますか", 385, null, null, appChatGPT);
+        clip("配送状況APIのモックデータを用意しました", 388, null, null, appVSCode);
+        clip("来月のキャンペーン企画案を送ります", 391, '会社用PC', 'win32', appOutlook);
+        clip("SELECT * FROM orders WHERE total > 10000 ORDER BY created_at DESC;", 394, null, null, appTerminal);
+        clip("デザインカンプの差分、確認しました", 397, '自宅iMac', 'darwin', appSlack);
+        clip("https://www.notion.so/example-team/Release-Note-v1.3", 400, null, null, appChrome);
+        clip("この設計の懸念点、洗い出してもらえますか", 403, null, null, appClaude);
+        clip("経費精算のフォーマット変更、周知済みです", 406, null, null, appNotion);
+        clip("npm test -- --coverage", 409, null, null, appVSCode);
+        clip("会員データのCSVエクスポート、明日中に対応します", 412, '会社用PC', 'win32', appExcel);
+        clip("この関数名、もっと意図が伝わる名前にリネームして", 415, null, null, appVSCode);
+
+        // クリップ画像もさらに増量: コードスニペット・AIとのやり取り・カンバン・カレンダーなど
+        clipImage("clipboard_2026-09-04_10-20-00.png", 245, '会社用PC', 'win32', appExcel);
+        clipImage("clipboard_2026-09-03_16-40-00.png", 268, null, null, appVSCode);
+        clipImage("clipboard_2026-09-02_11-10-00.png", 292, null, null, appChatGPT);
+        clipImage("clipboard_2026-09-01_09-30-00.png", 316, '自宅iMac', 'darwin', appNotion);
+        clipImage("clipboard_2026-08-31_14-50-00.png", 340, null, null, appVSCode);
+        clipImage("clipboard_2026-08-30_10-05-00.png", 364, null, null, appNotion);
+        clipImage("clipboard_2026-08-29_17-15-00.png", 388, '会社用PC', 'win32', appTerminal);
+        clipImage("clipboard_2026-08-28_13-25-00.png", 412, null, null, appExcel);
+        clipImage("clipboard_2026-08-27_09-40-00.png", 436, null, null, appClaude);
+        clipImage("clipboard_2026-08-26_15-55-00.png", 460, '自宅iMac', 'darwin', appNotion);
+        clipImage("clipboard_2026-08-25_11-05-00.png", 484, null, null, appVSCode);
+        clipImage("clipboard_2026-08-24_16-20-00.png", 508, '会社用PC', 'win32', appVSCode);
+        clipImage("clipboard_2026-08-23_10-35-00.png", 532, null, null, appTeams);
+        clipImage("clipboard_2026-08-22_14-45-00.png", 556, null, null, appTerminal);
+        clipImage("clipboard_2026-08-21_09-50-00.png", 580, '自宅iMac', 'darwin', appExcel);
+        clipImage("clipboard_2026-08-20_15-05-00.png", 604, null, null, appChatGPT);
+        clipImage("clipboard_2026-08-19_11-15-00.png", 628, '会社用PC', 'win32', appNotion);
+        clipImage("clipboard_2026-08-18_16-30-00.png", 652, null, null, appVSCode);
+        clipImage("clipboard_2026-08-17_10-40-00.png", 676, null, null, appNotion);
+        clipImage("clipboard_2026-08-16_14-55-00.png", 700, '自宅iMac', 'darwin', appTerminal);
         await new Promise((r) => setTimeout(r, 300));
         win.webContents.executeJavaScript(`
             (function () {
@@ -4113,7 +4271,10 @@ app.whenReady().then(() => {
               // 別のクリップ本文に偶然含まれて誤爆することがある (例:「契約書」を含む Word の
               // クリップ本文と、ファイル名が「契約書...」のファイル)。file だけに絞って探す
               const findFile = (keyword) => items.find((it) => it.kind === 'file' && it.name && it.name.includes(keyword));
-              const est = findFile('見積書');
+              // ボリューム増量で「見積書_...v1/初版」等の類似名を追加したため、括弧なしの
+              // 短い部分一致 ('見積書' など) は増量後の同名バリエーションと誤爆する。
+              // 常に拡張子まで含めた一意な部分文字列で狙う
+              const est = findFile('見積書_ECサイト改修_v2.pdf');
               if (est) est.pinned = true;
               const mtg = findFile('議事録_1010');
               if (mtg) {
@@ -4122,12 +4283,46 @@ app.whenReady().then(() => {
               }
               // Main 側は「ローカル生まれ (fromDevice なし) の add-file」には origin.timestamp を
               // 渡さない仕様 (実プロダクトでは常に「今」でよいため)。撮影用にここで直接上書きする
-              const schedule = findFile('進行スケジュール');
+              const schedule = findFile('進行スケジュール.csv');
               if (schedule) schedule.timestamp = Date.now() - 2 * 86400000;
-              const contract = findFile('契約書_業務委託');
+              const contract = findFile('契約書_業務委託.docx');
               if (contract) contract.timestamp = Date.now() - 26 * 3600000;
               const proposal = findFile('提案資料');
               if (proposal) proposal.timestamp = Date.now() - 122 * 3600000;
+              // ローカル生まれの file はすべて同じ理由 (origin.timestamp が無視される) で
+              // 過去日時の指定が効かない。以前追加した分 (以下7件) にも上書き漏れがあったため
+              // まとめてここで補正する
+              { const f = findFile('サーバー移行手順.txt'); if (f) f.timestamp = Date.now() - 7 * 3600000; }
+              { const f = findFile('サイトマップ.pdf'); if (f) f.timestamp = Date.now() - 78 * 3600000; }
+              { const f = findFile('デプロイスクリプト.txt'); if (f) f.timestamp = Date.now() - 9 * 3600000; }
+              { const f = findFile('顧客対応マニュアル.docx'); if (f) f.timestamp = Date.now() - 147 * 3600000; }
+              { const f = findFile('KPIダッシュボード.png'); if (f) f.timestamp = Date.now() - 193 * 3600000; }
+              { const f = findFile('アクセス権限一覧.xlsx'); if (f) f.timestamp = Date.now() - 240 * 3600000; }
+              { const f = findFile('週次レポート_W37.pptx'); if (f) f.timestamp = Date.now() - 316 * 3600000; }
+              // 増量分のローカル生まれファイルも同様にここでまとめて過去日時に上書きする
+              { const f = findFile("障害報告書_0820.docx"); if (f) f.timestamp = Date.now() - 360 * 3600000; }
+              { const f = findFile("週次レポート_W36.pptx"); if (f) f.timestamp = Date.now() - 366 * 3600000; }
+              { const f = findFile("APIキー管理表.xlsx"); if (f) f.timestamp = Date.now() - 384 * 3600000; }
+              { const f = findFile("リリースノート_v1.1.txt"); if (f) f.timestamp = Date.now() - 392 * 3600000; }
+              { const f = findFile("バックアップ手順.txt"); if (f) f.timestamp = Date.now() - 408 * 3600000; }
+              { const f = findFile("要件定義書_v3.docx"); if (f) f.timestamp = Date.now() - 417 * 3600000; }
+              { const f = findFile("画面遷移図.png"); if (f) f.timestamp = Date.now() - 432 * 3600000; }
+              { const f = findFile("週次レポート_W35.pptx"); if (f) f.timestamp = Date.now() - 437 * 3600000; }
+              { const f = findFile("commit-log_export.txt"); if (f) f.timestamp = Date.now() - 456 * 3600000; }
+              { const f = findFile("環境変数一覧_本番.xlsx"); if (f) f.timestamp = Date.now() - 463 * 3600000; }
+              { const f = findFile("AIレビュー_コード規約案.txt"); if (f) f.timestamp = Date.now() - 480 * 3600000; }
+              { const f = findFile("障害報告書_0806.docx"); if (f) f.timestamp = Date.now() - 486 * 3600000; }
+              { const f = findFile("見積書_ECサイト改修_v1.pdf"); if (f) f.timestamp = Date.now() - 504 * 3600000; }
+              { const f = findFile("負荷試験結果.xlsx"); if (f) f.timestamp = Date.now() - 512 * 3600000; }
+              { const f = findFile("週次レポート_W34.pptx"); if (f) f.timestamp = Date.now() - 528 * 3600000; }
+              { const f = findFile("ChatGPT_文言案_エラーメッセージ.txt"); if (f) f.timestamp = Date.now() - 533 * 3600000; }
+              { const f = findFile("バナー案_B案.png"); if (f) f.timestamp = Date.now() - 552 * 3600000; }
+              { const f = findFile("DB設計書_v2.docx"); if (f) f.timestamp = Date.now() - 559 * 3600000; }
+              { const f = findFile("リファクタリング計画.txt"); if (f) f.timestamp = Date.now() - 576 * 3600000; }
+              { const f = findFile("納品リスト_9月.xlsx"); if (f) f.timestamp = Date.now() - 585 * 3600000; }
+              { const f = findFile("週次レポート_W33.pptx"); if (f) f.timestamp = Date.now() - 600 * 3600000; }
+              { const f = findFile("旧ロゴ_v2.png"); if (f) f.timestamp = Date.now() - 624 * 3600000; }
+              { const f = findFile("引継ぎメモ_初期構築.txt"); if (f) f.timestamp = Date.now() - 648 * 3600000; }
               // メール署名はピン留めの実例として、定型文らしいタイトルを付けて固定する
               // (出身アプリだけでの判定は他の Outlook クリップが増えると衝突するため、
               // 署名特有の区切り線で一意に絞る)
