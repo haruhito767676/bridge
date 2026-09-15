@@ -28,7 +28,8 @@
   }
 
   *{box-sizing:border-box;}
-  html{color-scheme:dark;}
+  html{color-scheme:dark;scroll-behavior:smooth;}
+  @media (prefers-reduced-motion: reduce){ html{scroll-behavior:auto;} }
   body{
     margin:0;
     background:var(--ground);
@@ -187,6 +188,35 @@
   @media (prefers-reduced-motion: reduce){
     *{animation:none !important;transition:none !important;}
   }
+
+  /* ---- live demo (実際に動くパネルの縮小再現) ---- */
+  .demo-wrap{display:flex;flex-direction:column;align-items:center;gap:14px;}
+  .brd{width:100%;max-width:380px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:10px;box-shadow:0 24px 60px -28px rgba(0,0,0,0.55);}
+  .brd-bar{display:flex;align-items:center;gap:8px;height:34px;padding:0 10px;background:var(--surface-2);border-radius:9px;border:1px solid var(--line);}
+  .brd-bar svg{width:14px;height:14px;flex-shrink:0;color:var(--ink-faint);}
+  .brd-input{flex:1;min-width:0;background:transparent;border:none;outline:none;font:500 13px var(--sans);color:var(--ink);}
+  .brd-input::placeholder{color:var(--ink-faint);}
+  .brd-segment{position:relative;display:flex;gap:2px;margin:8px 0 0;padding:2px;background:var(--surface-2);border-radius:8px;}
+  .brd-segment-thumb{position:absolute;top:2px;bottom:2px;left:2px;width:calc((100% - 4px) / 3);background:var(--line);border-radius:6px;box-shadow:0 1px 2px rgba(0,0,0,0.3);transition:transform 0.25s cubic-bezier(0.2,0.8,0.2,1);}
+  .brd-segment-item{position:relative;z-index:1;flex:1;padding:6px 0;font:500 11px var(--sans);color:var(--ink-dim);background:none;border:none;border-radius:6px;cursor:pointer;}
+  .brd-segment-item:hover{color:var(--ink);}
+  .brd-segment-item.active{color:var(--ink);}
+  .brd-list{margin-top:8px;max-height:340px;overflow-y:auto;}
+  .brd-row{display:flex;align-items:flex-start;gap:10px;padding:8px 6px;border-radius:8px;cursor:pointer;}
+  .brd-row:hover{background:var(--surface-2);}
+  .brd-row-ic{width:26px;height:26px;flex-shrink:0;border-radius:6px;background:var(--surface-2);display:flex;align-items:center;justify-content:center;color:var(--ink-dim);}
+  .brd-row-ic svg{width:14px;height:14px;}
+  .brd-row-body{min-width:0;flex:1;}
+  .brd-row-title{font:500 13px var(--sans);color:var(--ink);line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .brd-row-meta{margin-top:2px;font:400 11px var(--sans);color:var(--ink-faint);display:flex;align-items:center;gap:5px;flex-wrap:wrap;}
+  .brd-pin{color:var(--ink-faint);}
+  .brd-chip{display:inline-flex;align-items:center;gap:4px;padding:1px 6px;background:var(--line);border-radius:6px;font-size:10px;color:var(--ink-dim);}
+  .brd-chip::before{content:"";width:5px;height:5px;border-radius:50%;background:var(--accent);}
+  .brd-empty{padding:24px 8px;text-align:center;font:400 12.5px var(--sans);color:var(--ink-faint);}
+  .brd-empty[hidden]{display:none;}
+  .brd-caption{font-family:var(--mono);font-size:12px;color:var(--ink-faint);text-align:center;max-width:380px;}
+  .brd-toast{position:fixed;left:50%;bottom:28px;transform:translate(-50%,12px);background:var(--ink);color:var(--ground);font:500 12.5px var(--sans);padding:8px 14px;border-radius:8px;opacity:0;pointer-events:none;transition:opacity 0.2s ease,transform 0.2s ease;z-index:50;max-width:88vw;text-align:center;}
+  .brd-toast.show{opacity:1;transform:translate(-50%,0);}
 </style>
 </head>
 <body>
@@ -287,6 +317,35 @@
 
 <section>
   <div class="section-head prose">
+    <p class="eyebrow">try it</p>
+    <h2 class="section-title">この絞り込み UI、実際に動かせます</h2>
+    <p>下は本物の Bridge から検索・セグメントコントロール・クリックコピーのロジックだけを移植した縮小レプリカ。中身は下の design log で扱っているのと同じダミー案件データ。</p>
+  </div>
+  <div class="demo-wrap">
+    <div class="brd" id="brd">
+      <div class="brd-bar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+        <input class="brd-input" id="brd-search" type="search" placeholder="検索" autocomplete="off" />
+      </div>
+      <div class="brd-segment" id="brd-segment">
+        <div class="brd-segment-thumb" id="brd-segment-thumb"></div>
+        <button type="button" class="brd-segment-item active" data-mode="all">すべて</button>
+        <button type="button" class="brd-segment-item" data-mode="file">ファイル</button>
+        <button type="button" class="brd-segment-item" data-mode="clip">クリップ</button>
+      </div>
+      <div class="brd-list" id="brd-list"></div>
+      <div class="brd-empty" id="brd-empty" hidden>一致するアイテムがありません</div>
+    </div>
+    <p class="brd-caption">検索・切り替え・クリックコピーは全部本物に動きます（コピー先は自分のクリップボード）</p>
+  </div>
+</section>
+
+<div class="brd-toast" id="brd-toast"></div>
+
+<hr class="rule" />
+
+<section>
+  <div class="section-head prose">
     <p class="eyebrow">design log</p>
     <h2 class="section-title">6つの判断でできた、絞り込み UI</h2>
     <p>「複数デバイスの履歴が混ざったとき、どう絞り込むか」を作っている途中の実際の変遷。最初から今の形だったわけではない。</p>
@@ -379,5 +438,122 @@
   </div>
 </footer>
 
+<script>
+(function () {
+  // 本物の Bridge (renderer.js) の「検索 + セグメントフィルタ + クリックコピー」だけを
+  // 移植した縮小レプリカ。データは撮影用シードと同じ架空案件のダミー内容
+  var ICONS = {
+    file: '<path d="M6 3h9l5 5v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M15 3v5h5"/>',
+    image: '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M21 16l-5.5-5.5L4 20"/>',
+    text: '<rect x="6" y="3" width="12" height="18" rx="1.5"/><path d="M9 8h6M9 12h6M9 16h4"/>'
+  };
+  var DATA = [
+    { kind: 'file', pinned: true, name: '見積書_ECサイト改修_v2.pdf', meta: 'PDF書類 · 14:38', device: '会社用PC', copy: '見積書_ECサイト改修_v2.pdf' },
+    { kind: 'text', name: '会議室Bを10:00〜11:00で予約しました。プロジェクターの予約も忘れずに。', meta: 'テキスト · 15:26', copy: '会議室Bを10:00〜11:00で予約しました。プロジェクターの予約も忘れずに。' },
+    { kind: 'text', name: 'https://github.com/example-team/ec-renewal/pull/42', meta: 'リンク · 15:19', copy: 'https://github.com/example-team/ec-renewal/pull/42' },
+    { kind: 'text', name: '本日17時までにデザイン差し戻しをお願いします🙏', meta: 'テキスト · 14:52', device: '自宅iMac', copy: '本日17時までにデザイン差し戻しをお願いします🙏' },
+    { kind: 'text', name: 'https://api.example.com/v2/orders?status=pending', meta: 'リンク · 14:32', copy: 'https://api.example.com/v2/orders?status=pending' },
+    { kind: 'text', name: '在庫アラートのしきい値を10→15に変更してもらえますか？', meta: 'テキスト · 14:07', device: '会社用PC', copy: '在庫アラートのしきい値を10→15に変更してもらえますか？' },
+    { kind: 'text', name: '03-1234-5678（サポート窓口）', meta: 'テキスト · 13:08', copy: '03-1234-5678（サポート窓口）' },
+    { kind: 'file', name: '10/10 定例MTG（要リリース日確認）', meta: '標準テキスト書類 · 11:18', copy: '議事録_1010_定例MTG.txt' },
+    { kind: 'image', name: 'clipboard_2026-09-14_20-10-00.png', meta: '画像 · 20:27', device: '会社用PC', copy: 'clipboard_2026-09-14_20-10-00.png' },
+    { kind: 'text', name: 'ssh deploy@192.168.1.42 -p 2222', meta: 'テキスト · 11:27', device: '会社用PC', copy: 'ssh deploy@192.168.1.42 -p 2222' },
+    { kind: 'file', name: 'ロゴ差分_v3.png', meta: 'PNG画像 · 10:27', device: '会社用PC', copy: 'ロゴ差分_v3.png' },
+    { kind: 'file', name: '進行スケジュール.csv', meta: 'CSV書類 · 昨日 15:18', copy: '進行スケジュール.csv' },
+    { kind: 'file', name: '検収書_9月分.pdf', meta: 'PDF書類 · 一昨日 11:18', device: '自宅iMac', copy: '検収書_9月分.pdf' },
+    { kind: 'file', name: 'リリースノート_v1.2.txt', meta: '標準テキスト書類 · 5日前', device: '会社用PC', copy: 'リリースノート_v1.2.txt' }
+  ];
+
+  var root = document.getElementById('brd');
+  if (!root) return;
+  var searchEl = document.getElementById('brd-search');
+  var segmentEl = document.getElementById('brd-segment');
+  var thumbEl = document.getElementById('brd-segment-thumb');
+  var listEl = document.getElementById('brd-list');
+  var emptyEl = document.getElementById('brd-empty');
+  var toastEl = document.getElementById('brd-toast');
+  var mode = 'all';
+  var toastTimer = null;
+
+  function matchesMode(item) {
+    if (mode === 'all') return true;
+    if (mode === 'file') return item.kind === 'file';
+    return item.kind === 'text' || item.kind === 'image';
+  }
+
+  function matchesQuery(item, q) {
+    if (!q) return true;
+    return item.name.toLowerCase().indexOf(q) !== -1;
+  }
+
+  function render() {
+    var q = searchEl.value.trim().toLowerCase();
+    var visible = DATA.filter(function (it) { return matchesMode(it) && matchesQuery(it, q); });
+    listEl.innerHTML = '';
+    visible.forEach(function (item) {
+      var row = document.createElement('div');
+      row.className = 'brd-row';
+      var chip = item.device ? '<span class="brd-chip">' + item.device + '</span>' : '';
+      var pin = item.pinned ? '<span class="brd-pin">📌</span> ' : '';
+      row.innerHTML =
+        '<div class="brd-row-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + ICONS[item.kind] + '</svg></div>' +
+        '<div class="brd-row-body">' +
+        '<div class="brd-row-title">' + pin + escapeHtml(item.name) + '</div>' +
+        '<div class="brd-row-meta"><span>' + item.meta + '</span>' + chip + '</div>' +
+        '</div>';
+      row.addEventListener('click', function () { copyItem(item); });
+      listEl.appendChild(row);
+    });
+    emptyEl.hidden = visible.length !== 0;
+  }
+
+  function escapeHtml(s) {
+    return s.replace(/[&<>]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]; });
+  }
+
+  function copyItem(item) {
+    var text = item.copy;
+    var done = function () {
+      var msg = item.kind === 'text'
+        ? 'コピーしました'
+        : 'コピーしました（実際のアプリでは本物のファイルとして貼り付けられます）';
+      showToast(msg);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, done);
+    } else {
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); } catch (e) {}
+      document.body.removeChild(ta);
+      done();
+    }
+  }
+
+  function showToast(msg) {
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toastEl.classList.remove('show'); }, 1800);
+  }
+
+  var buttons = Array.prototype.slice.call(segmentEl.querySelectorAll('.brd-segment-item'));
+  buttons.forEach(function (btn, index) {
+    btn.addEventListener('click', function () {
+      mode = btn.dataset.mode;
+      buttons.forEach(function (b) { b.classList.toggle('active', b === btn); });
+      thumbEl.style.transform = 'translateX(' + (index * 100) + '%)';
+      render();
+    });
+  });
+  searchEl.addEventListener('input', render);
+
+  render();
+})();
+</script>
 </body>
 </html>
