@@ -586,15 +586,18 @@ body:not(.platform-darwin) #drop-zone::-webkit-scrollbar-thumb:hover {
   object-fit: contain;
 }
 
-/* コピー元アプリのアイコンバッジ (先頭スロットの右下に重ねる。名前はツールチップ) */
+/* コピー元アプリのアイコンバッジ (先頭スロットの右下に重ねる。名前はツールチップ)。
+   macOS のアプリアイコンは Big Sur 以降どれも「角丸正方形の絵」として書き出されている
+   (背景色・形は既にアイコン自体が持っている) ので、後ろに別の塗り地を敷くと二重の縁取りに
+   なって窮屈に見える。地は敷かず、輪郭を示すごく薄いリング (box-shadow) だけを残して
+   そのぶんバッジ自体を大きく (16px → 20px) して視認性を上げる */
 .source-app-badge {
   position: absolute;
-  right: -3px;
-  bottom: -3px;
-  width: 16px;
-  height: 16px;
-  border-radius: 4px;
-  background: var(--popover-bg);
+  right: -4px;
+  bottom: -4px;
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
   box-shadow: 0 0 0 1.5px var(--popover-bg), 0 1px 2px rgba(0, 0, 0, 0.25);
   object-fit: contain;
   pointer-events: auto;
