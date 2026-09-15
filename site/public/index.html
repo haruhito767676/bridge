@@ -1224,8 +1224,15 @@
     // 「最終位置まで一気に動く」CSSトランジションを一度だけ発火させ、あとはスクロールが
     // 止まろうが続こうが関係なく、決められた時間で必ず滑らかに完了させる。
     // 逆にズーム終了前まで巻き戻ったら、同じトランジションで滑らかに引っ込める
-    var PANEL_TRANSITION = 'left 0.85s cubic-bezier(0.16,1,0.3,1), opacity 0.5s ease';
+    var PANEL_TRANSITION_MS = 850;
+    var PANEL_TRANSITION = 'left ' + PANEL_TRANSITION_MS + 'ms cubic-bezier(0.16,1,0.3,1), opacity 0.5s ease';
     var slidIn = false;
+    // トランジション再生中は「ズーム中の即時追従」処理が位置を上書きしてしまわないよう、
+    // 再生が終わるまでtransition:noneでの毎フレーム追従を止めておく
+    // (これをやらないと、次のスクロールイベントで即座にtransition:noneへ戻され、
+    // 消えるアニメーションが1フレームも再生されずに一瞬で消えて見えていた)
+    var transitioning = false;
+    var transitionEndTimer = null;
 
     function update() {
       ticking = false;
@@ -1244,11 +1251,17 @@
 
       if (shouldSlideIn !== slidIn) {
         slidIn = shouldSlideIn;
+        if (transitionEndTimer) clearTimeout(transitionEndTimer);
+        transitioning = true;
         panel.style.transition = PANEL_TRANSITION;
         panel.style.left = (slidIn ? pos.left : offscreenLeft) + 'px';
         panel.style.top = pos.top + 'px';
         panel.style.opacity = slidIn ? '1' : '0';
-      } else if (!slidIn) {
+        transitionEndTimer = setTimeout(function () {
+          transitioning = false;
+          transitionEndTimer = null;
+        }, PANEL_TRANSITION_MS + 80);
+      } else if (!slidIn && !transitioning) {
         // ズーム中はまだ画面外に待機させたまま、cropの動きに合わせて位置だけ追従させる
         // (トランジションなしで毎フレーム即座に追従させないと、ズーム中にBridgeだけ
         // 遅れて動いているように見えてしまう)
