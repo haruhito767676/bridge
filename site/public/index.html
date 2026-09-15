@@ -4,6 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Bridge</title>
+<meta name="description" content="Mac と Windows のクリップボードを、クラウドを経由せず同じ Wi-Fi 内だけで同期する無料・オープンソースアプリ。">
+<meta property="og:title" content="Bridge — Mac と Windows、コピーひとつで繋がる">
+<meta property="og:description" content="コピーした内容やファイルが、同じ Wi-Fi にいるもう1台に自動で届く。クラウドは使わない、無料・オープンソース。">
+<meta property="og:type" content="website">
+<meta property="og:image" content="hero.png">
+<meta name="twitter:card" content="summary_large_image">
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
 
@@ -360,12 +366,12 @@
   <div class="wrap">
     <p class="eyebrow">macOS & Windows 用・無料</p>
     <h1>Mac と Windows、<br><span>コピーひとつ</span>で繋がる。</h1>
-    <p class="sub">ファイルをドロップしてクリップボードに。コピーした内容は、同じ Wi-Fi にいるもう1台にも自動で届く。クラウドは使わない。</p>
+    <p class="sub">コピーした内容は、同じ Wi-Fi にいるもう1台にも自動で届く。ファイルもドロップしてクリップボードに置いておける。クラウドは使わない。</p>
     <div class="cta-row">
-      <a class="btn btn-primary" href="https://github.com/haruhito767676/bridge" target="_blank" rel="noopener">GitHub から取得</a>
+      <a class="btn btn-primary" href="https://github.com/haruhito767676/bridge" target="_blank" rel="noopener">使ってみる（GitHub）</a>
       <a class="btn btn-secondary" href="#features">できることを見る</a>
     </div>
-    <div class="hero-meta">macOS 12+ ・ Windows 10/11 ・ インストール不要（ソースから起動）</div>
+    <div class="hero-meta">macOS 12+ ・ Windows 10/11 ・ 無料・オープンソース（現在はソースから起動、配布ビルドは準備中）</div>
     <a class="hero-try-link" href="#laptop-stage">
       <span>ダウンロード不要、このままスクロールして触ってみてください</span>
       <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v10M4 9l4 4 4-4"/></svg>
@@ -514,7 +520,7 @@
     <div class="dot"></div>
     <div>
       <h3>クラウドを、経由しない。</h3>
-      <p>コピーした内容や送ったファイルは、あなたの Wi-Fi の中だけを通る。外部のサーバーには一切送られない。同期したい相手とだけ、同じ「合言葉」を共有するだけでいい。</p>
+      <p>コピーした内容や送ったファイルは、あなたの Wi-Fi の中だけを通る。外部のサーバーには一切送られない。同期したい相手とだけ、同じ「合言葉」を共有するだけでいい。コードも MIT ライセンスで公開しているので、その動作は自分の目で確認できる。</p>
     </div>
   </div>
 </section>
@@ -624,19 +630,64 @@
       <h4>コピーした内容はどこかに送信される？</h4>
       <p>同じ LAN 上の、同じ「同期キー」を持つデバイスにしか送られない。外部のサーバーやクラウドは経由しない。</p>
     </div>
+    <div class="faq-item">
+      <h4>Universal Clipboard や類似ツールと何が違う？</h4>
+      <p>Mac と Windows の組み合わせで動き、クラウドを経由せず、無料でオープンソース。この4つを同時に満たすツールとして作った。</p>
+    </div>
   </div>
 </section>
 
 <section>
   <div class="footer-cta">
     <h2>試してみる</h2>
-    <p>今はソースからの起動のみ。Node.js が入っていれば、2つのコマンドで動く。</p>
+    <p>インストーラーをダウンロードしてすぐに使い始められる。</p>
+    <div class="cta-row" id="download-row">
+      <a class="btn btn-secondary" id="dl-mac" href="https://github.com/haruhito767676/bridge/releases" target="_blank" rel="noopener">macOS 用をダウンロード</a>
+      <a class="btn btn-secondary" id="dl-win" href="https://github.com/haruhito767676/bridge/releases" target="_blank" rel="noopener">Windows 用をダウンロード</a>
+    </div>
+    <p style="margin-top:24px;font-size:13.5px;">またはソースから起動:</p>
     <div class="code-line">git clone github.com/haruhito767676/bridge &amp;&amp; npm install &amp;&amp; npm start</div>
     <div class="cta-row">
       <a class="btn btn-primary" href="https://github.com/haruhito767676/bridge" target="_blank" rel="noopener">GitHub を見る</a>
     </div>
   </div>
 </section>
+
+<script>
+(function () {
+  // リリースがまだ無い間はボタンを releases 一覧ページへのリンクのまま残し、
+  // 公開され次第 GitHub API から実際のアセット URL に自動で差し替える。
+  var macBtn = document.getElementById('dl-mac');
+  var winBtn = document.getElementById('dl-win');
+  if (!macBtn || !winBtn) return;
+
+  fetch('https://api.github.com/repos/haruhito767676/bridge/releases/latest')
+    .then(function (res) { if (!res.ok) throw new Error('no release yet'); return res.json(); })
+    .then(function (release) {
+      var assets = release.assets || [];
+      var dmg = assets.find(function (a) { return /\.dmg$/i.test(a.name); });
+      var exe = assets.find(function (a) { return /\.exe$/i.test(a.name); });
+      if (dmg) {
+        macBtn.href = dmg.browser_download_url;
+        macBtn.textContent = 'macOS 用をダウンロード（' + release.tag_name + '）';
+      }
+      if (exe) {
+        winBtn.href = exe.browser_download_url;
+        winBtn.textContent = 'Windows 用をダウンロード（' + release.tag_name + '）';
+      }
+    })
+    .catch(function () { /* リリース未公開: releases 一覧ページへのリンクのまま */ });
+
+  var ua = navigator.userAgent || '';
+  var primary = /Win/i.test(ua) ? winBtn : (/Mac/i.test(ua) && !/iPhone|iPad/i.test(ua)) ? macBtn : null;
+  if (primary) {
+    macBtn.classList.toggle('btn-primary', primary === macBtn);
+    macBtn.classList.toggle('btn-secondary', primary !== macBtn);
+    winBtn.classList.toggle('btn-primary', primary === winBtn);
+    winBtn.classList.toggle('btn-secondary', primary !== winBtn);
+  }
+})();
+</script>
 
 </div>
 

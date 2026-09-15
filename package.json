@@ -7,7 +7,8 @@
     "start": "node scripts/start.js",
     "test": "node --test \"test/**/*.test.js\"",
     "build": "electron-builder",
-    "build:mac": "electron-builder --mac"
+    "build:mac": "electron-builder --mac",
+    "build:win": "electron-builder --win"
   },
   "author": "haruhito767676",
   "license": "MIT",
@@ -47,7 +48,7 @@
       "target": "dmg",
       "hardenedRuntime": true,
       "gatekeeperAssess": false,
-      "notarize": true,
+      "notarize": false,
       "extendInfo": {
         "LSUIElement": true
       }
