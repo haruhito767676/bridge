@@ -544,7 +544,9 @@ body:not(.platform-darwin) #drop-zone::-webkit-scrollbar-thumb:hover {
 
 .copied-mark {
   position: absolute;
-  right: 10px;
+  /* remove-button (width 18px, .file-item の右 padding 8px にぴったり寄せて配置) と
+     中心が揃うように right を計算する: 8px(padding) + 18px/2 - 20px/2 = 7px */
+  right: 7px;
   top: 50%;
   width: 20px;
   height: 20px;
