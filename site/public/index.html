@@ -68,6 +68,13 @@
   .btn-primary{background:var(--ink);color:#fff;}
   .btn-secondary{background:var(--panel);color:var(--ink);}
   .hero-meta{margin-top:22px;font-family:var(--mono);font-size:12.5px;color:var(--ink-faint);}
+  .hero-try-link{
+    margin-top:18px;display:inline-flex;align-items:center;gap:6px;
+    font-size:13.5px;font-weight:600;color:var(--accent);
+  }
+  .hero-try-link svg{animation:hero-try-bounce 1.6s ease-in-out infinite;}
+  @keyframes hero-try-bounce{0%,100%{transform:translateY(0);}50%{transform:translateY(3px);}}
+  @media (prefers-reduced-motion: reduce){ .hero-try-link svg{animation:none;} }
 
   /* ---- laptop-stage: スクロール駆動でBridgeが画面端からスライドインしてくる演出 ----
      ズームはせず、最初からノートPC画面の右端に寄ったアングルで固定表示する
@@ -157,17 +164,6 @@
   }
   .laptop-bridge-dock .brd{height:100%;display:flex;flex-direction:column;}
   .laptop-bridge-dock .drop-zone{flex:1;height:auto;}
-
-  /* ---- demo-cursor: 「ここは触れる」ことを言葉ではなく動きで伝えるための、
-     スライドイン完了後に一度だけ自動再生されるクリック演出。macOS標準の矢印カーソルを模す */
-  .demo-cursor{
-    position:absolute;left:0;top:0;width:20px;height:22px;z-index:50;pointer-events:none;
-    opacity:0;transform:scale(1);
-    transition:left 1.6s cubic-bezier(0.45,0.05,0.15,1), top 1.6s cubic-bezier(0.45,0.05,0.15,1),
-      opacity 0.5s ease, transform 0.15s ease;
-  }
-  .demo-cursor.pressed{transform:scale(0.9);}
-  .demo-cursor svg{width:100%;height:100%;filter:drop-shadow(0 1px 3px rgba(0,0,0,0.4));}
 
   /* ---- features ---- */
   .features{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;}
@@ -370,6 +366,10 @@
       <a class="btn btn-secondary" href="#features">できることを見る</a>
     </div>
     <div class="hero-meta">macOS 12+ ・ Windows 10/11 ・ インストール不要（ソースから起動）</div>
+    <a class="hero-try-link" href="#laptop-stage">
+      <span>ダウンロード不要、このままスクロールして触ってみてください</span>
+      <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v10M4 9l4 4 4-4"/></svg>
+    </a>
   </div>
 </div>
 
@@ -439,11 +439,6 @@
       </div>
     </div>
       </div>
-    <div class="demo-cursor" id="laptop-demo-cursor">
-      <svg viewBox="0 0 20 22" xmlns="http://www.w3.org/2000/svg">
-        <path d="M2 1.2 L2 17.6 L6.6 13.8 L9.4 20.2 L12.1 19 L9.3 12.7 L15.7 12.4 Z" fill="#111213" stroke="#fff" stroke-width="1.3" stroke-linejoin="round" stroke-linecap="round"/>
-      </svg>
-    </div>
   </div>
 </div>
 
@@ -1185,8 +1180,7 @@
     var panel = document.getElementById('laptop-bridge-dock');
     if (!stage || !stageInner || !crop || !panel) return;
 
-    var ZOOM_END = 0.45;  // 0〜45%: ズーム
-    var SLIDE_END = 0.65; // 45〜65%: Bridgeがスライドイン、残り35%はホールド (十分な猶予を持たせる)
+    var ZOOM_END = 0.45;  // 0〜45%: ズーム。ここに達した瞬間にBridgeのスライドインを1回だけ発火する
     var TARGET_CROP_HEIGHT = 850; // ズームはPC画面の高さがここに達したら止める (アスペクト比は保ったまま)
     var BRIDGE_W = 320; // 本物のBridgeの実寸
     var BRIDGE_H = 600;
@@ -1210,87 +1204,6 @@
       };
     }
 
-    // ---- ここが触れることを、文字ではなくクリック動作の自己再生で伝える演出 ----
-    // 実機のBridgeは「カーソルを画面右端へ寄せる」ことで呼び出すため、デモのカーソンも
-    // パネルの右端 (=画面の端) あたりから現れて、内側の1件目アイテムへ寄っていく形にする
-    // (無関係などこかから飛んでくるように見えると、右端呼び出しの体感と矛盾するため)。
-    // 座標はすべて.laptop-stage-inner基準 (crop・panelどちらもgetBoundingClientRectで
-    // 実際の画面座標を取るので、cropのズームtransformを自前で計算し直す必要がない)。
-    //
-    // 表示は「Bridgeがスライドインし切って、スクロールの猶予(ホールド区間)に入っている間」
-    // だけに限定する。ユーザーがその区間から出た瞬間 (先に進んでも、戻っても) は
-    // 演出を即座に打ち切る。「アニメーション中はスクロールを止める」対応も検討したが、
-    // 自動再生の演出のためにスクロールという基本操作を奪うのは体験として悪化させやすいので、
-    // 代わりにこの「範囲外に出たら即キャンセルする」方式にしている
-    var demoCursor = document.getElementById('laptop-demo-cursor');
-    var demoState = 'idle'; // 'idle' -> 'playing' -> 'done' (中断されたら 'idle' に戻り再挑戦できる)
-    var demoTimers = [];
-
-    function clearDemoTimers() {
-      demoTimers.forEach(function (id) { clearTimeout(id); });
-      demoTimers = [];
-    }
-
-    function cancelClickDemo() {
-      clearDemoTimers();
-      var copiedItem = document.querySelector('#laptop-brd-file-list .file-item.copied');
-      if (copiedItem) {
-        copiedItem.classList.remove('copied');
-        var leftoverMark = copiedItem.querySelector('.copied-mark');
-        if (leftoverMark) leftoverMark.remove();
-      }
-      demoCursor.classList.remove('pressed');
-      demoCursor.style.transition = 'none';
-      demoCursor.style.opacity = '0';
-      requestAnimationFrame(function () { demoCursor.style.transition = ''; });
-    }
-
-    function playClickDemo() {
-      var li = document.querySelector('#laptop-brd-file-list .file-item');
-      if (!li || !demoCursor) { demoState = 'idle'; return; }
-      var innerRect = stageInner.getBoundingClientRect();
-      var panelRect = panel.getBoundingClientRect();
-      var liRect = li.getBoundingClientRect();
-
-      // 開始位置: パネルの右端 = 画面右端付近 (「カーソルは元々そこにあった」体にする)
-      var startX = panelRect.right - innerRect.left - 6;
-      var startY = liRect.top - innerRect.top + liRect.height / 2;
-      var targetX = liRect.left - innerRect.left + liRect.width * 0.5;
-      var targetY = startY;
-
-      demoCursor.style.transition = 'none';
-      demoCursor.style.left = startX + 'px';
-      demoCursor.style.top = startY + 'px';
-      requestAnimationFrame(function () {
-        demoCursor.style.transition = '';
-        demoCursor.style.opacity = '1';
-      });
-
-      // 一呼吸置いてから、Bridgeの1件目までゆっくり内側へ寄っていく
-      demoTimers.push(setTimeout(function () {
-        demoCursor.style.left = targetX + 'px';
-        demoCursor.style.top = targetY + 'px';
-      }, 900));
-
-      // 到着後にクリック (押し込み + コピー済みチェック表示)
-      demoTimers.push(setTimeout(function () {
-        demoCursor.classList.add('pressed');
-        li.classList.add('copied');
-        var mark = document.createElement('div');
-        mark.className = 'copied-mark';
-        mark.innerHTML = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.2 3.2L13 5"/></svg>';
-        li.appendChild(mark);
-        demoTimers.push(setTimeout(function () { demoCursor.classList.remove('pressed'); }, 260));
-        demoTimers.push(setTimeout(function () { li.classList.remove('copied'); mark.remove(); }, 1000));
-      }, 2500));
-
-      // しばらく余韻を置いてからカーソルをフェードアウトし、再生完了とする
-      demoTimers.push(setTimeout(function () {
-        demoCursor.style.opacity = '0';
-        demoState = 'done';
-      }, 3900));
-    }
-
     var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (reduceMotion) {
       computeTargetScale();
@@ -1306,7 +1219,13 @@
 
     function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
 
-    var demoStartTimer = null;
+    // Bridgeのスライドインはスクロール量にそのまま連動させず (=スクロールを止めると
+    // 半端な位置で静止して見えるのを避けるため)、ズームが終わったその瞬間に
+    // 「最終位置まで一気に動く」CSSトランジションを一度だけ発火させ、あとはスクロールが
+    // 止まろうが続こうが関係なく、決められた時間で必ず滑らかに完了させる。
+    // 逆にズーム終了前まで巻き戻ったら、同じトランジションで滑らかに引っ込める
+    var PANEL_TRANSITION = 'left 0.85s cubic-bezier(0.16,1,0.3,1), opacity 0.5s ease';
+    var slidIn = false;
 
     function update() {
       ticking = false;
@@ -1319,37 +1238,24 @@
       var zoomEased = easeOutCubic(zoomT);
       crop.style.transform = 'scale(' + (1 + zoomEased * (targetScale - 1)) + ')';
 
-      var slideT = Math.min(1, Math.max(0, (progress - ZOOM_END) / (SLIDE_END - ZOOM_END)));
-      var eased = easeOutCubic(slideT);
       var pos = dockPosition();
       var offscreenLeft = pos.left + BRIDGE_W + 40;
-      panel.style.left = (offscreenLeft + (pos.left - offscreenLeft) * eased) + 'px';
-      panel.style.top = pos.top + 'px';
-      panel.style.opacity = String(eased);
+      var shouldSlideIn = progress >= ZOOM_END;
 
-      // Bridgeがスライドインし切って、かつ.laptop-stage-innerがまだ画面上端に
-      // sticky固定されている間 (=ホールド区間、画面外へまだ出ていない) の間だけ演出対象。
-      // 「stageの高さからの逆算」で範囲を出そうとすると, sticky解除の実際の閾値と
-      // 微妙にズレて過検出/未検出が起きたため、実際にstickyが外れたか自体を
-      // (stageInnerのtopが0のままかどうかで) 直接見る方式にしている
-      var stickyTop = stageInner.getBoundingClientRect().top;
-      var isPinned = Math.abs(stickyTop) < 1;
-      var inHoldRange = slideT >= 1 && isPinned;
-
-      if (inHoldRange) {
-        if (demoState === 'idle' && !demoStartTimer) {
-          demoStartTimer = setTimeout(function () {
-            demoStartTimer = null;
-            demoState = 'playing';
-            playClickDemo();
-          }, 450);
-        }
-      } else {
-        if (demoStartTimer) { clearTimeout(demoStartTimer); demoStartTimer = null; }
-        if (demoState === 'playing') {
-          cancelClickDemo();
-          demoState = 'idle';
-        }
+      if (shouldSlideIn !== slidIn) {
+        slidIn = shouldSlideIn;
+        panel.style.transition = PANEL_TRANSITION;
+        panel.style.left = (slidIn ? pos.left : offscreenLeft) + 'px';
+        panel.style.top = pos.top + 'px';
+        panel.style.opacity = slidIn ? '1' : '0';
+      } else if (!slidIn) {
+        // ズーム中はまだ画面外に待機させたまま、cropの動きに合わせて位置だけ追従させる
+        // (トランジションなしで毎フレーム即座に追従させないと、ズーム中にBridgeだけ
+        // 遅れて動いているように見えてしまう)
+        panel.style.transition = 'none';
+        panel.style.left = offscreenLeft + 'px';
+        panel.style.top = pos.top + 'px';
+        panel.style.opacity = '0';
       }
     }
 
