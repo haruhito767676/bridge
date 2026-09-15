@@ -1123,6 +1123,9 @@ function startRenamingItem(item) {
   // リスト操作のショートカット (↑↓・⌫ など) にキー入力を奪わせない
   input.addEventListener('keydown', (e) => {
     e.stopPropagation();
+    // IME 変換確定の Enter (isComposing / keyCode 229) はここでは拾わない。
+    // これを拾うと日本語入力の変換確定だけで編集自体が終わってしまう
+    if (e.isComposing || e.keyCode === 229) return;
     if (e.key === 'Enter') {
       e.preventDefault();
       finish(true);
