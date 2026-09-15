@@ -709,6 +709,22 @@ body:not(.platform-darwin) #drop-zone::-webkit-scrollbar-thumb:hover {
   pointer-events: auto;
 }
 
+/* ピン留めの名前変更中: Finder のアイコン名編集のような、枠だけ主張しすぎないインライン入力 */
+.item-title-edit {
+  display: block;
+  width: 100%;
+  font: inherit;
+  font-size: 13px;
+  color: inherit;
+  background: var(--segment-active-bg);
+  border: none;
+  border-radius: 4px;
+  margin: -3px -5px;
+  padding: 2px 4px;
+  outline: 2px solid var(--accent);
+  outline-offset: 0;
+}
+
 /* クリップボードテキストの冒頭プレビューは 2 行まで折り返して表示 */
 .item-title.clip-preview {
   white-space: normal;

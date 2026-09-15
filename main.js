@@ -3412,6 +3412,7 @@ function popupItems() {
       isImage: Boolean(it.isImage),
       timestamp: it.timestamp,
       pinned: Boolean(it.pinned),
+      customTitle: it.customTitle || null,
     }));
 }
 

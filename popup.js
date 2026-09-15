@@ -31,6 +31,8 @@ function toFileUrl(filePath) {
 }
 
 function labelOf(item) {
+  // ピン留めに自分で付けた名前 (例: 「メール署名」) があれば本文プレビューより優先する
+  if (item.customTitle) return item.customTitle;
   if (item.kind === 'clip-text') return (item.text || '').trim().replace(/\s+/g, ' ').slice(0, 200);
   return item.name || (item.path || '').split(/[\\/]/).pop();
 }

@@ -1091,6 +1091,51 @@ function togglePinned(item) {
   });
 }
 
+// ピン留めの名前を変更: Finder のアイコン名編集と同じ作法 (選択 → 明示操作 → その場でテキスト編集)。
+// コンテキストメニューの「名前を変更」からのみ入る (空にすると本文プレビューのタイトルへ戻る)
+function startRenamingItem(item) {
+  const li = itemElements.get(item);
+  const titleEl = li && li.querySelector('.item-title');
+  if (!titleEl) return;
+
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'item-title-edit';
+  input.value = item.customTitle || titleEl.textContent;
+  input.maxLength = 200;
+  input.spellcheck = false;
+  titleEl.replaceWith(input);
+  input.focus();
+  input.select();
+
+  let settled = false;
+  const finish = (commit) => {
+    if (settled) return;
+    settled = true;
+    if (commit) {
+      const value = input.value.trim();
+      item.customTitle = value || null; // 空欄なら自動タイトルに戻す
+      schedulePersist();
+    }
+    render();
+  };
+
+  // リスト操作のショートカット (↑↓・⌫ など) にキー入力を奪わせない
+  input.addEventListener('keydown', (e) => {
+    e.stopPropagation();
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      finish(true);
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      finish(false);
+    }
+  });
+  input.addEventListener('blur', () => finish(true));
+  input.addEventListener('mousedown', (e) => e.stopPropagation());
+  input.addEventListener('click', (e) => e.stopPropagation());
+}
+
 // ↑↓ でカーソル行を動かす (Shift で範囲を伸ばす)。選択が無ければ先頭 / 末尾から始める
 function moveSelection(delta, extend) {
   if (visibleItems.length === 0) return;
@@ -1388,6 +1433,9 @@ function openContextMenu(e, item) {
     shortcut: IS_MAC ? '⌘P' : 'Ctrl+P',
     run: () => togglePinned(item),
   });
+  if (item.pinned) {
+    entries.push({ label: '名前を変更', run: () => startRenamingItem(item) });
+  }
   entries.push({
     label: selectedItems.size > 1 ? `${selectedItems.size} 個をリストから外す` : 'リストから外す',
     shortcut: IS_MAC ? '⌫' : 'Del',
@@ -1601,8 +1649,11 @@ function render() {
     lines.className = 'item-lines';
 
     const titleEl = document.createElement('div');
-    titleEl.className = 'item-title' + (item.kind === 'clip-text' ? ' clip-preview' : '');
-    if (item.kind === 'clip-text') {
+    titleEl.className = 'item-title' + (item.kind === 'clip-text' && !item.customTitle ? ' clip-preview' : '');
+    if (item.customTitle) {
+      // ピン留めに付けた自分用のタイトル (例: 「メール署名」) は本文プレビューより優先する
+      titleEl.textContent = item.customTitle;
+    } else if (item.kind === 'clip-text') {
       titleEl.textContent = item.name;
     } else if (item.downloading || item.syncing) {
       titleEl.textContent = item.name;
@@ -1747,6 +1798,7 @@ function serializeItems() {
       fromPlatform: it.fromPlatform,
       sourceApp: it.sourceApp ? { name: it.sourceApp.name, icon: it.sourceApp.icon || null } : null,
       pinned: Boolean(it.pinned),
+      customTitle: it.customTitle || null,
     }));
 }
 
@@ -1783,6 +1835,7 @@ window.bridge.onRestoreItems((saved) => {
       fromPlatform: s.fromPlatform || null,
       sourceApp: s.sourceApp || null,
       pinned: Boolean(s.pinned),
+      customTitle: s.customTitle || null,
     };
     // 画像の履歴は実体 PNG が無ければ復元できない
     if (item.kind === 'clip-image' && !item.path) continue;
