@@ -3790,12 +3790,14 @@ app.whenReady().then(() => {
           }
         };
         const appExcel = { name: 'Excel', icon: await iconFor('/Applications/Microsoft Excel.app') };
-        const appNotes = { name: 'メモ', icon: await iconFor('/System/Applications/Notes.app') };
+        // Win/Mac 両対応を謳っている都合上、片方の OS にしかないアプリ (メモ/Safari/LINE) は避け、
+        // 両OSで実際によく使われるクロスプラットフォームなアプリで揃える
+        const appNotion = { name: 'Notion', icon: await iconFor('/Applications/Notion.app') };
         const appFigma = { name: 'Figma', icon: await iconFor('/Applications/Figma.app') };
         const appPages = { name: 'Pages', icon: await iconFor('/Applications/Pages.app') };
         const appNumbers = { name: 'Numbers', icon: await iconFor('/Applications/Numbers.app') };
-        const appSafari = { name: 'Safari', icon: await iconFor('/Applications/Safari.app') };
-        const appLine = { name: 'LINE', icon: await iconFor('/Applications/LINE.app') };
+        const appChrome = { name: 'Chrome', icon: await iconFor('/Applications/Google Chrome.app') };
+        const appSlack = { name: 'Slack', icon: await iconFor('/Applications/Slack.app') };
         const appTerminal = { name: 'ターミナル', icon: await iconFor('/System/Applications/Utilities/Terminal.app') };
 
         seedFile(
@@ -3806,7 +3808,7 @@ app.whenReady().then(() => {
         seedFile(
           'assets/demo/議事録_1010_定例MTG.txt',
           { timestamp: Date.now() - 4 * HOUR },
-          appNotes,
+          appNotion,
         );
         seedFile(
           'assets/demo/ロゴ差分_v3.png',
@@ -3826,7 +3828,7 @@ app.whenReady().then(() => {
         seedFile(
           'assets/demo/リリースノート_v1.2.txt',
           { fromDevice: '会社用PC', fromPlatform: 'win32', timestamp: Date.now() - 5 * DAY },
-          appNotes,
+          appNotion,
         );
         // クリップボードは普段づかいの道具なので、1〜数十分おきに次々コピーしている
         // ような密度で並べる (数時間おきにしか使っていないような不自然な間隔にしない)
@@ -3834,13 +3836,13 @@ app.whenReady().then(() => {
           type: 'clipboard-text',
           text: '会議室Bを10:00〜11:00で予約しました。プロジェクターの予約も忘れずに。',
           timestamp: Date.now() - MIN,
-          sourceApp: appNotes,
+          sourceApp: appNotion,
         });
         win.webContents.send('clipboard-item', {
           type: 'clipboard-text',
           text: 'https://github.com/example-team/ec-renewal/pull/42',
           timestamp: Date.now() - 8 * MIN,
-          sourceApp: appSafari,
+          sourceApp: appChrome,
         });
         win.webContents.send('clipboard-item', {
           type: 'clipboard-text',
@@ -3848,13 +3850,13 @@ app.whenReady().then(() => {
           timestamp: Date.now() - 35 * MIN,
           fromDevice: '自宅iMac',
           fromPlatform: 'darwin',
-          sourceApp: appLine,
+          sourceApp: appSlack,
         });
         win.webContents.send('clipboard-item', {
           type: 'clipboard-text',
           text: 'https://api.example.com/v2/orders?status=pending',
           timestamp: Date.now() - 55 * MIN,
-          sourceApp: appSafari,
+          sourceApp: appChrome,
         });
         win.webContents.send('clipboard-item', {
           type: 'clipboard-text',
@@ -3862,17 +3864,19 @@ app.whenReady().then(() => {
           timestamp: Date.now() - 80 * MIN,
           fromDevice: '会社用PC',
           fromPlatform: 'win32',
-          sourceApp: appLine,
+          sourceApp: appSlack,
         });
         win.webContents.send('clipboard-item', {
           type: 'clipboard-text',
           text: '03-1234-5678（サポート窓口）',
           timestamp: Date.now() - 130 * MIN,
-          sourceApp: appNotes,
+          sourceApp: appNotion,
         });
         win.webContents.send('clipboard-item', {
           type: 'clipboard-image',
-          path: path.join(__dirname, 'assets/demo/ロゴ差分_v3.png'),
+          // コピー画像の裏生成ファイルは実際は `clipboard_<日時>.png` という名前になる
+          // (README/SPEC 記載の命名規則) ので、シェルフに追加したファイルとは別に用意する
+          path: path.join(__dirname, 'assets/demo/clipboard_2026-09-14_20-10-00.png'),
           timestamp: Date.now() - DAY + 5 * HOUR,
           fromDevice: '会社用PC',
           fromPlatform: 'win32',
