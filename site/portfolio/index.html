@@ -196,12 +196,14 @@
   .demo-wrap{display:flex;flex-direction:column;align-items:center;gap:14px;}
   #brd{
     --fg:#f5f5f7; --fg-secondary:rgba(235,235,245,0.6); --fg-tertiary:rgba(235,235,245,0.3);
-    --accent:#0a84ff; --accent-fg:#fff; --accent-tint:rgba(10,132,255,0.24); --success:#34c759;
-    --panel-fallback:rgba(40,40,44,0.96); --fill:rgba(120,120,128,0.2); --fill-strong:rgba(120,120,128,0.4);
+    --accent:#0a84ff; --accent-fg:#fff; --accent-tint:rgba(10,132,255,0.24); --success:#34c759; --destructive:#ff3b30;
+    --panel-fallback:rgba(40,40,44,0.96); --fill:rgba(120,120,128,0.2); --fill-hover:rgba(120,120,128,0.3); --fill-strong:rgba(120,120,128,0.4);
     --search-fill:rgba(0,0,0,0.25); --segment-active-bg:rgba(120,120,128,0.5);
     --divider:rgba(235,235,245,0.12); --popover-bg:rgba(44,44,46,0.94); --popover-border:rgba(255,255,255,0.12);
+    --popover-shadow:0 8px 24px rgba(0,0,0,0.5),0 0 0 0.5px rgba(255,255,255,0.06);
     --radius-s:6px; --radius-m:10px; --radius-l:14px;
-    width:100%;max-width:340px;background:var(--panel-fallback);border-radius:var(--radius-l);
+    position:relative;
+    width:100%;max-width:320px;background:var(--panel-fallback);border-radius:var(--radius-l);
     padding:10px 10px 6px;box-shadow:0 24px 60px -28px rgba(0,0,0,0.6),0 0 0 1px var(--divider);
     font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Segoe UI","Yu Gothic UI",sans-serif;
     font-size:13px;line-height:1.35;color:var(--fg);
@@ -222,7 +224,21 @@
   #brd .segment-item{position:relative;z-index:1;flex:1;padding:3px 0;font:500 11px inherit;color:var(--fg-secondary);background:transparent;border:none;border-radius:calc(var(--radius-s) - 2px);cursor:pointer;}
   #brd .segment-item:hover{color:var(--fg);}
   #brd .segment-item.active{color:var(--fg);}
-  #brd-drop-zone{position:relative;max-height:360px;overflow-y:auto;overflow-x:hidden;margin-top:6px;padding:0 2px 8px 0;}
+  #brd-drop-zone{position:relative;max-height:480px;overflow-y:auto;overflow-x:hidden;margin-top:6px;padding:0 2px 8px 0;}
+  #brd-device-filter-chip{display:inline-flex;align-items:center;gap:5px;margin:6px 0 0;padding:3px 4px 3px 8px;font-size:11px;font-weight:500;color:var(--fg);background:var(--fill-strong);border-radius:7px;}
+  #brd-device-filter-chip::before{content:"";width:6px;height:6px;flex-shrink:0;border-radius:50%;background:var(--accent);}
+  #brd-device-filter-chip[hidden]{display:none;}
+  #brd-device-filter-clear{display:flex;align-items:center;justify-content:center;width:14px;height:14px;flex-shrink:0;padding:0;border:none;border-radius:50%;background:transparent;color:var(--fg-secondary);cursor:pointer;}
+  #brd-device-filter-clear svg{width:9px;height:9px;}
+  #brd-device-filter-clear:hover{color:var(--fg);background:var(--fill-hover);}
+  #brd-context-menu{position:absolute;z-index:40;min-width:190px;padding:4px;list-style:none;margin:0;background:var(--popover-bg);border:1px solid var(--popover-border);border-radius:var(--radius-m);box-shadow:var(--popover-shadow);backdrop-filter:blur(20px) saturate(1.5);-webkit-backdrop-filter:blur(20px) saturate(1.5);}
+  #brd-context-menu[hidden]{display:none;}
+  #brd-context-menu li{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:5px 8px;font-size:12.5px;border-radius:var(--radius-s);color:var(--fg);cursor:pointer;}
+  #brd-context-menu li:hover{background:var(--accent);color:var(--accent-fg);}
+  #brd-context-menu li.destructive{color:var(--destructive);}
+  #brd-context-menu li.destructive:hover{color:#fff;background:var(--destructive);}
+  #brd-context-menu li .brd-menu-shortcut{font-size:11px;opacity:0.6;}
+  #brd-context-menu li.separator{height:1px;margin:4px 6px;padding:0;background:var(--divider);pointer-events:none;cursor:default;}
   #brd .file-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px;}
   #brd .section-header{padding:8px 6px 4px;font-size:11px;font-weight:600;color:var(--fg-secondary);list-style:none;}
   #brd .section-header:first-child{padding-top:0;}
@@ -370,13 +386,20 @@
           <button type="button" class="segment-item" data-mode="file">ファイル</button>
           <button type="button" class="segment-item" data-mode="clip">クリップ</button>
         </div>
+        <span id="brd-device-filter-chip" hidden>
+          <span id="brd-device-filter-text"></span>
+          <button id="brd-device-filter-clear" aria-label="絞り込みを解除" tabindex="-1">
+            <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 3l6 6M9 3l-6 6"/></svg>
+          </button>
+        </span>
       </div>
       <div id="brd-drop-zone">
         <ul class="file-list" id="brd-file-list" role="listbox" aria-label="アイテム"></ul>
         <div id="brd-empty" hidden>一致するアイテムがありません</div>
       </div>
+      <ul id="brd-context-menu" role="menu" hidden></ul>
     </div>
-    <p class="brd-caption">検索・切り替え・クリックコピーは全部本物に動きます（コピー先は自分のクリップボード）</p>
+    <p class="brd-caption">検索・切り替え・クリックコピーは全部本物に動きます。右クリックでデバイス絞り込みも試せます（コピー先は自分のクリップボード）</p>
   </div>
 </section>
 
@@ -479,9 +502,10 @@
 <script>
 (function () {
   // 本物の index.html / styles.css / renderer.js から「検索欄・セグメントコントロール・
-  // リスト行 (ピン留め・出身デバイスチップ・コピー元アプリバッジ含む)・クリックコピーの
-  // 見た目とロジック」をそのまま移植した縮小レプリカ。OS 依存部分 (実ファイルアイコン取得・
-  // 実クリップボード監視・ドラッグアウト) だけ、あらかじめ書き出した画像とダミー配列に差し替えている。
+  // リスト行 (ピン留め・出身デバイスチップ・コピー元アプリバッジ含む)・右クリックメニュー
+  // (デバイス絞り込み・ピン留め・削除)・クリックコピーの見た目とロジック」をそのまま移植した
+  // 縮小レプリカ。OS 依存部分 (実ファイルアイコン取得・実クリップボード監視・ドラッグアウト)
+  // だけ、あらかじめ書き出した画像とダミー配列に差し替えている。
   // データは撮影用シード (main.js の BRIDGE_DEV_SEED) と同じ架空案件の内容
   var ICON_DIR = '../icons/';
   var GLYPHS = {
@@ -498,9 +522,10 @@
     return span.firstElementChild;
   }
 
-  // kind: 'file' | 'clip-text' | 'clip-image'。group は section-header (ピン留め/今日/昨日/...) を出す境目
+  // kind: 'file' | 'clip-text' | 'clip-image'。group は section-header (今日/昨日/...) を出す境目
+  // (pinned な行は実装と同じく group を無視して常に「ピン留め」セクションへ浮く)
   var DATA = [
-    { group: 'ピン留め', pinned: true, kind: 'file', name: '見積書_ECサイト改修_v2.pdf', meta: 'PDF書類 · 14:38', icon: ICON_DIR + 'file-pdf.png', device: '会社用PC', copy: '見積書_ECサイト改修_v2.pdf' },
+    { group: '今日', pinned: true, kind: 'file', name: '見積書_ECサイト改修_v2.pdf', meta: 'PDF書類 · 14:38', icon: ICON_DIR + 'file-pdf.png', device: '会社用PC', copy: '見積書_ECサイト改修_v2.pdf' },
     { group: '今日', kind: 'clip-text', name: '会議室Bを10:00〜11:00で予約しました。プロジェクターの予約も忘れずに。', meta: 'テキスト · 15:26', sourceApp: { name: 'Notion', icon: ICON_DIR + 'notion.png' }, copy: '会議室Bを10:00〜11:00で予約しました。プロジェクターの予約も忘れずに。' },
     { group: '今日', kind: 'clip-text', name: 'https://github.com/example-team/ec-renewal/pull/42', meta: 'リンク · 15:19', sourceApp: { name: 'Chrome', icon: ICON_DIR + 'chrome.png' }, copy: 'https://github.com/example-team/ec-renewal/pull/42' },
     { group: '今日', kind: 'clip-text', name: '本日17時までにデザイン差し戻しをお願いします🙏', meta: 'テキスト · 14:52', sourceApp: { name: 'Slack', icon: ICON_DIR + 'slack.png' }, device: '自宅iMac', copy: '本日17時までにデザイン差し戻しをお願いします🙏' },
@@ -523,7 +548,32 @@
   var thumbEl = document.getElementById('brd-filter-segment-thumb');
   var listEl = document.getElementById('brd-file-list');
   var emptyEl = document.getElementById('brd-empty');
+  var deviceFilterChip = document.getElementById('brd-device-filter-chip');
+  var deviceFilterText = document.getElementById('brd-device-filter-text');
+  var deviceFilterClear = document.getElementById('brd-device-filter-clear');
+  var contextMenuEl = document.getElementById('brd-context-menu');
   var mode = ''; // '' | 'file' | 'clip' (本物の data-mode と同じ空文字が「すべて」)
+
+  // デバイス絞り込み: 右クリックメニュー「◯◯のアイテムだけ表示」から入る一時的な状態
+  // (本物と同じく常設ボタンにはしない)。LOCAL は「ローカル生まれのアイテムだけ」を表す専用値
+  var LOCAL_DEVICE_FILTER = {};
+  var deviceFilter = null;
+
+  function deviceFilterLabelText() {
+    if (!deviceFilter) return '';
+    return deviceFilter === LOCAL_DEVICE_FILTER ? 'このデバイスのみ' : '"' + deviceFilter + '" のみ';
+  }
+
+  function setDeviceFilter(target) {
+    deviceFilter = target;
+    render();
+  }
+
+  function clearDeviceFilter() {
+    deviceFilter = null;
+    render();
+  }
+  deviceFilterClear.addEventListener('click', clearDeviceFilter);
 
   function matchesMode(item) {
     if (mode === '') return true;
@@ -534,6 +584,13 @@
   function matchesQuery(item, q) {
     if (!q) return true;
     return item.name.toLowerCase().indexOf(q) !== -1;
+  }
+
+  function matchesDevice(item) {
+    if (!deviceFilter) return true;
+    var isLocal = !item.device;
+    if (deviceFilter === LOCAL_DEVICE_FILTER) return isLocal;
+    return item.device === deviceFilter;
   }
 
   // ---- renderer.js の createLeading / createDeviceChip 相当 (実ファイルは同じ関数名を保った) ----
@@ -590,14 +647,94 @@
     return leading;
   }
 
+  // ---- renderer.js の openContextMenu 相当 ----
+  function closeContextMenu() {
+    contextMenuEl.hidden = true;
+    contextMenuEl.innerHTML = '';
+  }
+  document.addEventListener('mousedown', function (e) {
+    if (!contextMenuEl.hidden && !contextMenuEl.contains(e.target)) closeContextMenu();
+  });
+
+  function openContextMenu(e, item, li) {
+    e.preventDefault();
+    closeContextMenu();
+    var isLocalItem = !item.device;
+    var hasOtherDeviceItems = DATA.some(function (it) { return it.device; });
+    var entries = [{ label: 'コピー', shortcut: '⏎', run: function () { copyItem(item, li); } }];
+    if (hasOtherDeviceItems) {
+      entries.push({ type: 'separator' });
+      entries.push({
+        label: isLocalItem ? 'このデバイスのアイテムだけ表示' : '"' + item.device + '" のアイテムだけ表示',
+        run: function () { setDeviceFilter(isLocalItem ? LOCAL_DEVICE_FILTER : item.device); }
+      });
+    }
+    entries.push({ type: 'separator' });
+    entries.push({
+      label: item.pinned ? 'ピン留めを解除' : 'ピン留め',
+      shortcut: '⌘P',
+      run: function () { item.pinned = !item.pinned; render(); }
+    });
+    entries.push({
+      label: 'リストから外す',
+      shortcut: '⌫',
+      destructive: true,
+      run: function () {
+        var idx = DATA.indexOf(item);
+        if (idx !== -1) DATA.splice(idx, 1);
+        render();
+      }
+    });
+
+    entries.forEach(function (entry) {
+      var liEl = document.createElement('li');
+      if (entry.type === 'separator') {
+        liEl.className = 'separator';
+        contextMenuEl.appendChild(liEl);
+        return;
+      }
+      liEl.setAttribute('role', 'menuitem');
+      liEl.textContent = entry.label;
+      if (entry.destructive) liEl.classList.add('destructive');
+      if (entry.shortcut) {
+        var s = document.createElement('span');
+        s.className = 'brd-menu-shortcut';
+        s.textContent = entry.shortcut;
+        liEl.appendChild(s);
+      }
+      liEl.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        closeContextMenu();
+        entry.run();
+      });
+      contextMenuEl.appendChild(liEl);
+    });
+
+    contextMenuEl.hidden = false;
+    var rootRect = root.getBoundingClientRect();
+    var menuRect = contextMenuEl.getBoundingClientRect();
+    var left = e.clientX - rootRect.left;
+    var top = e.clientY - rootRect.top;
+    if (left + menuRect.width > rootRect.width - 8) left = Math.max(8, rootRect.width - 8 - menuRect.width);
+    if (top + menuRect.height > rootRect.height - 8) top = Math.max(8, rootRect.height - 8 - menuRect.height);
+    contextMenuEl.style.left = left + 'px';
+    contextMenuEl.style.top = top + 'px';
+  }
+
   function render() {
     var q = searchEl.value.trim().toLowerCase();
-    var visible = DATA.filter(function (it) { return matchesMode(it) && matchesQuery(it, q); });
+    var visible = DATA.filter(function (it) { return matchesMode(it) && matchesQuery(it, q) && matchesDevice(it); });
+    // ピン留めは常に先頭 (renderer.js の items.sort と同じ、pinned 以外の順序は保ったまま)
+    visible.sort(function (a, b) {
+      if (Boolean(a.pinned) !== Boolean(b.pinned)) return a.pinned ? -1 : 1;
+      return 0;
+    });
     listEl.innerHTML = '';
     var currentGroup = null;
     visible.forEach(function (item) {
-      if (item.group !== currentGroup) {
-        currentGroup = item.group;
+      var group = item.pinned ? 'ピン留め' : item.group;
+      if (group !== currentGroup) {
+        currentGroup = group;
         var header = document.createElement('li');
         header.className = 'section-header';
         header.textContent = currentGroup;
@@ -648,9 +785,13 @@
 
       li.append(lines, removeBtn);
       li.addEventListener('click', function () { copyItem(item, li); });
+      li.addEventListener('contextmenu', function (e) { openContextMenu(e, item, li); });
       listEl.appendChild(li);
     });
     emptyEl.hidden = visible.length !== 0;
+
+    deviceFilterText.textContent = deviceFilterLabelText();
+    deviceFilterChip.hidden = !deviceFilter;
   }
 
   // ---- renderer.js の copyItemToClipboard / showCopiedFeedback 相当 ----
