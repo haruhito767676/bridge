@@ -74,7 +74,7 @@
     background:radial-gradient(120% 100% at 50% 0%, var(--panel) 0%, var(--paper) 62%);
   }
   .hero-shot{
-    max-width:400px;margin:0 auto;border-radius:20px;overflow:hidden;
+    max-width:360px;margin:0 auto;border-radius:20px;overflow:hidden;
     box-shadow:0 40px 80px -30px rgba(20,20,25,0.28), 0 0 0 1px var(--line);
   }
   .hero-shot img{width:100%;display:block;}
@@ -235,6 +235,8 @@
   .brd .footer-actions{display:flex;align-items:center;gap:2px;flex-shrink:0;}
   .brd .footer-button{display:inline-flex;align-items:center;justify-content:center;gap:4px;height:22px;padding:0 7px;font:500 11px inherit;border:none;border-radius:var(--radius-s);background:transparent;color:var(--fg-secondary);}
   .brd .footer-button svg{width:14px;height:14px;}
+  .brd .footer-button:hover{background:var(--fill);color:var(--fg);}
+  .brd .footer-button[hidden]{display:none;}
 
   /* ---- 設定シート (履歴の使用状況だけを再現。同期キー等は静的モックアップでは省略) ---- */
   .brd .sheet-header{display:flex;align-items:center;justify-content:space-between;padding:2px 2px 10px;}
@@ -417,6 +419,13 @@
         <div id="brd-empty" class="empty" hidden>一致するアイテムがありません</div>
       </div>
       <ul id="brd-context-menu" class="context-menu" role="menu" hidden></ul>
+      <div class="shelf-footer">
+        <div class="footer-status" id="brd-item-count"></div>
+        <div class="footer-actions">
+          <button type="button" id="brd-clear-button" class="footer-button">すべて消去</button>
+          <button type="button" class="footer-button" aria-label="設定" title="実機ではここから設定画面を開きます（このデモでは非対応）"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg></button>
+        </div>
+      </div>
     </div>
     <p class="brd-caption">index.html / styles.css をそのまま移植。右クリックでデバイス絞り込みも試せます（コピー先はあなた自身のクリップボードです）</p>
   </div>
@@ -774,6 +783,8 @@
   var deviceFilterText = document.getElementById('brd-device-filter-text');
   var deviceFilterClear = document.getElementById('brd-device-filter-clear');
   var contextMenuEl = document.getElementById('brd-context-menu');
+  var countEl = document.getElementById('brd-item-count');
+  var clearBtn = document.getElementById('brd-clear-button');
   var mode = ''; // '' | 'file' | 'clip' (本物の data-mode と同じ空文字が「すべて」)
 
   // デバイス絞り込み: 右クリックメニュー「◯◯のアイテムだけ表示」から入る一時的な状態
@@ -1011,10 +1022,17 @@
       listEl.appendChild(li);
     });
     emptyEl.hidden = visible.length !== 0;
+    // 本物と同じく、件数表示はキーワード検索中だけ (footer は状態表示専用に保つ)
+    countEl.textContent = q && visible.length ? visible.length + ' 個' : '';
+    clearBtn.hidden = DATA.length === 0;
 
     deviceFilterText.textContent = deviceFilterLabelText();
     deviceFilterChip.hidden = !deviceFilter;
   }
+  clearBtn.addEventListener('click', function () {
+    DATA.length = 0;
+    render();
+  });
 
   // ---- renderer.js の copyItemToClipboard / showCopiedFeedback 相当 ----
   function copyItem(item, li) {
