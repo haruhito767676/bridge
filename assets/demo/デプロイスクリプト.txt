@@ -1,0 +1,4 @@
+#!/bin/bash
+npm run build
+rsync -avz dist/ user@example-team-server:/var/www/ec-renewal/
+echo "deployed"

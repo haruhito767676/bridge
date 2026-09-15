@@ -3865,6 +3865,92 @@ app.whenReady().then(() => {
           { fromDevice: '自宅iMac', fromPlatform: 'darwin', timestamp: Date.now() - 4 * DAY - 5 * HOUR },
           appNotion,
         );
+        // 設定シートの「履歴の使用状況」がスカスカに見えないよう、2週間分くらい使い込んだ
+        // ボリュームまで増量する (会社用PC / 自宅iMac / 自分のMac のファイル数はほぼ揃える)
+        seedFile('assets/demo/サーバー移行手順.txt', { timestamp: Date.now() - 7 * HOUR }, appNotion);
+        seedFile(
+          'assets/demo/サイトマップ.pdf',
+          { timestamp: Date.now() - 3 * DAY - 6 * HOUR },
+          appPowerPoint,
+        );
+        seedFile('assets/demo/デプロイスクリプト.txt', { timestamp: Date.now() - 9 * HOUR }, appTerminal);
+        seedFile(
+          'assets/demo/顧客対応マニュアル.docx',
+          { timestamp: Date.now() - 6 * DAY - 3 * HOUR },
+          appWord,
+        );
+        seedFile('assets/demo/KPIダッシュボード.png', { timestamp: Date.now() - 8 * DAY - HOUR }, appNumbers);
+        seedFile('assets/demo/アクセス権限一覧.xlsx', { timestamp: Date.now() - 10 * DAY }, appExcel);
+        seedFile(
+          'assets/demo/週次レポート_W37.pptx',
+          { timestamp: Date.now() - 13 * DAY - 4 * HOUR },
+          appPowerPoint,
+        );
+        seedFile(
+          'assets/demo/請求書_10月.pdf',
+          { fromDevice: '会社用PC', fromPlatform: 'win32', timestamp: Date.now() - DAY - 12 * HOUR },
+          appExcel,
+        );
+        seedFile(
+          'assets/demo/NDA_秘密保持契約.pdf',
+          { fromDevice: '会社用PC', fromPlatform: 'win32', timestamp: Date.now() - 5 * DAY - 5 * HOUR },
+          appWord,
+        );
+        seedFile(
+          'assets/demo/見積比較_他社.xlsx',
+          { fromDevice: '会社用PC', fromPlatform: 'win32', timestamp: Date.now() - 7 * DAY - 2 * HOUR },
+          appExcel,
+        );
+        seedFile(
+          'assets/demo/障害報告書_0912.docx',
+          { fromDevice: '会社用PC', fromPlatform: 'win32', timestamp: Date.now() - 9 * DAY - 6 * HOUR },
+          appWord,
+        );
+        seedFile(
+          'assets/demo/ロゴ_v4.png',
+          { fromDevice: '会社用PC', fromPlatform: 'win32', timestamp: Date.now() - 11 * DAY - 3 * HOUR },
+          appFigma,
+        );
+        seedFile(
+          'assets/demo/名刺デザイン案.png',
+          { fromDevice: '会社用PC', fromPlatform: 'win32', timestamp: Date.now() - 12 * DAY - HOUR },
+          appFigma,
+        );
+        seedFile(
+          'assets/demo/請求書送付リスト.xlsx',
+          { fromDevice: '会社用PC', fromPlatform: 'win32', timestamp: Date.now() - 14 * DAY },
+          appExcel,
+        );
+        seedFile(
+          'assets/demo/デザインガイドライン_v2.pdf',
+          { fromDevice: '自宅iMac', fromPlatform: 'darwin', timestamp: Date.now() - 4 * DAY - 2 * HOUR },
+          appFigma,
+        );
+        seedFile(
+          'assets/demo/テスト仕様書_決済フロー.xlsx',
+          { fromDevice: '自宅iMac', fromPlatform: 'darwin', timestamp: Date.now() - 6 * DAY - 8 * HOUR },
+          appExcel,
+        );
+        seedFile(
+          'assets/demo/契約更新のご案内.docx',
+          { fromDevice: '自宅iMac', fromPlatform: 'darwin', timestamp: Date.now() - 8 * DAY - 4 * HOUR },
+          appWord,
+        );
+        seedFile(
+          'assets/demo/プロジェクト計画書.pptx',
+          { fromDevice: '自宅iMac', fromPlatform: 'darwin', timestamp: Date.now() - 10 * DAY - 5 * HOUR },
+          appPowerPoint,
+        );
+        seedFile(
+          'assets/demo/アイコンセット.png',
+          { fromDevice: '自宅iMac', fromPlatform: 'darwin', timestamp: Date.now() - 12 * DAY - 6 * HOUR },
+          appFigma,
+        );
+        seedFile(
+          'assets/demo/顧客リスト_9月版.xlsx',
+          { fromDevice: '自宅iMac', fromPlatform: 'darwin', timestamp: Date.now() - 13 * DAY - HOUR },
+          appExcel,
+        );
         // クリップボードは普段づかいの道具なので、1〜数十分おきに次々コピーしている
         // ような密度で並べる (数時間おきにしか使っていないような不自然な間隔にしない)
         win.webContents.send('clipboard-item', {
@@ -3955,6 +4041,68 @@ app.whenReady().then(() => {
           timestamp: Date.now() - 6 * HOUR,
           sourceApp: appOutlook,
         });
+        // ここから増量分。直近数時間はまだ密に、それより前は日を追うごとに間隔を空けて
+        // 「2週間くらい使い込んでいる」ボリュームにする (設定シートの内訳がスカスカに見えないように)
+        const clip = (text, hoursAgo, device, platform, app) =>
+          win.webContents.send('clipboard-item', {
+            type: 'clipboard-text',
+            text,
+            timestamp: Date.now() - hoursAgo * HOUR,
+            fromDevice: device || undefined,
+            fromPlatform: platform || undefined,
+            sourceApp: app,
+          });
+        clip('先方より本日中に色校正の返信をいただけるとのことです', 2.2, '自宅iMac', 'darwin', appTeams);
+        clip('https://www.figma.com/file/abcd1234/EC-Renewal', 3, null, null, appChrome);
+        clip('納品物一覧: index.html, styles.css, main.js', 5, null, null, appNotion);
+        clip('住所: 東京都渋谷区渋谷1-2-3 渋谷ビル5F', 9, null, null, appNotion);
+        clip('経費精算の締め切りは毎月25日です', 25, '会社用PC', 'win32', appOutlook);
+        clip('https://docs.google.com/spreadsheets/d/xxxx/edit', 27, '会社用PC', 'win32', appChrome);
+        clip('パスワードリセットのご案内メールを送信しました', 30, null, null, appOutlook);
+        clip('本件、了解しました。明日中に対応します。', 33, '自宅iMac', 'darwin', appTeams);
+        clip('print("Hello, world")', 49, null, null, appTerminal);
+        clip('npm run build && npm run deploy', 50, null, null, appTerminal);
+        clip("SELECT * FROM orders WHERE status = 'pending';", 53, '会社用PC', 'win32', appTerminal);
+        clip('https://www.notion.so/example-team/EC-Renewal-Wiki', 56, null, null, appChrome);
+        clip('会員登録数: 1,204件（9月時点）', 73, '会社用PC', 'win32', appExcel);
+        clip('郵便番号: 150-0002', 76, null, null, appNotion);
+        clip('次回定例は10/15(水) 14:00〜', 79, '自宅iMac', 'darwin', appTeams);
+        clip('https://calendar.google.com/calendar/u/0/r/eventedit', 97, null, null, appChrome);
+        clip('サーバーのIPアドレス: 192.168.1.50', 99, '会社用PC', 'win32', appTerminal);
+        clip('本番反映は日曜の深夜に実施予定です', 102, null, null, appSlack);
+        clip('デザインの微調整、ありがとうございました！', 121, '自宅iMac', 'darwin', appSlack);
+        clip('テストユーザー: test@example.com / パスワード: Test1234!', 124, null, null, appNotion);
+        clip('見積の有効期限は発行日から30日間です', 146, '会社用PC', 'win32', appWord);
+        clip('https://github.com/example-team/ec-renewal/issues/58', 149, null, null, appChrome);
+        clip('レスポンシブ対応、スマホ表示崩れの修正完了しました', 152, null, null, appSlack);
+        clip('領収書の宛名は「株式会社Notoa」でお願いします', 169, '会社用PC', 'win32', appOutlook);
+        clip('本日の作業時間: 6.5h', 171, null, null, appNotion);
+        clip('Wi-Fiパスワード: sample-wifi-pass-2026', 174, '自宅iMac', 'darwin', appNotion);
+        clip('打ち合わせ議事録のリンクを共有します: https://notion.so/xxxx', 194, '自宅iMac', 'darwin', appTeams);
+        clip('来週の月曜は祝日のため定例をお休みします', 197, null, null, appTeams);
+        clip('決済APIのサンドボックスキー: sk_test_xxxxxxxx', 217, null, null, appTerminal);
+        clip('10月からインボイス対応の請求書フォーマットに変更します', 220, '会社用PC', 'win32', appExcel);
+        clip('https://www.google.com/maps/place/渋谷ビル', 240, null, null, appChrome);
+        // クリップ画像も同じ期間に合わせて増量 (棒グラフ・地図・エラー画面など、
+        // 実際にコピーしそうな種類をひととおり用意する)
+        const clipImage = (name, hoursAgo, device, platform, app) =>
+          win.webContents.send('clipboard-item', {
+            type: 'clipboard-image',
+            path: path.join(__dirname, 'assets/demo/' + name),
+            timestamp: Date.now() - hoursAgo * HOUR,
+            fromDevice: device || undefined,
+            fromPlatform: platform || undefined,
+            sourceApp: app,
+          });
+        clipImage('clipboard_2026-09-14_15-40-00.png', 6, '会社用PC', 'win32', appExcel);
+        clipImage('clipboard_2026-09-13_11-05-00.png', 28, null, null, appChrome);
+        clipImage('clipboard_2026-09-12_09-20-00.png', 51, '自宅iMac', 'darwin', appChrome);
+        clipImage('clipboard_2026-09-11_16-50-00.png', 74, null, null, appChrome);
+        clipImage('clipboard_2026-09-10_13-10-00.png', 100, '会社用PC', 'win32', appExcel);
+        clipImage('clipboard_2026-09-09_18-25-00.png', 122, '自宅iMac', 'darwin', appSlack);
+        clipImage('clipboard_2026-09-08_10-15-00.png', 150, null, null, appFigma);
+        clipImage('clipboard_2026-09-06_14-05-00.png', 195, '会社用PC', 'win32', appFigma);
+        clipImage('clipboard_2026-09-05_09-45-00.png', 221, null, null, appWord);
         // ピン留め・タイトル編集も紹介用スクショに含めたいので、シード直後に1件ずつ適用する。
         // アイコン取得 (sips 起動) がアプリの数だけ増えた分、固定の待ち時間だと間に合わないことが
         // あるため、setTimeout を待ってから実行する形にして「全部 send し終わった後」を保証する
@@ -3981,8 +4129,9 @@ app.whenReady().then(() => {
               const proposal = findFile('提案資料');
               if (proposal) proposal.timestamp = Date.now() - 122 * 3600000;
               // メール署名はピン留めの実例として、定型文らしいタイトルを付けて固定する
-              // (本文の部分一致だと Word 由来のクリップ等と衝突しうるため、出身アプリで判定する)
-              const signature = items.find((it) => it.kind === 'clip-text' && it.sourceApp && it.sourceApp.name === 'Outlook');
+              // (出身アプリだけでの判定は他の Outlook クリップが増えると衝突するため、
+              // 署名特有の区切り線で一意に絞る)
+              const signature = items.find((it) => it.kind === 'clip-text' && it.text && it.text.startsWith('-------------------'));
               if (signature) {
                 signature.pinned = true;
                 signature.customTitle = 'メール署名（社内向け）';
