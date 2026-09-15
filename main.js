@@ -4332,11 +4332,7 @@ app.whenReady().then(() => {
                 signature.customTitle = '【メール署名（社内向け）】';
               }
               const findText = (keyword) => items.find((it) => it.kind === 'clip-text' && it.text && it.text.includes(keyword));
-              const qaAccount = findText('テストアカウント: qa-user01');
-              if (qaAccount) {
-                qaAccount.pinned = true;
-                qaAccount.customTitle = '【テストアカウント パスワード】';
-              }
+              // テストアカウントは本文が長く、リストで見切れてしまうためピン留めから外した
               const paymentKey = findText('sk_test_xxxxxxxx');
               if (paymentKey) {
                 paymentKey.pinned = true;

@@ -2127,7 +2127,7 @@ function updateHistoryUsage() {
   const fileCount = nonPinned.filter((it) => it.kind === 'file').length;
   const pinnedCount = items.length - nonPinned.length;
   let text = `テキスト ${textCount}/${MAX_TEXT_CLIP_ITEMS} · 画像 ${imageCount}/${MAX_IMAGE_CLIP_ITEMS} · ファイル ${fileCount}/${MAX_FILE_ITEMS}`;
-  if (pinnedCount > 0) text += `（ピン留め ${pinnedCount} 件は上限の対象外）`;
+  if (pinnedCount > 0) text += `（ピン留め ${pinnedCount} 件除く）`;
   settingHistoryUsage.textContent = text;
 }
 
