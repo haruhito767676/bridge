@@ -4274,8 +4274,6 @@ app.whenReady().then(() => {
               // ボリューム増量で「見積書_...v1/初版」等の類似名を追加したため、括弧なしの
               // 短い部分一致 ('見積書' など) は増量後の同名バリエーションと誤爆する。
               // 常に拡張子まで含めた一意な部分文字列で狙う
-              const est = findFile('見積書_ECサイト改修_v2.pdf');
-              if (est) est.pinned = true;
               const mtg = findFile('議事録_1010');
               if (mtg) {
                 mtg.customTitle = '10/10 定例MTG（要リリース日確認）';
@@ -4323,23 +4321,31 @@ app.whenReady().then(() => {
               { const f = findFile("週次レポート_W33.pptx"); if (f) f.timestamp = Date.now() - 600 * 3600000; }
               { const f = findFile("旧ロゴ_v2.png"); if (f) f.timestamp = Date.now() - 624 * 3600000; }
               { const f = findFile("引継ぎメモ_初期構築.txt"); if (f) f.timestamp = Date.now() - 648 * 3600000; }
-              // メール署名はピン留めの実例として、定型文らしいタイトルを付けて固定する
-              // (出身アプリだけでの判定は他の Outlook クリップが増えると衝突するため、
-              // 署名特有の区切り線で一意に絞る)
+              // ピン留めするクリップには、社内ルール (タイトル化したものは【】で囲む) に沿って
+              // customTitle を付ける。見積書ではなく「頻繁に参照/送信する定型情報」を並べる
+              // (出身アプリだけでの判定は同じアプリのクリップが増えると衝突するため、
+              // 本文の一意な部分文字列で絞る)
               const signature = items.find((it) => it.kind === 'clip-text' && it.text && it.text.startsWith('-------------------'));
               if (signature) {
                 signature.pinned = true;
-                signature.customTitle = 'メール署名（社内向け）';
+                signature.customTitle = '【メール署名（社内向け）】';
               }
-              // 見積書・署名以外にも「頻繁に参照/送信する」定番アイテムを2〜3件ピン留めする
-              // (QA用ログイン、決済APIキー、Wi-Fiパスワードのように毎回コピペし直す類のもの)
               const findText = (keyword) => items.find((it) => it.kind === 'clip-text' && it.text && it.text.includes(keyword));
               const qaAccount = findText('テストアカウント: qa-user01');
-              if (qaAccount) qaAccount.pinned = true;
+              if (qaAccount) {
+                qaAccount.pinned = true;
+                qaAccount.customTitle = '【テストアカウント パスワード】';
+              }
               const paymentKey = findText('sk_test_xxxxxxxx');
-              if (paymentKey) paymentKey.pinned = true;
+              if (paymentKey) {
+                paymentKey.pinned = true;
+                paymentKey.customTitle = '【決済API サンドボックスキー】';
+              }
               const wifi = findText('Wi-Fiパスワード: sample-wifi');
-              if (wifi) wifi.pinned = true;
+              if (wifi) {
+                wifi.pinned = true;
+                wifi.customTitle = '【社内Wi-Fi パスワード】';
+              }
               render();
             })();
           `);
