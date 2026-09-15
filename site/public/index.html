@@ -72,7 +72,7 @@
   /* ---- laptop-stage: スクロール駆動でBridgeが画面端からスライドインしてくる演出 ----
      ズームはせず、最初からノートPC画面の右端に寄ったアングルで固定表示する
      (ビューポート幅ごとのtransform-origin計算が要らず、実装・表示とも安定するため) */
-  .laptop-stage{margin-top:56px;height:240vh;position:relative;}
+  .laptop-stage{margin-top:56px;height:280vh;position:relative;}
   .laptop-stage-inner{
     position:sticky;top:0;height:100vh;
     display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;
@@ -113,12 +113,11 @@
     background:linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.28) 55%, rgba(10,10,14,0.6) 100%);
   }
   .laptop-bridge-dock{
-    /* width/heightはJSで動的に設定 (ズーム後に本物と同じ320×600ptになるよう、
-       ズーム倍率の逆数を掛けたサイズを親のscaleで打ち消す) */
-    position:absolute;top:50%;right:8px;
-    transform:translate(105%,-50%);opacity:0;will-change:transform,opacity;
+    /* .laptop-cropの中には入れない (scaleの入れ子でフォントがサブピクセルになり滲むため)。
+       常に実寸320×600pxで描画し、位置だけJSで.laptop-cropの右端に毎フレーム合わせる */
+    position:absolute;top:0;left:0;width:320px;height:600px;
+    opacity:0;will-change:transform,opacity;
   }
-  /* 画面右端から生えている見た目にするため、右側だけ角を square にして地続きに見せる */
   .laptop-bridge-dock .brd{height:100%;display:flex;flex-direction:column;}
   .laptop-bridge-dock .drop-zone{flex:1;height:auto;}
   .laptop-caption{font-family:var(--mono);font-size:12px;color:var(--ink-faint);text-align:center;}
@@ -340,7 +339,9 @@
       </div>
       <div class="laptop-dock"><span></span><span></span><span></span></div>
       <div class="laptop-bezel-edge"></div>
-      <div class="laptop-bridge-dock" id="laptop-bridge-dock">
+
+    </div>
+    <div class="laptop-bridge-dock" id="laptop-bridge-dock">
       <div id="laptop-brd" class="brd">
       <div id="laptop-brd-search-area" class="search-area">
         <div id="laptop-brd-search-field" class="search-field">
@@ -373,7 +374,6 @@
       </div>
     </div>
       </div>
-    </div>
     <p class="laptop-caption">スクロールすると、画面の右端からBridgeが現れます</p>
   </div>
 </div>
@@ -1106,19 +1106,22 @@
 <script>
   // ---- laptop-stage: スクロールで (1) 画面右端へズーム → (2) Bridgeをスライドイン → (3) ホールド ----
   // ズームは「.laptop-cropの高さが本物のBridgeと同じ600ptになる」ところで止める。
-  // そのうえでBridgeパネル自身は、ズーム倍率の逆数のサイズで置いておき、親のscaleで
-  // 打ち消して画面上は常にちょうど320×600ptで見えるようにする (実寸と完全に一致させる)
+  // Bridge自身は.laptop-cropの外に出し、常に実寸320×600pxで描画する
+  // (scaleの入れ子にすると文字がサブピクセル単位になって滲むため、位置だけ毎フレーム
+  // .laptop-cropの右端に合わせて追従させる)
   (function () {
     var stage = document.getElementById('laptop-stage');
+    var stageInner = document.querySelector('.laptop-stage-inner');
     var crop = document.querySelector('.laptop-crop');
     var panel = document.getElementById('laptop-bridge-dock');
-    if (!stage || !crop || !panel) return;
+    if (!stage || !stageInner || !crop || !panel) return;
 
-    var ZOOM_END = 0.5;   // 0〜50%: ズーム
-    var SLIDE_END = 0.82; // 50〜82%: Bridgeがスライドイン、以降はホールド
+    var ZOOM_END = 0.45;  // 0〜45%: ズーム
+    var SLIDE_END = 0.65; // 45〜65%: Bridgeがスライドイン、残り35%はホールド (十分な猶予を持たせる)
     var TARGET_CROP_HEIGHT = 850; // ズームはPC画面の高さがここに達したら止める
-    var BRIDGE_W = 320; // 本物のBridgeの実寸 (750pt四方の画面の中なら、縮小せずそのまま収まる)
+    var BRIDGE_W = 320; // 本物のBridgeの実寸
     var BRIDGE_H = 600;
+    var EDGE_OVERLAP = 6; // ベゼルに少し食い込ませて、画面から生えている感じにする
 
     var targetScale = 1;
 
@@ -1127,15 +1130,24 @@
       // 現在の実寸高さから「TARGET_CROP_HEIGHTに達するズーム倍率」を逆算できる
       var naturalHeight = crop.offsetHeight;
       targetScale = naturalHeight > 0 ? Math.max(1, TARGET_CROP_HEIGHT / naturalHeight) : 1;
-      panel.style.width = (BRIDGE_W / targetScale) + 'px';
-      panel.style.height = (BRIDGE_H / targetScale) + 'px';
+    }
+
+    function dockPosition() {
+      var cropRect = crop.getBoundingClientRect();
+      var innerRect = stageInner.getBoundingClientRect();
+      return {
+        left: cropRect.right - innerRect.left - BRIDGE_W + EDGE_OVERLAP,
+        top: cropRect.top - innerRect.top + (cropRect.height - BRIDGE_H) / 2
+      };
     }
 
     var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (reduceMotion) {
       computeTargetScale();
       crop.style.transform = 'scale(' + targetScale + ')';
-      panel.style.transform = 'translate(0,-50%)';
+      var pos = dockPosition();
+      panel.style.left = pos.left + 'px';
+      panel.style.top = pos.top + 'px';
       panel.style.opacity = '1';
       return;
     }
@@ -1157,7 +1169,10 @@
 
       var slideT = Math.min(1, Math.max(0, (progress - ZOOM_END) / (SLIDE_END - ZOOM_END)));
       var eased = easeOutCubic(slideT);
-      panel.style.transform = 'translate(' + (105 - eased * 105) + '%,-50%)';
+      var pos = dockPosition();
+      var offscreenLeft = pos.left + BRIDGE_W + 40;
+      panel.style.left = (offscreenLeft + (pos.left - offscreenLeft) * eased) + 'px';
+      panel.style.top = pos.top + 'px';
       panel.style.opacity = String(eased);
     }
 
