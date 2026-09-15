@@ -1082,8 +1082,9 @@ ipcMain.on('confirm-add-file', (_event, filePath) => {
 async function saveTextAsFile(text) {
   const dir = downloadDir();
   await fsp.mkdir(dir, { recursive: true });
-  const dest = reserveDest(dir, `text-${Date.now()}.txt`);
+  const dest = reserveDest(dir, `text_${readableTimestamp()}.txt`);
   await fsp.writeFile(dest, text, 'utf8');
+  sessionTempFiles.add(dest); // 終了時の残骸掃除の対象として追跡 (snippet/clipboard と同じ扱い)
   return dest;
 }
 
@@ -1091,7 +1092,7 @@ async function saveTextAsFile(text) {
 async function saveSnippetAsFile(text) {
   const dir = downloadDir();
   await fsp.mkdir(dir, { recursive: true });
-  const dest = reserveDest(dir, `snippet_${Date.now()}.txt`);
+  const dest = reserveDest(dir, `snippet_${readableTimestamp()}.txt`);
   await fsp.writeFile(dest, text, 'utf8');
   sessionTempFiles.add(dest); // 終了時の残骸掃除の対象として追跡
   return dest;
@@ -1986,7 +1987,7 @@ function restoreHistoryToRenderer() {
   if (items.length > 0 && canSendToRenderer()) win.webContents.send('restore-items', items);
 }
 
-// 前回クラッシュ等で履歴に残らなかった裏生成ファイル (clipboard_*.png / snippet_*.txt) を起動時に片付ける。
+// 前回クラッシュ等で履歴に残らなかった裏生成ファイル (clipboard_*.png / snippet_*.txt / text_*.txt) を起動時に片付ける。
 // ユーザーがドロップした実ファイルや Web ダウンロードはこの命名ではないため対象にならない
 function sweepOrphanTempFiles(keep) {
   let names;
@@ -1995,9 +1996,13 @@ function sweepOrphanTempFiles(keep) {
   } catch {
     return;
   }
+  // 各プレフィックスとも、新形式 (日時) と旧形式 (epoch ミリ秒 / text- ハイフン区切り、更新前に作られた残骸) の両方を対象にする
+  const DATE_PART = '\\d{4}-\\d{2}-\\d{2}_\\d{2}-\\d{2}-\\d{2}';
+  const ORPHAN_RE = new RegExp(
+    `^(clipboard_(${DATE_PART}|\\d+)|snippet_(${DATE_PART}|\\d+)|text[_-](${DATE_PART}|\\d+))(-\\d+)?\\.(png|txt)$`
+  );
   for (const name of names) {
-    // clipboard_ は新形式 (日時) と旧形式 (epoch ミリ秒、更新前に作られた残骸) の両方を対象にする
-    if (!/^(clipboard_(\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}|\d+)|snippet_\d+)(-\d+)?\.(png|txt)$/.test(name)) continue;
+    if (!ORPHAN_RE.test(name)) continue;
     const full = path.join(downloadDir(), name);
     if (keep.has(full)) continue;
     try {
