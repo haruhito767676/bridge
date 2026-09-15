@@ -135,19 +135,19 @@
   /* ---- fake-window: デスクトップに「何か別のウィンドウが既に開いている」雰囲気を出し、
      デモカーソルの出発点に自然な理由を与えるための、文字を使わないダミーウィンドウ ---- */
   .laptop-fake-window{
-    position:absolute;top:150px;left:340px;width:230px;height:150px;border-radius:10px;overflow:hidden;
-    background:rgba(246,246,246,0.95);box-shadow:0 24px 50px -20px rgba(0,0,0,0.45),0 0 0 1px rgba(0,0,0,0.08);
+    position:absolute;top:120px;left:290px;width:320px;height:250px;border-radius:11px;overflow:hidden;
+    background:rgba(246,246,246,0.95);box-shadow:0 28px 56px -20px rgba(0,0,0,0.45),0 0 0 1px rgba(0,0,0,0.08);
   }
   .laptop-fake-window .titlebar{
-    height:26px;display:flex;align-items:center;gap:6px;padding:0 10px;
+    height:30px;display:flex;align-items:center;gap:7px;padding:0 12px;
     background:rgba(255,255,255,0.75);border-bottom:1px solid rgba(0,0,0,0.06);
   }
-  .laptop-fake-window .dot{width:10px;height:10px;border-radius:50%;}
+  .laptop-fake-window .dot{width:11px;height:11px;border-radius:50%;}
   .laptop-fake-window .dot.red{background:#ff5f57;}
   .laptop-fake-window .dot.yellow{background:#febc2e;}
   .laptop-fake-window .dot.green{background:#28c840;}
-  .laptop-fake-window .body{padding:14px;display:flex;flex-direction:column;gap:9px;}
-  .laptop-fake-window .line{height:8px;border-radius:4px;background:rgba(60,60,67,0.12);}
+  .laptop-fake-window .body{padding:20px;display:flex;flex-direction:column;gap:13px;}
+  .laptop-fake-window .line{height:9px;border-radius:4px;background:rgba(60,60,67,0.12);}
   .laptop-fake-window .line.short{width:45%;}
   .laptop-bridge-dock{
     /* .laptop-cropの中には入れない (scaleの入れ子でフォントがサブピクセルになり滲むため)。
@@ -387,6 +387,8 @@
         <div class="body">
           <div class="line" style="width:78%;"></div>
           <div class="line" style="width:92%;"></div>
+          <div class="line" style="width:65%;"></div>
+          <div class="line" style="width:85%;"></div>
           <div class="line short"></div>
         </div>
       </div>
@@ -1209,29 +1211,53 @@
     }
 
     // ---- ここが触れることを、文字ではなくクリック動作の自己再生で伝える演出 ----
-    // スライドインが完了した最初の1回だけ、デスクトップ上の別ウィンドウのあたりに
-    // カーソルが現れ (「さっきまで他の作業をしていた」という体で)、少し間を置いてから
-    // ゆっくりBridgeの1件目のアイテムまで移動してクリックし、実物と同じ
-    // 「コピーしました」チェックマークを表示する。座標はすべて.laptop-stage-inner基準
-    // (crop・panelどちらもgetBoundingClientRectで実際の画面座標を取るので、
-    // cropのズームtransformを自前で計算し直す必要がない)
+    // 実機のBridgeは「カーソルを画面右端へ寄せる」ことで呼び出すため、デモのカーソンも
+    // パネルの右端 (=画面の端) あたりから現れて、内側の1件目アイテムへ寄っていく形にする
+    // (無関係などこかから飛んでくるように見えると、右端呼び出しの体感と矛盾するため)。
+    // 座標はすべて.laptop-stage-inner基準 (crop・panelどちらもgetBoundingClientRectで
+    // 実際の画面座標を取るので、cropのズームtransformを自前で計算し直す必要がない)。
+    //
+    // 表示は「Bridgeがスライドインし切って、スクロールの猶予(ホールド区間)に入っている間」
+    // だけに限定する。ユーザーがその区間から出た瞬間 (先に進んでも、戻っても) は
+    // 演出を即座に打ち切る。「アニメーション中はスクロールを止める」対応も検討したが、
+    // 自動再生の演出のためにスクロールという基本操作を奪うのは体験として悪化させやすいので、
+    // 代わりにこの「範囲外に出たら即キャンセルする」方式にしている
     var demoCursor = document.getElementById('laptop-demo-cursor');
-    var fakeWindow = document.getElementById('laptop-fake-window');
-    var demoScheduled = false;
+    var demoState = 'idle'; // 'idle' -> 'playing' -> 'done' (中断されたら 'idle' に戻り再挑戦できる)
+    var demoTimers = [];
+
+    function clearDemoTimers() {
+      demoTimers.forEach(function (id) { clearTimeout(id); });
+      demoTimers = [];
+    }
+
+    function cancelClickDemo() {
+      clearDemoTimers();
+      var copiedItem = document.querySelector('#laptop-brd-file-list .file-item.copied');
+      if (copiedItem) {
+        copiedItem.classList.remove('copied');
+        var leftoverMark = copiedItem.querySelector('.copied-mark');
+        if (leftoverMark) leftoverMark.remove();
+      }
+      demoCursor.classList.remove('pressed');
+      demoCursor.style.transition = 'none';
+      demoCursor.style.opacity = '0';
+      requestAnimationFrame(function () { demoCursor.style.transition = ''; });
+    }
 
     function playClickDemo() {
       var li = document.querySelector('#laptop-brd-file-list .file-item');
-      if (!li || !demoCursor || !fakeWindow) return;
+      if (!li || !demoCursor) { demoState = 'idle'; return; }
       var innerRect = stageInner.getBoundingClientRect();
-      var winRect = fakeWindow.getBoundingClientRect();
+      var panelRect = panel.getBoundingClientRect();
       var liRect = li.getBoundingClientRect();
 
-      var startX = winRect.left - innerRect.left + winRect.width * 0.68;
-      var startY = winRect.top - innerRect.top + winRect.height * 0.6;
-      var targetX = liRect.left - innerRect.left + liRect.width * 0.82;
-      var targetY = liRect.top - innerRect.top + liRect.height * 0.35;
+      // 開始位置: パネルの右端 = 画面右端付近 (「カーソルは元々そこにあった」体にする)
+      var startX = panelRect.right - innerRect.left - 6;
+      var startY = liRect.top - innerRect.top + liRect.height / 2;
+      var targetX = liRect.left - innerRect.left + liRect.width * 0.5;
+      var targetY = startY;
 
-      // 1. 別ウィンドウのあたりにカーソルがふっと現れる (まだ動かない)
       demoCursor.style.transition = 'none';
       demoCursor.style.left = startX + 'px';
       demoCursor.style.top = startY + 'px';
@@ -1240,26 +1266,29 @@
         demoCursor.style.opacity = '1';
       });
 
-      // 2. 一呼吸置いてから、Bridgeの1件目までゆっくり移動する
-      setTimeout(function () {
+      // 一呼吸置いてから、Bridgeの1件目までゆっくり内側へ寄っていく
+      demoTimers.push(setTimeout(function () {
         demoCursor.style.left = targetX + 'px';
         demoCursor.style.top = targetY + 'px';
-      }, 1100);
+      }, 900));
 
-      // 3. 到着後にクリック (押し込み + コピー済みチェック表示)
-      setTimeout(function () {
+      // 到着後にクリック (押し込み + コピー済みチェック表示)
+      demoTimers.push(setTimeout(function () {
         demoCursor.classList.add('pressed');
         li.classList.add('copied');
         var mark = document.createElement('div');
         mark.className = 'copied-mark';
         mark.innerHTML = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.2 3.2L13 5"/></svg>';
         li.appendChild(mark);
-        setTimeout(function () { demoCursor.classList.remove('pressed'); }, 260);
-        setTimeout(function () { li.classList.remove('copied'); mark.remove(); }, 1000);
-      }, 2900);
+        demoTimers.push(setTimeout(function () { demoCursor.classList.remove('pressed'); }, 260));
+        demoTimers.push(setTimeout(function () { li.classList.remove('copied'); mark.remove(); }, 1000));
+      }, 2500));
 
-      // 4. しばらく余韻を置いてからカーソルをフェードアウト
-      setTimeout(function () { demoCursor.style.opacity = '0'; }, 4300);
+      // しばらく余韻を置いてからカーソルをフェードアウトし、再生完了とする
+      demoTimers.push(setTimeout(function () {
+        demoCursor.style.opacity = '0';
+        demoState = 'done';
+      }, 3900));
     }
 
     var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -1276,6 +1305,8 @@
     var ticking = false;
 
     function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
+
+    var demoStartTimer = null;
 
     function update() {
       ticking = false;
@@ -1296,9 +1327,29 @@
       panel.style.top = pos.top + 'px';
       panel.style.opacity = String(eased);
 
-      if (slideT >= 1 && !demoScheduled) {
-        demoScheduled = true;
-        setTimeout(playClickDemo, 450);
+      // Bridgeがスライドインし切って、かつ.laptop-stage-innerがまだ画面上端に
+      // sticky固定されている間 (=ホールド区間、画面外へまだ出ていない) の間だけ演出対象。
+      // 「stageの高さからの逆算」で範囲を出そうとすると, sticky解除の実際の閾値と
+      // 微妙にズレて過検出/未検出が起きたため、実際にstickyが外れたか自体を
+      // (stageInnerのtopが0のままかどうかで) 直接見る方式にしている
+      var stickyTop = stageInner.getBoundingClientRect().top;
+      var isPinned = Math.abs(stickyTop) < 1;
+      var inHoldRange = slideT >= 1 && isPinned;
+
+      if (inHoldRange) {
+        if (demoState === 'idle' && !demoStartTimer) {
+          demoStartTimer = setTimeout(function () {
+            demoStartTimer = null;
+            demoState = 'playing';
+            playClickDemo();
+          }, 450);
+        }
+      } else {
+        if (demoStartTimer) { clearTimeout(demoStartTimer); demoStartTimer = null; }
+        if (demoState === 'playing') {
+          cancelClickDemo();
+          demoState = 'idle';
+        }
       }
     }
 
