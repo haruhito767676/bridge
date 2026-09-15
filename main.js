@@ -3429,6 +3429,7 @@ function popupItems() {
       timestamp: it.timestamp,
       pinned: Boolean(it.pinned),
       customTitle: it.customTitle || null,
+      sourceApp: it.sourceApp || null,
     }));
 }
 

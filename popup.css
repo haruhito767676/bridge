@@ -118,6 +118,17 @@ body.popup:not(.platform-darwin) {
   border-radius: 4px;
 }
 
+/* コピー元アプリのバッジ。先頭スロットが 22px しかないので、40px 前提の
+   .source-app-badge (styles.css) をそのまま使うと大きすぎる。比率を保って縮小する */
+body.popup .popup-item .source-app-badge {
+  right: -2px;
+  bottom: -2px;
+  width: 11px;
+  height: 11px;
+  border-radius: 3px;
+  box-shadow: 0 0.5px 1.5px rgba(0, 0, 0, 0.35);
+}
+
 .popup-item .popup-text {
   flex: 1;
   min-width: 0;

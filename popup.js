@@ -46,6 +46,18 @@ function filterItems() {
   });
 }
 
+// コピー元アプリのアイコンバッジ。ファイル項目 (常に Finder/Explorer なので無意味) には出さない
+function createSourceAppBadge(item) {
+  if (item.kind === 'file' || !item.sourceApp || !item.sourceApp.icon) return null;
+  const badge = document.createElement('img');
+  badge.className = 'source-app-badge';
+  badge.src = item.sourceApp.icon;
+  badge.draggable = false;
+  badge.alt = '';
+  if (item.sourceApp.name) badge.title = item.sourceApp.name;
+  return badge;
+}
+
 function createLeading(item) {
   const leading = document.createElement('div');
   leading.className = 'item-leading';
@@ -54,6 +66,8 @@ function createLeading(item) {
     g.className = 'clip-glyph';
     g.innerHTML = CLIPBOARD_GLYPH;
     leading.appendChild(g);
+    const sourceBadge = createSourceAppBadge(item);
+    if (sourceBadge) leading.appendChild(sourceBadge);
     return leading;
   }
   const img = document.createElement('img');
@@ -79,6 +93,8 @@ function createLeading(item) {
     }
   }
   leading.appendChild(img);
+  const sourceBadge = createSourceAppBadge(item);
+  if (sourceBadge) leading.appendChild(sourceBadge);
   return leading;
 }
 
