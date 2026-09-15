@@ -1495,7 +1495,7 @@ window.addEventListener('blur', closeContextMenu);
 // ---- 画面描画 ----
 
 // 日付セクションの見出し。「今日」「昨日」、それ以前は日付 (年が違えば年も付ける)
-const { formatFileName, dayKey, sectionLabel, formatTime } = window.BridgeFormat;
+const { formatFileName, dayKey, sectionLabel, formatTime, formatMetaLine } = window.BridgeFormat;
 
 // ---- カスタムツールチップ (Electron では OS 標準の title 属性が機能しないため自作) ----
 
@@ -1690,7 +1690,7 @@ function render() {
       : item.missing
         ? '見つかりません · 移動または削除されました'
         : item.timestamp
-          ? `${kindLabel} · ${formatTime(item.timestamp)}`
+          ? formatMetaLine(kindLabel, item.timestamp)
           : kindLabel;
     if (item.pinned) {
       const pinIcon = glyph('pin');

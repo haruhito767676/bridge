@@ -71,6 +71,19 @@ test('sectionLabel: 今日 / 昨日 / 日付 / 年またぎ', () => {
   assert.equal(F.sectionLabel(new Date(2025, 11, 31).getTime(), now), '2025年12月31日 (水)');
 });
 
+test('formatMetaLine: 短い種別名はそのまま時刻と結合する', () => {
+  const ts = new Date(2026, 0, 1, 9, 5).getTime();
+  assert.equal(F.formatMetaLine('画像', ts), '画像 · 9:05');
+});
+
+test('formatMetaLine: 拡張子由来の長い種別名は時刻が見切れないよう省略する', () => {
+  const ts = new Date(2026, 0, 1, 9, 5).getTime();
+  const out = F.formatMetaLine('APPLESCRIPTスクリプトファイルフォーマットファイル', ts);
+  assert.ok(out.endsWith(' · 9:05'));
+  assert.ok(out.includes('…'));
+  assert.ok(F.countUnits(out) <= F.META_MAX_UNITS + 1);
+});
+
 test('formatTime: 分を 2 桁にする', () => {
   assert.equal(F.formatTime(new Date(2026, 0, 1, 9, 5).getTime()), '9:05');
 });
