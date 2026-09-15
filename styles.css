@@ -195,7 +195,9 @@ body.drag-mode #empty-state .empty-sub {
 
 #search-area {
   flex-shrink: 0;
-  margin: 12px 0 0 12px;
+  /* 下マージンは検索欄→セグメントの余白 (6px) と揃える。ここで確保することで
+     #drop-zone (スクロール領域) の外側に固定される = スクロールしても消えない */
+  margin: 12px 0 6px 12px;
 }
 
 /* Finder の検索欄をそのまま模倣する: 完全なピル形状 + ゆったりしたアイコン間隔 + 濃いめの地 */
@@ -349,7 +351,11 @@ body.drag-mode #empty-state .empty-sub {
      ホバー展開時カーソルが画面端に乗っているため、スクロールバーがその直下にあると
      AppKit がホバー時の太い幅で描画してしまう (通常スクロール時は細い) のを避ける */
   margin-right: 6px;
-  padding: 10px 6px 10px 4px;
+  /* 上の余白は #search-area の margin-bottom 側で確保する (スクロールしても消えないように)。
+     ここに padding-top を持たせると、スクロールで流れる中身の一部になってしまい、
+     先頭の日付見出しの直後だけ余白が見えて、グループ途中の行では詰まって見える、という
+     スクロール位置依存のムラが出る */
+  padding: 0 6px 10px 4px;
   outline: none;
 }
 
