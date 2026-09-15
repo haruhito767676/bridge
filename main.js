@@ -905,6 +905,16 @@ const sessionTempFiles = new Set();
 // ここに含まれるファイルはユーザーがまだ使う可能性があるため終了時も消さない
 let retainedPaths = new Set();
 
+// ファイル名向けの読みやすい日時 (例: 2026-09-15_14-30-05)。
+// コロンは Windows のファイル名で使えないためハイフンで区切る
+function readableTimestamp(date = new Date()) {
+  const pad = (n) => String(n).padStart(2, '0');
+  return (
+    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}` +
+    `_${pad(date.getHours())}-${pad(date.getMinutes())}-${pad(date.getSeconds())}`
+  );
+}
+
 // 同名ファイルがあれば "name-1.ext" のように連番を振る
 function reserveDest(dir, name) {
   const ext = path.extname(name);
@@ -1411,7 +1421,7 @@ function imageKey(image) {
 async function saveClipboardImage(image) {
   const dir = downloadDir();
   await fsp.mkdir(dir, { recursive: true });
-  const dest = reserveDest(dir, `clipboard_${Date.now()}.png`);
+  const dest = reserveDest(dir, `clipboard_${readableTimestamp()}.png`);
   await fsp.writeFile(dest, image.toPNG());
   sessionTempFiles.add(dest); // 終了時の残骸掃除の対象として追跡
   return dest;
@@ -1986,7 +1996,8 @@ function sweepOrphanTempFiles(keep) {
     return;
   }
   for (const name of names) {
-    if (!/^(clipboard_\d+|snippet_\d+)(-\d+)?\.(png|txt)$/.test(name)) continue;
+    // clipboard_ は新形式 (日時) と旧形式 (epoch ミリ秒、更新前に作られた残骸) の両方を対象にする
+    if (!/^(clipboard_(\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}|\d+)|snippet_\d+)(-\d+)?\.(png|txt)$/.test(name)) continue;
     const full = path.join(downloadDir(), name);
     if (keep.has(full)) continue;
     try {
