@@ -4331,6 +4331,15 @@ app.whenReady().then(() => {
                 signature.pinned = true;
                 signature.customTitle = 'メール署名（社内向け）';
               }
+              // 見積書・署名以外にも「頻繁に参照/送信する」定番アイテムを2〜3件ピン留めする
+              // (QA用ログイン、決済APIキー、Wi-Fiパスワードのように毎回コピペし直す類のもの)
+              const findText = (keyword) => items.find((it) => it.kind === 'clip-text' && it.text && it.text.includes(keyword));
+              const qaAccount = findText('テストアカウント: qa-user01');
+              if (qaAccount) qaAccount.pinned = true;
+              const paymentKey = findText('sk_test_xxxxxxxx');
+              if (paymentKey) paymentKey.pinned = true;
+              const wifi = findText('Wi-Fiパスワード: sample-wifi');
+              if (wifi) wifi.pinned = true;
               render();
             })();
           `);
