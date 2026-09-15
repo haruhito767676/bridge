@@ -598,7 +598,10 @@ body:not(.platform-darwin) #drop-zone::-webkit-scrollbar-thumb:hover {
   width: 20px;
   height: 20px;
   border-radius: 5px;
-  box-shadow: 0 0 0 1.5px var(--popover-bg), 0 1px 2px rgba(0, 0, 0, 0.25);
+  /* 背景の塗りを敷かなくなった分、リング (0 0 0 1.5px) も外す。塗りと組みで初めて自然な
+     縁取りに見える色で、地の無いところに単体で残すと逆に不自然な輪郭線として浮いて見えるため。
+     主アイコンとの境目は落ち影だけで十分つく */
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
   object-fit: contain;
   pointer-events: auto;
 }
