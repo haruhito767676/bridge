@@ -168,7 +168,7 @@ Windows では macOS 向けの「毎フレームの `setBounds`」と「カー�
 | `getFileIcon(path)` | `get-file-icon` | invoke | OS 標準ファイルアイコンの Data URL（失敗時 null） |
 | `getFileKind(path)` | `get-file-kind` | invoke | 種類ラベル。フォルダ → `"フォルダ"`、macOS → `mdls kMDItemKind`、他 → 拡張子から生成 |
 | `downloadUrl(url)` | `download-url` | invoke | http(s) を `userData/downloads/` へ保存 → `{ path, name }`。拡張子欠落は Content-Type から補完 |
-| `saveTextSnippet(text)` | `save-text-snippet` | invoke | `snippet_<ts>.txt` として保存（一時ファイル追跡対象） |
+| `saveTextSnippet(text)` | `save-text-snippet` | invoke | `snippet_<dt>.txt` として保存（一時ファイル追跡対象） |
 | `getDeviceInfo()` | `get-device-info` | invoke | `{ device, platform }`（バッジのローカル判定用） |
 | `registerSyncFile(path, name)` | `sync-register-file` | send | ローカル生まれファイルの同期台帳登録。フォルダは zip 化してから登録。重複パスは無視 |
 | `previewFile(path, name)` | `preview-file` | send | macOS クイックルック（`previewFile`） |
@@ -217,7 +217,7 @@ Windows では macOS 向けの「毎フレームの `setBounds`」と「カー�
 |---|---|
 | ローカルファイルの D&D | `webUtils.getPathForFile` でパス取得 → `addLocalFile` |
 | Web 画像 / リンクの D&D | `text/html` の `<img src>` → `text/uri-list` → `text/plain` の順に http(s) URL を抽出 → Main で**ストリーム**ダウンロード（`Readable.fromWeb` → `createWriteStream`、上限 2GB、`text/html` は拒否）。プレースホルダ表示 → 完了で差し替え、失敗はトーストで通知 |
-| 選択テキストの D&D | URL でなければ `snippet_<ts>.txt` 化して追加 |
+| 選択テキストの D&D | URL でなければ `snippet_<dt>.txt` 化して追加 |
 | `bridge://add?path=` | パネルを展開して**確認トースト**を出し、「追加」を押したときだけ追加する（Web ページのリンクから任意のローカルファイルが無確認で同期されるのを防ぐ。15 秒で失効） |
 | `bridge://add?text=` | http(s) ならダウンロード、それ以外は `.txt` 化 |
 | クリップボード監視 | § 6 参照（ウインドウを奪わない `addFileQuietly` / `sendClipboardItem`） |
@@ -242,7 +242,7 @@ Windows では macOS 向けの「毎フレームの `setBounds`」と「カー�
    - Windows: `FileNameW`（CF_FILENAMEW）で「ファイルがコピーされた」ことを検知し、常駐ヘルパーの `Get-Clipboard -Format FileDropList` で**選択された全ファイル**を列挙する（同じコピーが載り続けている間は前回の結果を再利用）→ `Chromium Web Custom MIME Data` → `text/uri-list` → プレーンテキストは**全体が 1 行 1 パスのときだけ**（`extractWholeTextPaths`。プロンプト行に作業フォルダのパスが混じるだけのコピーをファイルと誤認しない）。最後に `fs.existsSync` で実在確認
    - 検知したファイルは `addFileQuietly` でシェルフへ追加（ウインドウは奪わない）
 2. **テキスト**: 前回と異なる非空テキストなら履歴化。`.txt` はこの時点では作らず、ドラッグアウト / クイックルック時に `ensure-clipboard-text-file` で**遅延生成**する（コピーのたびにディスクへ書かない）。同期台帳へ登録 → ピアへ即時プッシュ
-3. **画像**: `availableFormats()` に `image/*` がある場合を対象にする。**Windows は毎 tick まず OS のクリップボード連番（`GetClipboardSequenceNumber`、常駐ヘルパー経由）を読み、前回と同じなら何も読まずに終える**。連番が変わった tick は形式一覧に `image/*` が無くても `readImage()` を試す（Snipping Tool など WinRT 経由の遅延レンダリングは一覧に出ないことがある）。既知のファイルキーと同じでファイル判定が return してしまうと連番変化を握りつぶすため、連番が変わっているときはファイルキー一致でも return せず画像判定まで進む。それでも空なら 4 tick だけ読み直し、そのときの形式一覧・テキスト・ファイル数を必ず `bridge.log` の `[clip]` に残す（起動 1.5 秒後には連番機構自体の疎通確認も `[winshell]` に 1 行出す）。この tick が例外で失敗した場合も `[clip]` にメッセージを残す（`console.error` はパッケージ版では表示先が無く消えるため）。macOS はまず**安価な署名**（フォーマット一覧 + macOS は `public.tiff` / Windows は `PNG` バッファの長さ。Windows で `PNG` が無いとき（Snipping Tool など）はクリップボード連番 `GetClipboardSequenceNumber` を署名に加える）を前回と比べ、同じならデコードもハッシュもしない（スクリーンショットが載ったまま放置されても CPU を使わない）。変わっていたら `readImage()` し、同一判定キーは「サイズ + バイト数 + bitmap の等間隔サンプル（最大 256KB）の MD5」。新規なら `clipboard_<ts>.png` として即ファイル化 → 履歴化・同期登録
+3. **画像**: `availableFormats()` に `image/*` がある場合を対象にする。**Windows は毎 tick まず OS のクリップボード連番（`GetClipboardSequenceNumber`、常駐ヘルパー経由）を読み、前回と同じなら何も読まずに終える**。連番が変わった tick は形式一覧に `image/*` が無くても `readImage()` を試す（Snipping Tool など WinRT 経由の遅延レンダリングは一覧に出ないことがある）。既知のファイルキーと同じでファイル判定が return してしまうと連番変化を握りつぶすため、連番が変わっているときはファイルキー一致でも return せず画像判定まで進む。それでも空なら 4 tick だけ読み直し、そのときの形式一覧・テキスト・ファイル数を必ず `bridge.log` の `[clip]` に残す（起動 1.5 秒後には連番機構自体の疎通確認も `[winshell]` に 1 行出す）。この tick が例外で失敗した場合も `[clip]` にメッセージを残す（`console.error` はパッケージ版では表示先が無く消えるため）。macOS はまず**安価な署名**（フォーマット一覧 + macOS は `public.tiff` / Windows は `PNG` バッファの長さ。Windows で `PNG` が無いとき（Snipping Tool など）はクリップボード連番 `GetClipboardSequenceNumber` を署名に加える）を前回と比べ、同じならデコードもハッシュもしない（スクリーンショットが載ったまま放置されても CPU を使わない）。変わっていたら `readImage()` し、同一判定キーは「サイズ + バイト数 + bitmap の等間隔サンプル（最大 256KB）の MD5」。新規なら `clipboard_<dt>.png` として即ファイル化 → 履歴化・同期登録
 
 Main 側履歴 (`clipHistory`) の上限はテキスト 100 / 画像 30。**Main はディスク削除を行わず配列長のみ管理**する（表示の真実を持つ Renderer 側のトリミング → `delete-temp-file` IPC が削除を担う。両者の並びズレによる「表示中ファイルの誤削除」を防ぐための設計）。
 
@@ -329,11 +329,13 @@ Main 側履歴 (`clipHistory`) の上限はテキスト 100 / 画像 30。**Main
 
 **保存場所**: `<userData>/downloads/`
 
+`<dt>` は `readableTimestamp()` が返す読める日時（例: `2026-09-15_14-30-05`。コロンは Windows のファイル名で使えないためハイフン区切り）。衝突時は `reserveDest` が `-1` / `-2` … を付与する。
+
 | 生成物 | 命名 | 追跡 |
 |---|---|---|
 | Web ダウンロード | 元ファイル名（衝突時は連番） | 追跡しない（ユーザー資産扱い） |
-| ドロップ / コピーされたテキスト | `text-<ts>.txt` / `snippet_<ts>.txt`（snippet はドラッグ / プレビュー時に遅延生成） | snippet のみ追跡 |
-| コピー画像 | `clipboard_<ts>.png` | 追跡 |
+| ドロップ / コピーされたテキスト | `text_<dt>.txt` / `snippet_<dt>.txt`（snippet はドラッグ / プレビュー時に遅延生成） | 両方とも追跡 |
+| コピー画像 | `clipboard_<dt>.png` | 追跡 |
 | 同期受信ファイル | 元名をサニタイズ | 追跡 |
 | フォルダの自動 zip | `<フォルダ名>.zip` | 追跡 |
 
@@ -348,7 +350,7 @@ Main 側履歴 (`clipHistory`) の上限はテキスト 100 / 画像 30。**Main
 ### 8.1 履歴の永続化（`history.json`）
 
 - Renderer は描画のたびに保存用の一覧（`kind` / `path` / `name` / `text` / `timestamp` / 出身 / `sourceApp` / `pinned`。アイコンは含めない）を `persist-items` で送り、Main が 0.5 秒デバウンスして `<userData>/history.json` へ一時ファイル + rename で書く。`sessionTempFiles` も一緒に保存する
-- 起動時（`did-finish-load`）は `restore-items` で復元し、`sessionTempFiles` を読み戻した上で、`downloads/` にある `clipboard_*.png` / `snippet_*.txt` のうち履歴にも追跡にも無い孤児を削除する。同一セッション内の Renderer 再起動ではディスクではなくメモリ上の最新一覧から復元する（クラッシュ復帰）
+- 起動時（`did-finish-load`）は `restore-items` で復元し、`sessionTempFiles` を読み戻した上で、`downloads/` にある `clipboard_*.png` / `snippet_*.txt` / `text_*.txt` のうち履歴にも追跡にも無い孤児を削除する（更新前の旧命名 `clipboard_<epoch>.png` / `text-<epoch>.txt` の残骸も対象に含む）。同一セッション内の Renderer 再起動ではディスクではなくメモリ上の最新一覧から復元する（クラッシュ復帰）
 - 終了時は最新の一覧を必ず書き出してから、リストに残っていない裏生成ファイルだけを削除する（リストにあるものは次回も使うので残す）
 - **ピン留め** (`pinned`) は上限トリミングと「すべて消去」の対象外で、常にリスト先頭の「ピン留め」セクションに出る
 
