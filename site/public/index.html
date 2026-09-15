@@ -145,10 +145,10 @@
   }
   @media (prefers-reduced-motion: reduce){ *{animation:none !important;transition:none !important;} }
 
-  /* ---- live demo: 本物の styles.css / index.html から該当ルールをそのまま移植 (#brd 配下に限定) ----
+  /* ---- live demo: 本物の styles.css / index.html から該当ルールをそのまま移植 (.brd 配下に限定) ----
      変数名・クラス名・値は /styles.css と同じ (ライトモード側の値をそのまま採用) */
   .demo-wrap{display:flex;flex-direction:column;align-items:center;gap:14px;}
-  #brd{
+  .brd{
     --fg:#1d1d1f; --fg-secondary:rgba(60,60,67,0.6); --fg-tertiary:rgba(60,60,67,0.3);
     --accent:#0a84ff; --accent-fg:#fff; --accent-tint:rgba(10,132,255,0.14); --success:#34c759; --destructive:#ff3b30;
     --panel-fallback:rgba(236,236,238,0.96); --fill:rgba(120,120,128,0.1); --fill-hover:rgba(120,120,128,0.18); --fill-strong:rgba(120,120,128,0.24);
@@ -162,70 +162,97 @@
     font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Segoe UI","Yu Gothic UI",sans-serif;
     font-size:13px;line-height:1.35;color:var(--fg);
   }
-  #brd-search-area{flex-shrink:0;}
-  #brd-search-field{
+  .brd .search-area{flex-shrink:0;}
+  .brd .search-field{
     display:flex;align-items:center;height:30px;padding:0 12px 0 32px;background-color:var(--search-fill);
     border-radius:999px;
     background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23898989' stroke-width='2.5' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E");
     background-repeat:no-repeat;background-position:12px center;background-size:14px 14px;
     transition:box-shadow 0.15s;
   }
-  #brd-search-field:focus-within{box-shadow:0 0 0 3px var(--accent),0 0 5px 1px var(--accent-tint);}
-  #brd-search-bar{flex:1;min-width:0;height:100%;padding:0;font:inherit;font-size:13px;color:var(--fg);background:transparent;border:none;outline:none;}
-  #brd-search-bar::placeholder{color:var(--fg-secondary);}
-  #brd-filter-segment{position:relative;display:flex;gap:2px;margin:6px 0 0;padding:2px;background:var(--search-fill);border-radius:var(--radius-s);}
-  #brd-filter-segment-thumb{position:absolute;top:2px;bottom:2px;left:2px;width:calc((100% - 4px) / 3);background:var(--segment-active-bg);border-radius:calc(var(--radius-s) - 2px);box-shadow:0 1px 2px rgba(0,0,0,0.15);transition:transform 0.25s cubic-bezier(0.2,0.8,0.2,1);}
-  #brd .segment-item{position:relative;z-index:1;flex:1;padding:3px 0;font:500 11px inherit;color:var(--fg-secondary);background:transparent;border:none;border-radius:calc(var(--radius-s) - 2px);cursor:pointer;}
-  #brd .segment-item:hover{color:var(--fg);}
-  #brd .segment-item.active{color:var(--fg);}
-  #brd-drop-zone{position:relative;height:480px;overflow-y:auto;overflow-x:hidden;margin-top:6px;padding:0 2px 8px 0;}
-  #brd-device-filter-chip{display:inline-flex;align-items:center;gap:5px;margin:6px 0 0;padding:3px 4px 3px 8px;font-size:11px;font-weight:500;color:var(--fg);background:var(--fill-strong);border-radius:7px;}
-  #brd-device-filter-chip::before{content:"";width:6px;height:6px;flex-shrink:0;border-radius:50%;background:var(--accent);}
-  #brd-device-filter-chip[hidden]{display:none;}
-  #brd-device-filter-clear{display:flex;align-items:center;justify-content:center;width:14px;height:14px;flex-shrink:0;padding:0;border:none;border-radius:50%;background:transparent;color:var(--fg-secondary);cursor:pointer;}
-  #brd-device-filter-clear svg{width:9px;height:9px;}
-  #brd-device-filter-clear:hover{color:var(--fg);background:var(--fill-hover);}
-  #brd-context-menu{position:absolute;z-index:40;min-width:190px;padding:4px;list-style:none;margin:0;background:var(--popover-bg);border:1px solid var(--popover-border);border-radius:var(--radius-m);box-shadow:var(--popover-shadow);backdrop-filter:blur(20px) saturate(1.5);-webkit-backdrop-filter:blur(20px) saturate(1.5);}
-  #brd-context-menu[hidden]{display:none;}
-  #brd-context-menu li{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:5px 8px;font-size:12.5px;border-radius:var(--radius-s);color:var(--fg);cursor:pointer;}
-  #brd-context-menu li:hover{background:var(--accent);color:var(--accent-fg);}
-  #brd-context-menu li.destructive{color:var(--destructive);}
-  #brd-context-menu li.destructive:hover{color:#fff;background:var(--destructive);}
-  #brd-context-menu li .brd-menu-shortcut{font-size:11px;opacity:0.6;}
-  #brd-context-menu li.separator{height:1px;margin:4px 6px;padding:0;background:var(--divider);pointer-events:none;cursor:default;}
-  #brd .file-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px;}
-  #brd .section-header{padding:8px 6px 4px;font-size:11px;font-weight:600;color:var(--fg-secondary);list-style:none;}
-  #brd .section-header:first-child{padding-top:0;}
-  #brd .file-item{position:relative;display:flex;align-items:center;gap:10px;padding:7px 6px;border-radius:var(--radius-m);cursor:pointer;transition:background-color 0.12s;}
-  #brd .file-item:hover{background:var(--fill);}
-  #brd .file-item:active{transform:scale(0.985);}
-  #brd .file-item.copied .remove-button{opacity:0;}
-  #brd .item-leading{position:relative;width:36px;height:36px;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
-  #brd .file-icon{width:30px;height:30px;object-fit:contain;}
-  #brd .file-icon.thumbnail{width:36px;height:36px;object-fit:cover;border-radius:var(--radius-s);box-shadow:inset 0 0 0 0.5px var(--divider);background:var(--fill);}
+  .brd .search-field:focus-within{box-shadow:0 0 0 3px var(--accent),0 0 5px 1px var(--accent-tint);}
+  .brd .search-bar{flex:1;min-width:0;height:100%;padding:0;font:inherit;font-size:13px;color:var(--fg);background:transparent;border:none;outline:none;}
+  .brd .search-bar::placeholder{color:var(--fg-secondary);}
+  .brd .filter-segment{position:relative;display:flex;gap:2px;margin:6px 0 0;padding:2px;background:var(--search-fill);border-radius:var(--radius-s);}
+  .brd .filter-segment-thumb{position:absolute;top:2px;bottom:2px;left:2px;width:calc((100% - 4px) / 3);background:var(--segment-active-bg);border-radius:calc(var(--radius-s) - 2px);box-shadow:0 1px 2px rgba(0,0,0,0.15);transition:transform 0.25s cubic-bezier(0.2,0.8,0.2,1);}
+  .brd .segment-item{position:relative;z-index:1;flex:1;padding:3px 0;font:500 11px inherit;color:var(--fg-secondary);background:transparent;border:none;border-radius:calc(var(--radius-s) - 2px);cursor:pointer;}
+  .brd .segment-item:hover{color:var(--fg);}
+  .brd .segment-item.active{color:var(--fg);}
+  .brd .drop-zone{position:relative;height:480px;overflow-y:auto;overflow-x:hidden;margin-top:6px;padding:0 2px 8px 0;}
+  .brd .device-filter-chip{display:inline-flex;align-items:center;gap:5px;margin:6px 0 0;padding:3px 4px 3px 8px;font-size:11px;font-weight:500;color:var(--fg);background:var(--fill-strong);border-radius:7px;}
+  .brd .device-filter-chip::before{content:"";width:6px;height:6px;flex-shrink:0;border-radius:50%;background:var(--accent);}
+  .brd .device-filter-chip[hidden]{display:none;}
+  .brd .device-filter-clear{display:flex;align-items:center;justify-content:center;width:14px;height:14px;flex-shrink:0;padding:0;border:none;border-radius:50%;background:transparent;color:var(--fg-secondary);cursor:pointer;}
+  .brd .device-filter-clear svg{width:9px;height:9px;}
+  .brd .device-filter-clear:hover{color:var(--fg);background:var(--fill-hover);}
+  .brd .context-menu{position:absolute;z-index:40;min-width:190px;padding:4px;list-style:none;margin:0;background:var(--popover-bg);border:1px solid var(--popover-border);border-radius:var(--radius-m);box-shadow:var(--popover-shadow);backdrop-filter:blur(20px) saturate(1.5);-webkit-backdrop-filter:blur(20px) saturate(1.5);}
+  .brd .context-menu[hidden]{display:none;}
+  .brd .context-menu li{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:5px 8px;font-size:12.5px;border-radius:var(--radius-s);color:var(--fg);cursor:pointer;}
+  .brd .context-menu li:hover{background:var(--accent);color:var(--accent-fg);}
+  .brd .context-menu li.destructive{color:var(--destructive);}
+  .brd .context-menu li.destructive:hover{color:#fff;background:var(--destructive);}
+  .brd .context-menu li .brd-menu-shortcut{font-size:11px;opacity:0.6;}
+  .brd .context-menu li.separator{height:1px;margin:4px 6px;padding:0;background:var(--divider);pointer-events:none;cursor:default;}
+  .brd .file-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px;}
+  .brd .section-header{padding:8px 6px 4px;font-size:11px;font-weight:600;color:var(--fg-secondary);list-style:none;}
+  .brd .section-header:first-child{padding-top:0;}
+  .brd .file-item{position:relative;display:flex;align-items:center;gap:10px;padding:7px 6px;border-radius:var(--radius-m);cursor:pointer;transition:background-color 0.12s;}
+  .brd .file-item:hover{background:var(--fill);}
+  .brd .file-item:active{transform:scale(0.985);}
+  .brd .file-item.copied .remove-button{opacity:0;}
+  .brd .item-leading{position:relative;width:36px;height:36px;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
+  .brd .file-icon{width:30px;height:30px;object-fit:contain;}
+  .brd .file-icon.thumbnail{width:36px;height:36px;object-fit:cover;border-radius:var(--radius-s);box-shadow:inset 0 0 0 0.5px var(--divider);background:var(--fill);}
   /* macOSのアプリアイコンは既に角丸正方形の絵として書き出されているので、背後に塗り地は敷かず
      薄いリングだけ残してバッジ自体を大きくする (本物の styles.css と同じ調整) */
-  #brd .source-app-badge{position:absolute;right:-4px;bottom:-4px;width:19px;height:19px;border-radius:5px;box-shadow:0 1px 3px rgba(0,0,0,0.35);object-fit:contain;}
-  #brd .clip-glyph{width:30px;height:30px;display:flex;align-items:center;justify-content:center;border-radius:8px;background:var(--fill);color:var(--fg-secondary);}
-  #brd .clip-glyph svg{width:16px;height:16px;}
-  #brd .item-lines{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;}
-  #brd .item-title{display:block;width:100%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-size:13px;}
-  #brd .item-title.clip-preview{white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;}
-  #brd .item-meta-line{font-size:11px;color:var(--fg-secondary);overflow:hidden;white-space:nowrap;text-overflow:ellipsis;}
-  #brd .meta-pin{width:10px;height:10px;margin-right:3px;vertical-align:-1px;color:var(--fg-secondary);}
-  #brd .item-badge-line{display:flex;align-items:center;gap:4px;margin-top:2px;}
-  #brd .origin-chip{display:inline-flex;align-items:center;gap:3px;max-width:120px;padding:1px 6px;font-size:10.5px;line-height:14px;border-radius:7px;background:var(--fill);color:var(--fg-secondary);overflow:hidden;white-space:nowrap;}
-  #brd .origin-chip span{overflow:hidden;text-overflow:ellipsis;}
-  #brd .origin-chip img, #brd .origin-chip svg{width:11px;height:11px;flex-shrink:0;}
-  #brd .remove-button{flex-shrink:0;width:18px;height:18px;display:flex;align-items:center;justify-content:center;padding:0;border:none;border-radius:50%;background:transparent;color:var(--fg-tertiary);opacity:0;transition:opacity 0.12s,color 0.12s;}
-  #brd .remove-button svg{width:16px;height:16px;}
-  #brd .file-item:hover .remove-button{opacity:1;}
-  #brd .copied-mark{position:absolute;right:7px;top:50%;width:20px;height:20px;transform:translateY(-50%) scale(0.6);border-radius:50%;background:var(--success);color:#fff;display:flex;align-items:center;justify-content:center;animation:brd-copied-pop 0.22s cubic-bezier(0.2,0.9,0.3,1.2) forwards;}
-  #brd .copied-mark svg{width:11px;height:11px;}
+  .brd .source-app-badge{position:absolute;right:-4px;bottom:-4px;width:19px;height:19px;border-radius:5px;box-shadow:0 1px 3px rgba(0,0,0,0.35);object-fit:contain;}
+  .brd .clip-glyph{width:30px;height:30px;display:flex;align-items:center;justify-content:center;border-radius:8px;background:var(--fill);color:var(--fg-secondary);}
+  .brd .clip-glyph svg{width:16px;height:16px;}
+  .brd .item-lines{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;}
+  .brd .item-title{display:block;width:100%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-size:13px;}
+  .brd .item-title.clip-preview{white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;}
+  .brd .item-meta-line{font-size:11px;color:var(--fg-secondary);overflow:hidden;white-space:nowrap;text-overflow:ellipsis;}
+  .brd .meta-pin{width:10px;height:10px;margin-right:3px;vertical-align:-1px;color:var(--fg-secondary);}
+  .brd .item-badge-line{display:flex;align-items:center;gap:4px;margin-top:2px;}
+  .brd .origin-chip{display:inline-flex;align-items:center;gap:3px;max-width:120px;padding:1px 6px;font-size:10.5px;line-height:14px;border-radius:7px;background:var(--fill);color:var(--fg-secondary);overflow:hidden;white-space:nowrap;}
+  .brd .origin-chip span{overflow:hidden;text-overflow:ellipsis;}
+  .brd .origin-chip img, .brd .origin-chip svg{width:11px;height:11px;flex-shrink:0;}
+  .brd .remove-button{flex-shrink:0;width:18px;height:18px;display:flex;align-items:center;justify-content:center;padding:0;border:none;border-radius:50%;background:transparent;color:var(--fg-tertiary);opacity:0;transition:opacity 0.12s,color 0.12s;}
+  .brd .remove-button svg{width:16px;height:16px;}
+  .brd .file-item:hover .remove-button{opacity:1;}
+  .brd .copied-mark{position:absolute;right:7px;top:50%;width:20px;height:20px;transform:translateY(-50%) scale(0.6);border-radius:50%;background:var(--success);color:#fff;display:flex;align-items:center;justify-content:center;animation:brd-copied-pop 0.22s cubic-bezier(0.2,0.9,0.3,1.2) forwards;}
+  .brd .copied-mark svg{width:11px;height:11px;}
   @keyframes brd-copied-pop{to{transform:translateY(-50%) scale(1);}}
-  #brd-empty{padding:28px 8px;text-align:center;font-size:12.5px;color:var(--fg-secondary);}
-  #brd-empty[hidden]{display:none;}
+  .brd .empty{padding:28px 8px;text-align:center;font-size:12.5px;color:var(--fg-secondary);}
+  .brd .empty[hidden]{display:none;}
   .brd-caption{font-family:var(--mono);font-size:12.5px;color:var(--ink-faint);text-align:center;max-width:340px;}
+
+  /* ---- footer (すべて消去 / 設定歯車): 本物の #shelf-footer 相当。ライブデモは JS 側で
+     カウント表示等を持たないため未使用だが、静的モックアップ (hero/設定/デバイス絞り込み) では
+     実機と同じ見た目にするためこちらを使う ---- */
+  .brd .shelf-footer{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 4px 10px 12px;min-height:36px;color:var(--fg-secondary);font-size:11px;border-top:1px solid var(--divider);}
+  .brd .footer-status{display:flex;align-items:center;gap:6px;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;}
+  .brd .footer-actions{display:flex;align-items:center;gap:2px;flex-shrink:0;}
+  .brd .footer-button{display:inline-flex;align-items:center;justify-content:center;gap:4px;height:22px;padding:0 7px;font:500 11px inherit;border:none;border-radius:var(--radius-s);background:transparent;color:var(--fg-secondary);}
+  .brd .footer-button svg{width:14px;height:14px;}
+
+  /* ---- 設定シート (履歴の使用状況だけを再現。同期キー等は静的モックアップでは省略) ---- */
+  .brd .sheet-header{display:flex;align-items:center;justify-content:space-between;padding:2px 2px 10px;}
+  .brd .sheet-title{font-size:13px;font-weight:600;}
+  .brd .sheet-spacer{width:52px;}
+  .brd .sheet-body{display:flex;flex-direction:column;gap:14px;}
+  .brd .form-group{display:flex;flex-direction:column;gap:4px;}
+  .brd .form-label{font-size:11px;font-weight:500;color:var(--fg-secondary);}
+  .brd .form-help{font-size:11px;color:var(--fg-secondary);}
+  .brd .text-field{width:100%;height:26px;padding:0 8px;font:inherit;font-size:13px;color:var(--fg);background:var(--fill);border:none;border-radius:var(--radius-s);}
+
+  /* ---- 静的モックアップ (hero / 設定 / デバイス絞り込みの説明用埋め込み) ----
+     本物と同じ CSS/マークアップだが、画像の代替であってデモではないことを明示するため
+     クリック・ホバーの誘導だけ消す */
+  .brd-static{pointer-events:none;user-select:none;}
+  .brd-static .file-item:hover,.brd-static .file-item:active{background:none;transform:none;}
+  .hero-shot .brd{width:100%;max-width:none;border-radius:0;box-shadow:none;}
+  .detail-shot .brd{border-radius:14px;box-shadow:0 20px 50px -24px rgba(20,20,25,0.3),0 0 0 1px var(--line);}
 </style>
 </head>
 <body>
@@ -255,7 +282,84 @@
 </div>
 
 <div class="hero-stage">
-  <div class="hero-shot"><img src="hero.png" alt="Bridge のパネル。ファイルとクリップボードの履歴が並び、上部で「すべて/ファイル/クリップ」を切り替えられる" /></div>
+  <div class="hero-shot">
+      <div class="brd brd-static" aria-hidden="true">
+        <div class="search-area">
+          <div class="search-field"><input class="search-bar" type="text" placeholder="検索" readonly /></div>
+          <div class="filter-segment" role="tablist" aria-label="種別で絞り込み">
+            <div class="filter-segment-thumb" aria-hidden="true"></div>
+            <button type="button" class="segment-item active">すべて</button>
+            <button type="button" class="segment-item">ファイル</button>
+            <button type="button" class="segment-item">クリップ</button>
+          </div>
+        </div>
+        <div class="drop-zone">
+          <ul class="file-list">
+            <li class="section-header">ピン留め</li>
+            <li class="file-item">
+              <div class="item-leading"><div class="clip-glyph"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="12" height="14" rx="2.5"/><path d="M7.5 4V3.5A1.5 1.5 0 0 1 9 2h2a1.5 1.5 0 0 1 1.5 1.5V4M7.5 9.5h5M7.5 13h3.5"/></svg></div><img class="source-app-badge" src="../icons/outlook.png" alt="" /></div>
+              <div class="item-lines">
+                <div class="item-title">【メール署名（社内向け）】</div>
+                <div class="item-meta-line"><svg class="meta-pin" viewBox="0 0 16 16" fill="currentColor"><path d="M9.5 1.5 14.5 6.5l-1.2 1.2-.9-.3-2.6 2.6.3 2.6-1.2 1.2L6 11 2.5 14.5l-1-1L5 10 2.2 7.1l1.2-1.2 2.6.3 2.6-2.6-.3-.9z"/></svg>テキスト · 15:53</div>
+              </div>
+            </li>
+            <li class="file-item">
+              <div class="item-leading"><div class="clip-glyph"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="12" height="14" rx="2.5"/><path d="M7.5 4V3.5A1.5 1.5 0 0 1 9 2h2a1.5 1.5 0 0 1 1.5 1.5V4M7.5 9.5h5M7.5 13h3.5"/></svg></div><img class="source-app-badge" src="../icons/notion.png" alt="" /></div>
+              <div class="item-lines">
+                <div class="item-title">【社内Wi-Fi パスワード】</div>
+                <div class="item-meta-line"><svg class="meta-pin" viewBox="0 0 16 16" fill="currentColor"><path d="M9.5 1.5 14.5 6.5l-1.2 1.2-.9-.3-2.6 2.6.3 2.6-1.2 1.2L6 11 2.5 14.5l-1-1L5 10 2.2 7.1l1.2-1.2 2.6.3 2.6-2.6-.3-.9z"/></svg>テキスト · 15:53</div>
+                <div class="item-badge-line"><span class="origin-chip"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 13.5h4M8 11v2.5"/><rect x="2" y="3" width="12" height="8" rx="1"/></svg><span>自宅iMac</span></span></div>
+              </div>
+            </li>
+            <li class="file-item">
+              <div class="item-leading"><div class="clip-glyph"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="12" height="14" rx="2.5"/><path d="M7.5 4V3.5A1.5 1.5 0 0 1 9 2h2a1.5 1.5 0 0 1 1.5 1.5V4M7.5 9.5h5M7.5 13h3.5"/></svg></div><img class="source-app-badge" src="../icons/terminal.png" alt="" /></div>
+              <div class="item-lines">
+                <div class="item-title">【決済API サンドボックスキー】</div>
+                <div class="item-meta-line"><svg class="meta-pin" viewBox="0 0 16 16" fill="currentColor"><path d="M9.5 1.5 14.5 6.5l-1.2 1.2-.9-.3-2.6 2.6.3 2.6-1.2 1.2L6 11 2.5 14.5l-1-1L5 10 2.2 7.1l1.2-1.2 2.6.3 2.6-2.6-.3-.9z"/></svg>テキスト · 20:53</div>
+              </div>
+            </li>
+            <li class="section-header">今日</li>
+            <li class="file-item">
+              <div class="item-leading"><div class="clip-glyph"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="12" height="14" rx="2.5"/><path d="M7.5 4V3.5A1.5 1.5 0 0 1 9 2h2a1.5 1.5 0 0 1 1.5 1.5V4M7.5 9.5h5M7.5 13h3.5"/></svg></div><img class="source-app-badge" src="../icons/notion.png" alt="" /></div>
+              <div class="item-lines">
+                <div class="item-title clip-preview">会議室Bを10:00〜11:00で予約しました。プロジェクターの予約も忘れずに。</div>
+                <div class="item-meta-line">テキスト · 21:52</div>
+              </div>
+            </li>
+            <li class="file-item">
+              <div class="item-leading"><div class="clip-glyph"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="12" height="14" rx="2.5"/><path d="M7.5 4V3.5A1.5 1.5 0 0 1 9 2h2a1.5 1.5 0 0 1 1.5 1.5V4M7.5 9.5h5M7.5 13h3.5"/></svg></div><img class="source-app-badge" src="../icons/chrome.png" alt="" /></div>
+              <div class="item-lines">
+                <div class="item-title clip-preview">https://github.com/example-team/ec-renewal/pull/42</div>
+                <div class="item-meta-line">リンク · 21:45</div>
+              </div>
+            </li>
+            <li class="file-item">
+              <div class="item-leading"><div class="clip-glyph"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="12" height="14" rx="2.5"/><path d="M7.5 4V3.5A1.5 1.5 0 0 1 9 2h2a1.5 1.5 0 0 1 1.5 1.5V4M7.5 9.5h5M7.5 13h3.5"/></svg></div><img class="source-app-badge" src="../icons/slack.png" alt="" /></div>
+              <div class="item-lines">
+                <div class="item-title clip-preview">本日17時までにデザイン差し戻しをお願いします🙏</div>
+                <div class="item-meta-line">テキスト · 21:18</div>
+                <div class="item-badge-line"><span class="origin-chip"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 13.5h4M8 11v2.5"/><rect x="2" y="3" width="12" height="8" rx="1"/></svg><span>自宅iMac</span></span></div>
+              </div>
+            </li>
+            <li class="file-item">
+              <div class="item-leading"><img class="file-icon" src="../icons/file-pdf.png" alt="" /></div>
+              <div class="item-lines">
+                <div class="item-title">見積書_ECサイト改修_v2.pdf</div>
+                <div class="item-meta-line">PDF書類 · 20:17</div>
+                <div class="item-badge-line"><span class="origin-chip"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3.5" width="10" height="7" rx="1"/><path d="M1.5 12.5h13"/></svg><span>会社用PC</span></span></div>
+              </div>
+            </li>
+          </ul>
+        </div>
+        <div class="shelf-footer">
+          <div class="footer-status"></div>
+          <div class="footer-actions">
+            <button type="button" class="footer-button">すべて消去</button>
+            <button type="button" class="footer-button" aria-label="設定"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg></button>
+          </div>
+        </div>
+      </div>
+</div>
 </div>
 
 <div class="wrap">
@@ -290,29 +394,29 @@
     <p style="max-width:520px;margin:10px auto 0;">アプリを落とさなくても、ここで動きだけ試せます。検索・切り替え・クリックコピーは全部本物です。</p>
   </div>
   <div class="demo-wrap">
-    <div id="brd">
-      <div id="brd-search-area">
-        <div id="brd-search-field">
-          <input id="brd-search-bar" type="search" placeholder="検索" autocomplete="off" spellcheck="false" aria-label="アイテムを検索" />
+    <div id="brd" class="brd">
+      <div id="brd-search-area" class="search-area">
+        <div id="brd-search-field" class="search-field">
+          <input id="brd-search-bar" class="search-bar" type="search" placeholder="検索" autocomplete="off" spellcheck="false" aria-label="アイテムを検索" />
         </div>
-        <div id="brd-filter-segment" role="tablist" aria-label="種別で絞り込み">
-          <div id="brd-filter-segment-thumb" aria-hidden="true"></div>
+        <div id="brd-filter-segment" class="filter-segment" role="tablist" aria-label="種別で絞り込み">
+          <div id="brd-filter-segment-thumb" class="filter-segment-thumb" aria-hidden="true"></div>
           <button type="button" class="segment-item active" data-mode="">すべて</button>
           <button type="button" class="segment-item" data-mode="file">ファイル</button>
           <button type="button" class="segment-item" data-mode="clip">クリップ</button>
         </div>
-        <span id="brd-device-filter-chip" hidden>
+        <span id="brd-device-filter-chip" class="device-filter-chip" hidden>
           <span id="brd-device-filter-text"></span>
-          <button id="brd-device-filter-clear" aria-label="絞り込みを解除" tabindex="-1">
+          <button id="brd-device-filter-clear" class="device-filter-clear" aria-label="絞り込みを解除" tabindex="-1">
             <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 3l6 6M9 3l-6 6"/></svg>
           </button>
         </span>
       </div>
-      <div id="brd-drop-zone">
+      <div id="brd-drop-zone" class="drop-zone">
         <ul class="file-list" id="brd-file-list" role="listbox" aria-label="アイテム"></ul>
-        <div id="brd-empty" hidden>一致するアイテムがありません</div>
+        <div id="brd-empty" class="empty" hidden>一致するアイテムがありません</div>
       </div>
-      <ul id="brd-context-menu" role="menu" hidden></ul>
+      <ul id="brd-context-menu" class="context-menu" role="menu" hidden></ul>
     </div>
     <p class="brd-caption">index.html / styles.css をそのまま移植。右クリックでデバイス絞り込みも試せます（コピー先はあなた自身のクリップボードです）</p>
   </div>
@@ -343,7 +447,25 @@
 
 <section>
   <div class="detail-row reverse">
-    <div class="detail-shot"><img src="history-usage-light.png" alt="設定画面に表示される履歴の使用状況（テキスト・画像・ファイルそれぞれの件数）" /></div>
+    <div class="detail-shot">
+    <div class="brd brd-static" style="max-width:360px;margin:0 auto;padding-bottom:14px;box-shadow:0 24px 60px -28px rgba(0,0,0,0.6),0 0 0 1px var(--line);" role="img" aria-label="設定シートに履歴の使用状況として「テキスト・画像・ファイル」それぞれの件数と上限が表示されている">
+      <div class="sheet-header">
+        <button type="button" class="footer-button"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3L5 8l5 5"/></svg>戻る</button>
+        <span class="sheet-title">設定</span>
+        <span class="sheet-spacer"></span>
+      </div>
+      <div class="sheet-body">
+        <div class="form-group">
+          <span class="form-label">履歴の使用状況</span>
+          <p class="form-help">テキスト 97/100 · 画像 30/30 · ファイル 100/100（ピン留め 3件除く）</p>
+        </div>
+        <div class="form-group">
+          <label class="form-label">このデバイスの名前</label>
+          <input class="text-field" type="text" value="自分のMac" readonly />
+        </div>
+      </div>
+    </div>
+</div>
     <div class="detail-text">
       <p class="eyebrow">small but thoughtful</p>
       <h3>上限に、気づけるように。</h3>
@@ -354,7 +476,67 @@
 
 <section>
   <div class="detail-row">
-    <div class="detail-shot"><img src="device-filter-light.png" alt="デバイス絞り込みチップ「会社用PC のみ」が表示され、そのデバイスから届いたアイテムだけに絞り込まれている" /></div>
+    <div class="detail-shot">
+    <div class="brd brd-static" style="max-width:360px;margin:0 auto;box-shadow:0 24px 60px -28px rgba(0,0,0,0.6),0 0 0 1px var(--line);" role="img" aria-label="種別セグメントの下に「会社用PC のみ」というデバイス絞り込みチップが表示され、該当デバイスのアイテムだけに絞り込まれている" aria-hidden="false">
+      <div class="search-area">
+        <div class="search-field"><input class="search-bar" type="text" placeholder="検索" readonly /></div>
+        <div class="filter-segment" role="tablist" aria-label="種別で絞り込み">
+          <div class="filter-segment-thumb" aria-hidden="true"></div>
+          <button type="button" class="segment-item active">すべて</button>
+          <button type="button" class="segment-item">ファイル</button>
+          <button type="button" class="segment-item">クリップ</button>
+        </div>
+        <span class="device-filter-chip">
+          <span>"会社用PC" のみ</span>
+          <button class="device-filter-clear" aria-label="絞り込みを解除" tabindex="-1"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 3l6 6M9 3l-6 6"/></svg></button>
+        </span>
+      </div>
+      <div class="drop-zone">
+        <ul class="file-list">
+          <li class="section-header">今日</li>
+          <li class="file-item">
+            <div class="item-leading"><div class="clip-glyph"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="12" height="14" rx="2.5"/><path d="M7.5 4V3.5A1.5 1.5 0 0 1 9 2h2a1.5 1.5 0 0 1 1.5 1.5V4M7.5 9.5h5M7.5 13h3.5"/></svg></div><img class="source-app-badge" src="../icons/slack.png" alt="" /></div>
+            <div class="item-lines">
+              <div class="item-title clip-preview">在庫アラートのしきい値を10→15に変更してもらえますか？</div>
+              <div class="item-meta-line">テキスト · 19:21</div>
+              <div class="item-badge-line"><span class="origin-chip"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="12" height="8" rx="1"/><path d="M6 13.5h4M8 11v2.5"/></svg><span>会社用PC</span></span></div>
+            </div>
+          </li>
+          <li class="file-item">
+            <div class="item-leading"><div class="clip-glyph"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="12" height="14" rx="2.5"/><path d="M7.5 4V3.5A1.5 1.5 0 0 1 9 2h2a1.5 1.5 0 0 1 1.5 1.5V4M7.5 9.5h5M7.5 13h3.5"/></svg></div><img class="source-app-badge" src="../icons/excel.png" alt="" /></div>
+            <div class="item-lines">
+              <div class="item-title clip-preview">第3四半期の売上比較表を送ります。セルB2:D10を参照してください。</div>
+              <div class="item-meta-line">テキスト · 19:06</div>
+              <div class="item-badge-line"><span class="origin-chip"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="12" height="8" rx="1"/><path d="M6 13.5h4M8 11v2.5"/></svg><span>会社用PC</span></span></div>
+            </div>
+          </li>
+          <li class="file-item">
+            <div class="item-leading"><img class="file-icon thumbnail" src="../icons/thumb-clipboard.png" alt="" /><img class="source-app-badge" src="../icons/excel.png" alt="" /></div>
+            <div class="item-lines">
+              <div class="item-title">clipboard_2026-09-14_15-40…</div>
+              <div class="item-meta-line">画像 · 14:41</div>
+              <div class="item-badge-line"><span class="origin-chip"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="12" height="8" rx="1"/><path d="M6 13.5h4M8 11v2.5"/></svg><span>会社用PC</span></span></div>
+            </div>
+          </li>
+          <li class="file-item">
+            <div class="item-leading"><img class="file-icon thumbnail" src="../icons/thumb-banner.png" alt="" /><img class="source-app-badge" src="../icons/figma.png" alt="" /></div>
+            <div class="item-lines">
+              <div class="item-title">clipboard_2026-09-14_20-10…</div>
+              <div class="item-meta-line">画像 · 1:41</div>
+              <div class="item-badge-line"><span class="origin-chip"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="12" height="8" rx="1"/><path d="M6 13.5h4M8 11v2.5"/></svg><span>会社用PC</span></span></div>
+            </div>
+          </li>
+        </ul>
+      </div>
+      <div class="shelf-footer">
+        <div class="footer-status"></div>
+        <div class="footer-actions">
+          <button type="button" class="footer-button">すべて消去</button>
+          <button type="button" class="footer-button" aria-label="設定"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg></button>
+        </div>
+      </div>
+    </div>
+</div>
     <div class="detail-text">
       <p class="eyebrow">multi-device</p>
       <h3>「あれ、どっちの PC だっけ」がなくなる。</h3>
