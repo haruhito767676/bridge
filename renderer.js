@@ -30,6 +30,7 @@ const settingsBtn = document.getElementById('settings-button');
 const searchBar = document.getElementById('search-bar');
 const segmentEl = document.getElementById('filter-segment');
 const segmentButtons = [...segmentEl.querySelectorAll('.segment-item')];
+const segmentThumb = document.getElementById('filter-segment-thumb');
 const contextMenuEl = document.getElementById('context-menu');
 
 // アイテム → 描画中の <li>。矩形選択・キーボード移動・コピー確認の表示に使う
@@ -151,11 +152,16 @@ deviceFilterClearBtn.addEventListener('click', clearDeviceFilter);
 function setFilterMode(mode) {
   if (filterMode === mode) return;
   filterMode = mode;
-  segmentButtons.forEach((btn) => {
+  let activeIndex = -1;
+  segmentButtons.forEach((btn, i) => {
     const active = (btn.dataset.mode || null) === mode;
+    if (active) activeIndex = i;
     btn.classList.toggle('active', active);
     btn.setAttribute('aria-selected', String(active));
   });
+  // 選択中インジケーターをボタン幅ぶんスライドさせる (3 等分なので 100% 刻み)。
+  // Windows は #filter-segment-thumb 自体を display:none にしているので実質何もしない
+  if (activeIndex !== -1) segmentThumb.style.transform = `translateX(${activeIndex * 100}%)`;
   selectedItems.clear();
   lastSelectedIndex = null;
   render();
@@ -1698,10 +1704,12 @@ function render() {
   emptySub.hidden = !noItems;
   emptyEl.hidden = !noVisible;
   listEl.hidden = noVisible;
-  // 絞り込み中 (検索で件数が減っている) だけヒット数を出す。全体の母数は履歴の上限で
-  // すぐ頭打ちになり比率として意味を持たなくなるため、Finder/Spotlight の検索結果と同じく
-  // ヒット数だけを見せる。全件表示中はアクションに繋がらない数字なので出さない
-  countEl.textContent = !noItems && visibleItems.length !== items.length ? `${visibleItems.length} 個` : '';
+  // キーワード検索中だけヒット数を出す。file/clip や device の絞り込みだけでは出さない —
+  // こちらは履歴の上限 (テキスト100 / 画像30 / ファイル100) にすぐ頭打ちになり、
+  // 使い込むほど同じ数字が表示され続けるだけで情報にならないため。
+  // キーワードは毎回変わるので Finder/Spotlight の検索結果同様、意味のある数字になる
+  const hasKeyword = searchQuery.trim().length > 0;
+  countEl.textContent = hasKeyword && !noItems ? `${visibleItems.length} 個` : '';
   clearBtn.hidden = noItems;
 
   // デバイス絞り込み中だけ、種別セグメントの下に「今どのデバイスに絞っているか」を

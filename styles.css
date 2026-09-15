@@ -251,6 +251,7 @@ body.drag-mode #empty-state .empty-sub {
 /* 種別セグメント (すべて / ファイル / クリップ)。
    Mail.app のメールボックスフィルタと同じ、くぼんだ地に丸いつまみが乗る macOS 標準のセグメントコントロール */
 #filter-segment {
+  position: relative; /* #filter-segment-thumb の絶対配置の基準 */
   display: flex;
   gap: 2px;
   margin: 6px 0 0;
@@ -259,7 +260,24 @@ body.drag-mode #empty-state .empty-sub {
   border-radius: var(--radius-s);
 }
 
+/* 選択中インジケーター。ボタンの下に敷いて、切り替え時はここだけをスプリングで滑らせる。
+   3 等分なので幅は 1/3 固定、位置は JS が translateX(index * 100%) で動かす */
+#filter-segment-thumb {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 2px;
+  width: calc((100% - 4px) / 3);
+  background: var(--segment-active-bg);
+  border-radius: calc(var(--radius-s) - 2px);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+  transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1); /* item-enter と同じ、Apple 的な減速の効いたイージング */
+  pointer-events: none;
+}
+
 .segment-item {
+  position: relative; /* サムネイル (z-index: 上) より前面に文字を出す */
+  z-index: 1;
   flex: 1;
   padding: 3px 0;
   font-family: inherit;
@@ -278,8 +296,6 @@ body.drag-mode #empty-state .empty-sub {
 
 .segment-item.active {
   color: var(--fg);
-  background: var(--segment-active-bg);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
 }
 
 /* デバイス絞り込み中だけ、種別セグメントの下に出るチップ (右クリックの「◯◯のアイテムだけ表示」から入る)。
@@ -1447,12 +1463,18 @@ body.platform-win32 #search-field:focus-within {
   box-shadow: inset 0 -2px 0 var(--accent);
 }
 
-/* 種別セグメント: Fluent の Pivot (地は敷かず、選択項目だけ下線で示す) */
+/* 種別セグメント: Fluent の Pivot (地は敷かず、選択項目だけ下線で示す)。
+   Fluent の Pivot は下線が瞬時に切り替わるのが標準なので、macOS 用のスプリングで滑る
+   インジケーターはここでは使わない (Windows は OS 標準の挙動に合わせる方針) */
 body.platform-win32 #filter-segment {
   gap: 12px;
   padding: 0;
   background: transparent;
   border-bottom: 1px solid var(--divider);
+}
+
+body.platform-win32 #filter-segment-thumb {
+  display: none;
 }
 
 body.platform-win32 .segment-item {

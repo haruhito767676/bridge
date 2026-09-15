@@ -21,6 +21,10 @@
                spellcheck="false" autocomplete="off" aria-label="アイテムを検索" />
       </div>
       <div id="filter-segment" role="tablist" aria-label="種別で絞り込み">
+        <!-- 選択中インジケーター。macOS ではボタン間をスプリングで滑らせ、iOS/最近の macOS の
+             セグメントコントロールと同じ質感にする。Windows は Fluent の Pivot (下線が瞬時に切り替わる)
+             に寄せているのでこの要素ごと非表示にする -->
+        <div id="filter-segment-thumb" aria-hidden="true"></div>
         <button type="button" class="segment-item active" data-mode="" role="tab" aria-selected="true">すべて</button>
         <button type="button" class="segment-item" data-mode="file" role="tab" aria-selected="false">ファイル</button>
         <button type="button" class="segment-item" data-mode="clip" role="tab" aria-selected="false">クリップ</button>
