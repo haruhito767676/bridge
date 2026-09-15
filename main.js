@@ -2305,6 +2305,41 @@ const cancelledSyncIds = new Set();
 // キャンセル・再試行に使うため、実体をまだ取り込んでいないエントリを id で覚えておく
 const pendingSyncEntries = new Map(); // id → { entry, peer }
 
+// activeSyncDownloads の変更は必ずこの2つを通す。パネルを開かなくても
+// メニューバーだけで転送中か分かるようにする (updateTrayActivity) のを漏らさないため
+function trackDownload(id, record) {
+  activeSyncDownloads.set(id, record);
+  updateTrayActivity();
+}
+
+function untrackDownload(id) {
+  activeSyncDownloads.delete(id);
+  updateTrayActivity();
+}
+
+// ---- メニューバーの「転送中」表示 ----
+// AirDrop や OneDrive のトレイアイコンと同じく、パネルを開かなくても大きい転送の
+// 進み具合が分かるようにする。Template アイコン自体は色を持てない (§ createTray) ので、
+// macOS はアイコン横のタイトル文字 (setTitle) に % を出し、Windows はネイティブの
+// OneDrive 等と同じくツールチップに進捗を出す (Windows のトレイに横並びテキストは無いため)
+function updateTrayActivity() {
+  if (!tray) return;
+  const active = [...activeSyncDownloads.values()];
+  if (active.length === 0) {
+    if (process.platform === 'darwin') tray.setTitle('');
+    tray.setToolTip('Bridge');
+    return;
+  }
+  // 母数が分かっているものの中で一番進んでいない値を代表にする
+  // (「一番待たされているもの」が終われば全部終わる、という体感に合わせる)
+  const withTotal = active.filter((r) => r.total > 0);
+  const pct = withTotal.length > 0 ? Math.min(...withTotal.map((r) => Math.round((r.received / r.total) * 100))) : null;
+  const label = pct === null ? '…' : `${pct}%`;
+  const tooltip = active.length > 1 ? `Bridge — ${active.length} 件転送中` : `Bridge — 転送中 ${label}`;
+  if (process.platform === 'darwin') tray.setTitle(`↓${label}`);
+  tray.setToolTip(tooltip);
+}
+
 const PROGRESS_THROTTLE_MS = 300;
 // 巨大な転送が遅いとき、最後の平均速度だけでは「途中で遅くなったのか」「最初から
 // ずっと遅かったのか」を切り分けられない。10 秒おきに瞬間速度を残すことで、
@@ -2313,6 +2348,7 @@ const SYNC_SPEED_SAMPLE_MS = 10 * 1000;
 
 function sendSyncProgress(id, received, total) {
   if (canSendToRenderer()) win.webContents.send('sync-progress', { syncId: id, received, total });
+  updateTrayActivity(); // 進捗が動くたびメニューバーの % も追従させる (受信中の record.received 更新分もここで拾う)
 }
 
 function downloadEntryFile(peer, entry) {
@@ -2354,7 +2390,7 @@ function downloadEntryFile(peer, entry) {
         }
         const total = Number(res.headers['content-length']) || 0;
         const record = { req, out, dest, total, received: 0, startedAt };
-        activeSyncDownloads.set(entry.id, record);
+        trackDownload(entry.id, record);
         sendSyncProgress(entry.id, 0, total); // ヘッダーが届いた時点でサイズが分かるので、0% でもすぐ知らせる
 
         // 転送途中のネットワークエラーやソケットハングアップでは、両側のストリームを
@@ -2363,7 +2399,7 @@ function downloadEntryFile(peer, entry) {
         const fail = (err) => {
           if (settled) return;
           settled = true;
-          activeSyncDownloads.delete(entry.id);
+          untrackDownload(entry.id);
           out.destroy();
           res.destroy();
           fsp.unlink(dest).catch(() => {});
@@ -2395,7 +2431,7 @@ function downloadEntryFile(peer, entry) {
         out.on('finish', () => {
           if (settled) return;
           settled = true;
-          activeSyncDownloads.delete(entry.id);
+          untrackDownload(entry.id);
           sessionTempFiles.add(dest); // 同期コピーも終了時クリーンアップの対象として追跡
           sendSyncProgress(entry.id, record.received, total || record.received);
           const seconds = (Date.now() - startedAt) / 1000;
@@ -2412,10 +2448,10 @@ function downloadEntryFile(peer, entry) {
       }
     );
     // ヘッダー到着前でもキャンセルできるよう、reject 前に record を持たない段階から追跡する
-    activeSyncDownloads.set(entry.id, { req, out: null, dest: null, total: 0, received: 0, startedAt });
+    trackDownload(entry.id, { req, out: null, dest: null, total: 0, received: 0, startedAt });
     req.on('timeout', () => req.destroy(new Error('タイムアウトしました (応答なし)')));
     req.on('error', (err) => {
-      activeSyncDownloads.delete(entry.id);
+      untrackDownload(entry.id);
       reject(err);
     });
   });
@@ -2455,7 +2491,7 @@ async function finalizeIncomingEntry(entry, meta) {
 function abortActiveDownload(id) {
   const rec = activeSyncDownloads.get(id);
   if (!rec) return;
-  activeSyncDownloads.delete(id);
+  untrackDownload(id);
   try {
     rec.req.destroy();
   } catch {

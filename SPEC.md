@@ -246,6 +246,8 @@ Windows では macOS 向けの「毎フレームの `setBounds`」と「カー�
 
 Main 側履歴 (`clipHistory`) の上限はテキスト 100 / 画像 30。**Main はディスク削除を行わず配列長のみ管理**する（表示の真実を持つ Renderer 側のトリミング → `delete-temp-file` IPC が削除を担う。両者の並びズレによる「表示中ファイルの誤削除」を防ぐための設計）。
 
+上限（テキスト100 / 画像30 / ファイル100、`MAX_TEXT_CLIP_ITEMS` / `MAX_IMAGE_CLIP_ITEMS` / `MAX_FILE_ITEMS`）に気づかないまま使うと、古いものが黙って消える。これを可視化するため、設定シート先頭に `#setting-history-usage`（`updateHistoryUsage`）で内訳「テキスト 82/100 · 画像 12/30 · ファイル 40/100」を出す。ピン留めは上限の対象外なので分母・分子どちらからも除外し、1 件以上あれば「（ピン留め N 件は上限の対象外）」を添える。設定シートを開くたびと、開いている間の `render()` のたびに再計算する。
+
 ---
 
 ## 7. マルチデバイス同期プロトコル
@@ -365,6 +367,7 @@ Main 側履歴 (`clipHistory`) の上限はテキスト 100 / 画像 30。**Main
 - **中止**: 同期中の行には常に × ボタンが出る（通常の削除ボタンはホバー時のみ）。押すと `cancel-sync-download` で Main の `req` / 書き込み中ストリームを破棄し、欠損ファイルを削除し、行を取り下げる。その id は `cancelledSyncIds` に載り、以後の自動ポーリングでは（`retry-sync-download` で明示的に外すまで）再試行しない
 - **再試行**: 「止まっている可能性があります」のときだけ、× の隣に再試行ボタンが出る。押すと `retry-sync-download` が現在進行中の接続があれば `abortActiveDownload` で破棄してから、同じピアの同じ id へ直接 `downloadEntryFile` をやり直す（`/items` の差分ポーリングを待たない）。取り込み完了時の処理 (フォルダ展開・台帳登録・Renderer への通知・中継) は通常経路と共通の `finalizeIncomingEntry` を使う
 - ダウンロード中の項目は `activeSyncDownloads`（id → `{ req, out, dest, total, received }`）で追跡し、`pendingSyncEntries`（id → `{ entry, peer }`）で再試行に必要な情報を保持する
+- **メニューバーの活動表示**: `activeSyncDownloads` への出入りは必ず `trackDownload` / `untrackDownload` を通し、変わるたびに `updateTrayActivity` がメニューバーへ反映する。AirDrop や OneDrive のトレイアイコンと同じく、パネルを開かなくても転送中か分かるようにする狙い。Template アイコン自体は色を持てない（§ 9.4）ため、macOS は `Tray.setTitle` でアイコン横に `↓42%` を出し、Windows はネイティブの OneDrive 等と同じくツールチップ（`Bridge — 転送中 42%`）に出す。複数同時進行のときはツールチップが「N 件転送中」に切り替わり、% は「一番進んでいないもの」を代表値にする（それが終われば全部終わる、という体感に合わせるため）
 
 ### 8.2 ペースト用ポップアップ（`popup.html`）
 

@@ -1717,6 +1717,9 @@ function render() {
   deviceFilterText.textContent = deviceFilterLabelText();
   deviceFilterChip.hidden = !deviceFilter;
 
+  // 設定シートを開いたまま新しいコピーが増えることもあるので、開いている間だけ内訳も追従させる
+  if (!settingsSheet.hidden) updateHistoryUsage();
+
   // 終了時クリーンアップ (残骸ファイル削除) の判定用に、
   // 「現在リストに保持しているパス」を Main プロセスへ常時共有する
   window.bridge.reportRetainedPaths(items.map((it) => it.path).filter(Boolean));
@@ -2004,6 +2007,7 @@ function setupHotkeyField(button, resetButton, initialAccelerator, initialLabel)
 // ---- 8. 設定シート ----
 
 const settingsSheet = document.getElementById('settings-sheet');
+const settingHistoryUsage = document.getElementById('setting-history-usage');
 const settingDeviceName = document.getElementById('setting-device-name');
 const settingToken = document.getElementById('setting-token');
 const settingTokenCopy = document.getElementById('setting-token-copy');
@@ -2056,9 +2060,25 @@ function renderPeerList() {
   }
 }
 
+// クリップ履歴 (テキスト/画像) とファイルはそれぞれ上限に達すると古いものから自動で消える
+// (§ trimClipHistory / trimFileHistory)。ピン留めは上限の対象外なので、内訳からも除いて数える。
+// 気づかないうちに上限に張り付いていることがあるので、設定シートで内訳を出して
+// 「そろそろピン留めしないと消える」がユーザー自身に見えるようにする
+function updateHistoryUsage() {
+  const nonPinned = items.filter((it) => !it.pinned);
+  const textCount = nonPinned.filter((it) => it.kind === 'clip-text').length;
+  const imageCount = nonPinned.filter((it) => it.kind === 'clip-image').length;
+  const fileCount = nonPinned.filter((it) => it.kind === 'file').length;
+  const pinnedCount = items.length - nonPinned.length;
+  let text = `テキスト ${textCount}/${MAX_TEXT_CLIP_ITEMS} · 画像 ${imageCount}/${MAX_IMAGE_CLIP_ITEMS} · ファイル ${fileCount}/${MAX_FILE_ITEMS}`;
+  if (pinnedCount > 0) text += `（ピン留め ${pinnedCount} 件は上限の対象外）`;
+  settingHistoryUsage.textContent = text;
+}
+
 async function openSettings() {
   closeContextMenu();
   hideTooltip();
+  updateHistoryUsage();
   try {
     const s = await window.bridge.getSettings();
     settingDeviceName.value = s.deviceName || '';
