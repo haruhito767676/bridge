@@ -347,6 +347,23 @@
   .brd-static .file-item:hover,.brd-static .file-item:active{background:none;transform:none;}
   .hero-shot .brd{width:100%;max-width:none;border-radius:0;box-shadow:none;}
   .detail-shot .brd{border-radius:14px;box-shadow:0 20px 50px -24px rgba(20,20,25,0.3),0 0 0 1px var(--line);}
+
+  /* ---- quick-paste 用モックアップ: popup.html / popup.css の該当ルールを縮小移植 ----
+     カーソル付近に出る「その場ペースト」ポップアップの見た目を再現する (静止画像の代替) */
+  .popup-mock-wrap{max-width:300px;margin:0 auto;}
+  .popup-mock-kbd{display:flex;gap:6px;justify-content:center;margin-bottom:16px;}
+  .popup-mock-kbd kbd{font-family:var(--mono);font-size:12px;font-weight:500;color:var(--ink);background:#fff;border-radius:6px;padding:5px 9px;box-shadow:0 1px 2px rgba(0,0,0,0.12),0 0 0 1px var(--line);}
+  .popup-mock{padding:10px;border-radius:14px;pointer-events:none;user-select:none;}
+  .popup-mock-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:1px;}
+  .popup-mock-item{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:var(--radius-s);}
+  .popup-mock-item.active{background:var(--accent);color:var(--accent-fg);}
+  .popup-mock-item.active .clip-glyph{background:rgba(255,255,255,0.22);color:inherit;}
+  .popup-mock-item .clip-glyph{width:22px;height:22px;flex-shrink:0;border-radius:5px;}
+  .popup-mock-item .clip-glyph svg{width:13px;height:13px;}
+  .popup-mock-text{flex:1;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-size:13px;}
+  .popup-mock-time{flex-shrink:0;font-size:11px;color:var(--fg-secondary);}
+  .popup-mock-item.active .popup-mock-time{color:inherit;opacity:0.8;}
+  .popup-mock-footer{margin-top:6px;padding-top:6px;border-top:1px solid var(--divider);font-size:10.5px;color:var(--fg-secondary);text-align:center;}
 </style>
 </head>
 <body>
@@ -368,7 +385,7 @@
     <h1>Mac と Windows、<br><span>コピーひとつ</span>で繋がる。</h1>
     <p class="sub">コピーした内容は、同じ Wi-Fi にいるもう1台にも自動で届く。ファイルもドロップしてクリップボードに置いておける。クラウドは使わない。</p>
     <div class="cta-row">
-      <a class="btn btn-primary" href="https://github.com/haruhito767676/bridge" target="_blank" rel="noopener">使ってみる（GitHub）</a>
+      <a class="btn btn-primary" href="#download">使ってみる</a>
       <a class="btn btn-secondary" href="#features">できることを見る</a>
     </div>
     <div class="hero-meta">macOS 12+ ・ Windows 10/11 ・ 無料・オープンソース</div>
@@ -517,10 +534,18 @@
         <ul class="file-list">
           <li class="section-header">今日</li>
           <li class="file-item">
+            <div class="item-leading"><img class="file-icon" src="../icons/file-pdf.png" alt="" /></div>
+            <div class="item-lines">
+              <div class="item-title">見積書_ECサイト改修_v2.pdf</div>
+              <div class="item-meta-line">PDF書類 · 20:21</div>
+              <div class="item-badge-line"><span class="origin-chip"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="12" height="8" rx="1"/><path d="M6 13.5h4M8 11v2.5"/></svg><span>会社用PC</span></span></div>
+            </div>
+          </li>
+          <li class="file-item">
             <div class="item-leading"><div class="clip-glyph"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="12" height="14" rx="2.5"/><path d="M7.5 4V3.5A1.5 1.5 0 0 1 9 2h2a1.5 1.5 0 0 1 1.5 1.5V4M7.5 9.5h5M7.5 13h3.5"/></svg></div><img class="source-app-badge" src="../icons/slack.png" alt="" /></div>
             <div class="item-lines">
               <div class="item-title clip-preview">在庫アラートのしきい値を10→15に変更してもらえますか？</div>
-              <div class="item-meta-line">テキスト · 19:21</div>
+              <div class="item-meta-line">テキスト · 15:43</div>
               <div class="item-badge-line"><span class="origin-chip"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="12" height="8" rx="1"/><path d="M6 13.5h4M8 11v2.5"/></svg><span>会社用PC</span></span></div>
             </div>
           </li>
@@ -528,23 +553,7 @@
             <div class="item-leading"><div class="clip-glyph"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="12" height="14" rx="2.5"/><path d="M7.5 4V3.5A1.5 1.5 0 0 1 9 2h2a1.5 1.5 0 0 1 1.5 1.5V4M7.5 9.5h5M7.5 13h3.5"/></svg></div><img class="source-app-badge" src="../icons/excel.png" alt="" /></div>
             <div class="item-lines">
               <div class="item-title clip-preview">第3四半期の売上比較表を送ります。セルB2:D10を参照してください。</div>
-              <div class="item-meta-line">テキスト · 19:06</div>
-              <div class="item-badge-line"><span class="origin-chip"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="12" height="8" rx="1"/><path d="M6 13.5h4M8 11v2.5"/></svg><span>会社用PC</span></span></div>
-            </div>
-          </li>
-          <li class="file-item">
-            <div class="item-leading"><img class="file-icon thumbnail" src="../icons/thumb-clipboard.png" alt="" /><img class="source-app-badge" src="../icons/excel.png" alt="" /></div>
-            <div class="item-lines">
-              <div class="item-title">clipboard_2026-09-14_15-40…</div>
-              <div class="item-meta-line">画像 · 14:41</div>
-              <div class="item-badge-line"><span class="origin-chip"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="12" height="8" rx="1"/><path d="M6 13.5h4M8 11v2.5"/></svg><span>会社用PC</span></span></div>
-            </div>
-          </li>
-          <li class="file-item">
-            <div class="item-leading"><img class="file-icon thumbnail" src="../icons/thumb-banner.png" alt="" /><img class="source-app-badge" src="../icons/figma.png" alt="" /></div>
-            <div class="item-lines">
-              <div class="item-title">clipboard_2026-09-14_20-10…</div>
-              <div class="item-meta-line">画像 · 1:41</div>
+              <div class="item-meta-line">テキスト · 15:00</div>
               <div class="item-badge-line"><span class="origin-chip"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="12" height="8" rx="1"/><path d="M6 13.5h4M8 11v2.5"/></svg><span>会社用PC</span></span></div>
             </div>
           </li>
@@ -563,6 +572,47 @@
       <p class="eyebrow">multi-device</p>
       <h3>「あれ、どっちの PC だっけ」がなくなる。</h3>
       <p>2台、3台と繋ぐと履歴は混ざっていく。アイテムを右クリックすれば、そのデバイスから届いたものだけに一時的に絞り込める。出どころも常にチップで一目でわかる。</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="detail-row reverse">
+    <div class="detail-text">
+      <p class="eyebrow">quick paste</p>
+      <h3>パネルを開かなくても、その場で貼り付け。</h3>
+      <p>今使っているアプリの上で呼び出すと、カーソルの近くに履歴のミニ一覧が出る。選んでEnterを押すだけで、そのままそこに貼り付けられる。</p>
+      <ul class="checklist">
+        <li>どのアプリを使っていても呼び出せる</li>
+        <li>↑↓ で選んでEnterでペースト</li>
+        <li>ショートカットは設定でいつでも変更できる</li>
+      </ul>
+    </div>
+    <div class="detail-shot">
+      <div class="popup-mock-wrap">
+        <div class="popup-mock-kbd"><kbd>⌥</kbd><kbd>⌘</kbd><kbd>V</kbd></div>
+        <div class="brd popup-mock" role="img" aria-label="カーソルの近くに履歴のミニポップアップが表示され、1件が選択状態になっている">
+          <div class="search-field" style="height:28px;margin-bottom:8px;"><input class="search-bar" type="text" placeholder="履歴を検索" readonly /></div>
+          <ul class="popup-mock-list">
+            <li class="popup-mock-item active">
+              <div class="clip-glyph"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="12" height="14" rx="2.5"/><path d="M7.5 4V3.5A1.5 1.5 0 0 1 9 2h2a1.5 1.5 0 0 1 1.5 1.5V4M7.5 9.5h5M7.5 13h3.5"/></svg></div>
+              <span class="popup-mock-text">会議室Bを10:00〜11:00で予約しました。プロジェクターの予約も忘れずに。</span>
+              <span class="popup-mock-time">17:00</span>
+            </li>
+            <li class="popup-mock-item">
+              <div class="clip-glyph"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="12" height="14" rx="2.5"/><path d="M7.5 4V3.5A1.5 1.5 0 0 1 9 2h2a1.5 1.5 0 0 1 1.5 1.5V4M7.5 9.5h5M7.5 13h3.5"/></svg></div>
+              <span class="popup-mock-text">https://github.com/example-team/ec-renewal/pull/42</span>
+              <span class="popup-mock-time">16:53</span>
+            </li>
+            <li class="popup-mock-item">
+              <div class="clip-glyph"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="12" height="14" rx="2.5"/><path d="M7.5 4V3.5A1.5 1.5 0 0 1 9 2h2a1.5 1.5 0 0 1 1.5 1.5V4M7.5 9.5h5M7.5 13h3.5"/></svg></div>
+              <span class="popup-mock-text">https://api.example.com/v2/orders?status=pending</span>
+              <span class="popup-mock-time">16:06</span>
+            </li>
+          </ul>
+          <div class="popup-mock-footer">↑↓ 選択 · ⏎ ペースト · Esc 閉じる</div>
+        </div>
+      </div>
     </div>
   </div>
 </section>
@@ -595,7 +645,7 @@
   </div>
 </section>
 
-<section>
+<section id="download">
   <div class="footer-cta">
     <h2>試してみる</h2>
     <p>インストーラーをダウンロードしてすぐに使い始められる。</p>
@@ -1172,6 +1222,38 @@
   var laptopBrdRoot = document.getElementById('laptop-brd');
   if (laptopBrdRoot) initDemo(laptopBrdRoot, JSON.parse(JSON.stringify(DATA)));
 })();
+</script>
+<script>
+  // ---- アンカーリンクで #laptop-stage をまたいで下へ飛ぶときのカクつき対策 ----
+  // #laptop-stage は280vh分の「スクロール量をズーム進捗に変換する」区間で、ここをブラウザ標準の
+  // scroll-behavior:smooth でそのまま通過させると、ズーム演出の律速に引っ張られて速度が
+  // 不自然に落ち込み、target地点の手前で一瞬止まったように見える。
+  // 現在地とジャンプ先の両方がこの区間を挟んでいる場合だけ、区間の終端まで瞬間移動してから
+  // 残りをスムーズスクロールすることで、演出を早送りさせずに素通りできるようにする。
+  (function () {
+    var stage = document.getElementById('laptop-stage');
+    if (!stage) return;
+    var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    document.querySelectorAll('a[href^="#"]').forEach(function (link) {
+      link.addEventListener('click', function (e) {
+        var id = link.getAttribute('href').slice(1);
+        if (!id) return;
+        var target = document.getElementById(id);
+        if (!target) return;
+
+        var stageBottom = window.scrollY + stage.getBoundingClientRect().bottom;
+        var targetTop = window.scrollY + target.getBoundingClientRect().top;
+        if (targetTop <= stageBottom || window.scrollY >= stageBottom) return;
+
+        e.preventDefault();
+        window.scrollTo({ top: stageBottom, behavior: 'auto' });
+        requestAnimationFrame(function () {
+          target.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
+        });
+      });
+    });
+  })();
 </script>
 <script>
   // ---- laptop-stage: スクロールで (1) 画面右端へズーム → (2) Bridgeをスライドイン → (3) ホールド ----
