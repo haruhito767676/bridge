@@ -369,6 +369,9 @@
   .popup-mock-item .clip-glyph{width:22px;height:22px;flex-shrink:0;border-radius:5px;}
   .popup-mock-item .clip-glyph svg{width:13px;height:13px;}
   .popup-mock-item .file-icon{width:22px;height:22px;flex-shrink:0;object-fit:contain;}
+  .popup-mock-item .file-icon.thumbnail{object-fit:cover;border-radius:4px;}
+  .popup-mock-leading{position:relative;width:22px;height:22px;flex-shrink:0;}
+  .popup-mock-leading .source-app-badge{position:absolute;right:-2px;bottom:-2px;width:11px;height:11px;border-radius:3px;box-shadow:0 0.5px 1.5px rgba(0,0,0,0.35);object-fit:contain;}
   .popup-mock-text{flex:1;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-size:13px;}
   .popup-mock-time{flex-shrink:0;font-size:11px;color:var(--fg-secondary);}
   .popup-mock-item.active .popup-mock-time{color:inherit;opacity:0.8;}
@@ -701,6 +704,11 @@
           <div class="search-field" style="height:28px;margin-bottom:8px;"><input class="search-bar" type="text" placeholder="履歴を検索" readonly /></div>
           <ul class="popup-mock-list">
             <li class="popup-mock-item active">
+              <img class="file-icon" src="../icons/file-pdf.png" alt="" />
+              <span class="popup-mock-text">見積書_ECサイト改修_v2.pdf</span>
+              <span class="popup-mock-time">20:21</span>
+            </li>
+            <li class="popup-mock-item">
               <img class="file-icon" src="../icons/chrome.png" alt="" />
               <span class="popup-mock-text">https://github.com/example-team/ec-renewal/pull/42</span>
               <span class="popup-mock-time">16:53</span>
@@ -711,16 +719,6 @@
               <span class="popup-mock-time">16:26</span>
             </li>
             <li class="popup-mock-item">
-              <img class="file-icon" src="../icons/chrome.png" alt="" />
-              <span class="popup-mock-text">https://api.example.com/v2/orders?status=pending</span>
-              <span class="popup-mock-time">16:06</span>
-            </li>
-            <li class="popup-mock-item">
-              <img class="file-icon" src="../icons/slack.png" alt="" />
-              <span class="popup-mock-text">在庫アラートのしきい値を10→15に変更してもらえますか？</span>
-              <span class="popup-mock-time">15:43</span>
-            </li>
-            <li class="popup-mock-item">
               <img class="file-icon" src="../icons/excel.png" alt="" />
               <span class="popup-mock-text">第3四半期の売上比較表を送ります。セルB2:D10を参照してください。</span>
               <span class="popup-mock-time">15:00</span>
@@ -729,6 +727,32 @@
               <img class="file-icon" src="../icons/word.png" alt="" />
               <span class="popup-mock-text">契約書の第3条、支払い条件の文言を統一してください。</span>
               <span class="popup-mock-time">14:24</span>
+            </li>
+            <li class="popup-mock-item">
+              <img class="file-icon" src="../icons/file-txt.png" alt="" />
+              <span class="popup-mock-text">10/10 定例MTG（要リリース日確認）</span>
+              <span class="popup-mock-time">11:18</span>
+            </li>
+            <li class="popup-mock-item">
+              <div class="popup-mock-leading">
+                <img class="file-icon thumbnail" src="../icons/thumb-clipboard.png" alt="" />
+                <img class="source-app-badge" src="../icons/figma.png" alt="" />
+              </div>
+              <span class="popup-mock-text">clipboard_2026-09-14_20-10-00.png</span>
+              <span class="popup-mock-time">20:27</span>
+            </li>
+            <li class="popup-mock-item">
+              <img class="file-icon" src="../icons/teams.png" alt="" />
+              <span class="popup-mock-text">本日15:00〜Teams会議です。 https://teams.microsoft.com/l/meetup-join/xxxx</span>
+              <span class="popup-mock-time">17:11</span>
+            </li>
+            <li class="popup-mock-item">
+              <div class="popup-mock-leading">
+                <img class="file-icon thumbnail" src="../icons/thumb-banner.png" alt="" />
+                <img class="source-app-badge" src="../icons/vscode.png" alt="" />
+              </div>
+              <span class="popup-mock-text">clipboard_2026-09-03_16-40-00.png</span>
+              <span class="popup-mock-time">16:54</span>
             </li>
           </ul>
           <div class="popup-mock-footer">↑↓ 選択 · ⏎ ペースト · Esc 閉じる</div>
