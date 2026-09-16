@@ -237,7 +237,6 @@
   @media (max-width:860px){
     .hero h1{font-size:36px;}
     .features{grid-template-columns:1fr;}
-    .trust{grid-template-columns:1fr;}
     .detail-row, .detail-row.reverse{grid-template-columns:1fr;}
     .detail-row.reverse .detail-shot{order:0;}
     .footer-cta{padding:44px 24px;}
@@ -247,7 +246,6 @@
 
   /* ---- live demo: 本物の styles.css / index.html から該当ルールをそのまま移植 (.brd 配下に限定) ----
      変数名・クラス名・値は /styles.css と同じ (ライトモード側の値をそのまま採用) */
-  .demo-wrap{display:flex;flex-direction:column;align-items:center;gap:14px;}
   .brd{
     --fg:#1d1d1f; --fg-secondary:rgba(60,60,67,0.6); --fg-tertiary:rgba(60,60,67,0.3);
     --accent:#0a84ff; --accent-fg:#fff; --accent-tint:rgba(10,132,255,0.14); --success:#34c759; --destructive:#ff3b30;
@@ -325,7 +323,6 @@
   @keyframes brd-copied-pop{to{transform:translateY(-50%) scale(1);}}
   .brd .empty{padding:28px 8px;text-align:center;font-size:12.5px;color:var(--fg-secondary);}
   .brd .empty[hidden]{display:none;}
-  .brd-caption{font-family:var(--mono);font-size:12.5px;color:var(--ink-faint);text-align:center;max-width:340px;}
 
   /* ---- footer (すべて消去 / 設定歯車): 本物の #shelf-footer 相当。ライブデモは JS 側で
      カウント表示等を持たないため未使用だが、静的モックアップ (hero/設定/デバイス絞り込み) では
@@ -353,7 +350,6 @@
      クリック・ホバーの誘導だけ消す */
   .brd-static{pointer-events:none;user-select:none;}
   .brd-static .file-item:hover,.brd-static .file-item:active{background:none;transform:none;}
-  .hero-shot .brd{width:100%;max-width:none;border-radius:0;box-shadow:none;}
   .detail-shot .brd{border-radius:14px;box-shadow:0 20px 50px -24px rgba(20,20,25,0.3),0 0 0 1px var(--line);}
 
   /* ---- quick-paste 用モックアップ: popup.html / popup.css の該当ルールを縮小移植 ----
