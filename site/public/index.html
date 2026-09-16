@@ -96,6 +96,15 @@
        別途制御しているため、ここでhiddenにする必要はない */
     overflow:visible;
   }
+  /* ---- laptop-caption: ズームが始まる前の一瞬だけ現れて消える、控えめなキャプション ----
+     見せ場(Bridgeのスライドイン)の前に退場させるので、演出同士が競合しない */
+  .laptop-caption{
+    position:absolute;top:13%;left:50%;transform:translate(-50%,0);
+    z-index:5;pointer-events:none;opacity:0;will-change:opacity;
+    font-family:var(--display);font-weight:700;font-size:clamp(22px,3vw,32px);
+    color:var(--ink);text-align:center;letter-spacing:-0.01em;
+    text-shadow:0 2px 30px rgba(251,251,250,0.85),0 2px 30px rgba(251,251,250,0.85);
+  }
   .laptop-crop{
     position:relative;width:min(980px,92vw);aspect-ratio:16/10;border-radius:22px;overflow:hidden;
     box-shadow:0 50px 120px -30px rgba(20,20,25,0.35), 0 0 0 1px var(--line);
@@ -413,6 +422,7 @@
 
 <div class="laptop-stage" id="laptop-stage">
   <div class="laptop-stage-inner">
+    <div class="laptop-caption" id="laptop-caption" aria-hidden="true">頼れる、あなたの右腕。</div>
     <div class="laptop-crop" role="img" aria-label="ノートPCの画面右端からBridgeのパネルがスライドして現れる演出">
       <div class="laptop-desktop"></div>
       <div class="laptop-desktop-icon" style="top:64px;left:52px;"></div>
@@ -502,7 +512,7 @@
     <div class="feature">
       <div class="f-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="13" height="10" rx="2.5"/><path d="M7 7h5M7 9.5h3"/><path d="M14 13l2 6 2-4 4-2z"/></svg></div>
       <h3>その場でペースト</h3>
-      <p>カーソルの近くに履歴のミニ一覧を呼び出せる。選ぶだけで、そのままそこに貼り付く。</p>
+      <p>ショートカットひとつで、カーソルのそばに履歴が現れる。選ぶだけで、その場に貼り付く。</p>
     </div>
     <div class="flow-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></div>
     <div class="feature">
@@ -589,7 +599,7 @@
   <div class="detail-solo">
     <p class="eyebrow">smooth by design</p>
     <h3>Mac では Mac らしく、<br>Windows では Windows らしく。</h3>
-    <p>見た目を移植しただけのアプリにはしたくなかった。細かい動き方まで、それぞれの OS の標準に合わせている。</p>
+    <p>見た目を移植しただけではない。細かい動き方まで、それぞれの OS の標準に合わせている。</p>
     <ul class="checklist">
       <li>macOS: すりガラスの質感とバネのような展開アニメーション</li>
       <li>Windows: Fluent Design のフライアウトと通知領域の作法</li>
@@ -862,7 +872,7 @@
 
 <footer class="site">
   <div class="wrap" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;">
-    <span class="fine">MIT License © haruhito767676</span>
+    <span class="fine">Mac と Windows の間に架けた橋、だから Bridge。 · MIT License © haruhito767676</span>
     <div class="flinks">
       <a class="plain" href="https://github.com/haruhito767676/bridge" target="_blank" rel="noopener">GitHub</a>
       <a class="plain" href="https://github.com/haruhito767676/bridge/blob/main/README.md" target="_blank" rel="noopener">README</a>
@@ -1440,6 +1450,7 @@
     var stageInner = document.querySelector('.laptop-stage-inner');
     var crop = document.querySelector('.laptop-crop');
     var panel = document.getElementById('laptop-bridge-dock');
+    var caption = document.getElementById('laptop-caption');
     if (!stage || !stageInner || !crop || !panel) return;
 
     var ZOOM_END = 0.45;  // 0〜45%: ズーム。ここに達した瞬間にBridgeのスライドインを1回だけ発火する
@@ -1474,12 +1485,23 @@
       panel.style.left = pos.left + 'px';
       panel.style.top = pos.top + 'px';
       panel.style.opacity = '1';
+      if (caption) caption.style.display = 'none';
       return;
     }
 
     var ticking = false;
 
     function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
+
+    // キャプションは、ズーム開始直後に現れ、パネルのスライドイン(ZOOM_END=0.45)より
+    // 前に消えきるようにする (見せ場と競合させないため)
+    function captionOpacity(p) {
+      if (p < 0.04) return 0;
+      if (p < 0.16) return (p - 0.04) / 0.12;
+      if (p < 0.26) return 1;
+      if (p < 0.38) return 1 - (p - 0.26) / 0.12;
+      return 0;
+    }
 
     // Bridgeのスライドインはスクロール量にそのまま連動させず (=スクロールを止めると
     // 半端な位置で静止して見えるのを避けるため)、ズームが終わったその瞬間に
@@ -1506,6 +1528,7 @@
       var zoomT = Math.min(1, progress / ZOOM_END);
       var zoomEased = easeOutCubic(zoomT);
       crop.style.transform = 'scale(' + (1 + zoomEased * (targetScale - 1)) + ')';
+      if (caption) caption.style.opacity = String(captionOpacity(progress));
 
       var pos = dockPosition();
       var offscreenLeft = pos.left + BRIDGE_W + 40;
