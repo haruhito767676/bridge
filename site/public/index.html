@@ -179,30 +179,27 @@
   .feature h3{font-size:18px;margin-bottom:8px;}
   .feature p{font-size:14.5px;line-height:1.6;}
 
-  /* ---- privacy: no-cloudの説明を図解つきで ---- */
+  /* ---- privacy: no-cloudの説明を図解つきで (軽めのアーキテクチャ図として大きめに見せる) ---- */
   .privacy{
-    display:grid;grid-template-columns:1fr 1fr;gap:40px;align-items:center;
-    background:var(--ok-tint);border-radius:var(--radius-m);padding:44px 44px;
+    background:var(--ok-tint);border-radius:var(--radius-m);padding:48px 44px;
   }
-  .privacy-text h2{font-size:26px;margin-bottom:12px;}
+  .privacy-text{max-width:640px;margin:0 auto;text-align:center;}
+  .privacy-text h2{font-size:28px;margin-bottom:12px;}
   .privacy-text p{font-size:14.5px;color:#3c5c44;}
-  .privacy-text .checklist{margin-top:18px;}
+  .privacy-text .checklist{display:inline-flex;margin:20px auto 0;}
   .privacy-text .checklist li{color:#3c5c44;}
   .privacy-text .checklist li::before{color:var(--ok);}
-  .privacy-diagram{display:flex;justify-content:center;}
-  .privacy-diagram svg{width:100%;max-width:380px;}
+  .privacy-diagram{display:flex;justify-content:center;margin-top:40px;}
+  .privacy-diagram svg{width:100%;max-width:640px;}
   .privacy-packet{fill:var(--ok);opacity:0;}
-  /* A→ルーター→B と B→ルーター→A を、それぞれ2区間のホップとして1周期の中に前半/後半で仕込む
-     (経路の途中にルーターを経由していることが伝わるよう、直線ではなく折れ線でつなぐ) */
-  .privacy-diagram.in-view .privacy-packet-ar{animation:privacy-hop-ar 2.8s ease-in-out infinite;}
-  .privacy-diagram.in-view .privacy-packet-rb{animation:privacy-hop-rb 2.8s ease-in-out infinite;}
-  .privacy-diagram.in-view .privacy-packet-br{animation:privacy-hop-br 2.8s ease-in-out infinite;animation-delay:1.4s;}
-  .privacy-diagram.in-view .privacy-packet-ra{animation:privacy-hop-ra 2.8s ease-in-out infinite;animation-delay:1.4s;}
-  @keyframes privacy-hop-ar{0%{transform:translate(0,0);opacity:0;}6%{opacity:1;}44%{opacity:1;}50%,100%{transform:translate(82px,-59px);opacity:0;}}
-  @keyframes privacy-hop-rb{0%,50%{transform:translate(0,0);opacity:0;}56%{opacity:1;}94%{opacity:1;}100%{transform:translate(58px,59px);opacity:0;}}
-  @keyframes privacy-hop-br{0%{transform:translate(0,0);opacity:0;}6%{opacity:1;}44%{opacity:1;}50%,100%{transform:translate(-58px,-59px);opacity:0;}}
-  @keyframes privacy-hop-ra{0%,50%{transform:translate(0,0);opacity:0;}56%{opacity:1;}94%{opacity:1;}100%{transform:translate(-82px,59px);opacity:0;}}
-  @media (max-width:860px){ .privacy{grid-template-columns:1fr;} }
+  /* 左の端末→ルーター、に続けてルーターから中央・右の端末へ同時に広がる、という
+     2段階のホップで1周期を構成する (直線ではなくルーターを経由していることが伝わるように) */
+  .privacy-diagram.in-view .privacy-packet-1{animation:privacy-hop-1 2.8s ease-in-out infinite;}
+  .privacy-diagram.in-view .privacy-packet-2a{animation:privacy-hop-2a 2.8s ease-in-out infinite;}
+  .privacy-diagram.in-view .privacy-packet-2b{animation:privacy-hop-2b 2.8s ease-in-out infinite;}
+  @keyframes privacy-hop-1{0%{transform:translate(0,0);opacity:0;}8%{opacity:1;}42%{opacity:1;}50%,100%{transform:translate(110px,-58px);opacity:0;}}
+  @keyframes privacy-hop-2a{0%,50%{transform:translate(0,0);opacity:0;}58%{opacity:1;}92%{opacity:1;}100%{transform:translate(0,58px);opacity:0;}}
+  @keyframes privacy-hop-2b{0%,50%{transform:translate(0,0);opacity:0;}58%{opacity:1;}92%{opacity:1;}100%{transform:translate(110px,58px);opacity:0;}}
 
   /* ---- detail row (screenshot + text) ---- */
   .detail-row{display:grid;grid-template-columns:1fr 1fr;gap:52px;align-items:center;}
@@ -520,41 +517,58 @@
       </ul>
     </div>
     <div class="privacy-diagram" id="privacy-diagram">
-      <svg viewBox="0 0 400 230" role="img" aria-label="同じ Wi-Fi の中で、2台の端末が自宅のルーターだけを経由してやり取りしていて、外部のクラウドサーバーとは繋がっていない図">
+      <svg viewBox="0 0 640 380" role="img" aria-label="同じ Wi-Fi の中で、3台の端末が自宅のルーターだけを経由してやり取りしていて、外部のクラウドサーバーとは繋がっていない図">
+        <defs>
+          <filter id="privacy-card-shadow" x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow dx="0" dy="10" stdDeviation="10" flood-color="rgba(20,20,25,0.14)"/>
+          </filter>
+        </defs>
+
         <!-- 「同じ Wi-Fi」の範囲: 技術図面っぽい破線ではなく、柔らかいカードとして表現 -->
-        <rect x="24" y="28" width="260" height="172" rx="24" fill="rgba(255,255,255,0.55)" stroke="rgba(60,60,67,0.14)" stroke-width="1"/>
-        <text x="40" y="52" font-family="IBM Plex Mono, monospace" font-size="11" fill="#3c5c44" opacity="0.75">同じ Wi-Fi の中</text>
+        <rect x="40" y="70" width="420" height="270" rx="32" fill="rgba(255,255,255,0.6)" stroke="rgba(60,60,67,0.14)" stroke-width="1" filter="url(#privacy-card-shadow)"/>
+        <rect x="64" y="52" width="150" height="34" rx="17" fill="#fbfbfa" stroke="rgba(60,60,67,0.16)" stroke-width="1"/>
+        <text x="139" y="74" text-anchor="middle" font-family="var(--sans)" font-size="13.5" font-weight="600" fill="#2f5138">同じ Wi-Fi の中</text>
 
         <!-- ルーター: 端末同士はここだけを経由してつながる (直線で結ばない) -->
-        <g transform="translate(141,68) scale(1.6)" stroke="var(--ok)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none">
-          <path d="M2 6.5a9 9 0 0 1 12 0M4.5 9a5.5 5.5 0 0 1 7 0M7 11.5a2 2 0 0 1 2 0"/>
-          <circle cx="8" cy="13" r="0.8" fill="var(--ok)" stroke="none"/>
+        <g transform="translate(250,232)" stroke="var(--ok)" stroke-linecap="round" stroke-linejoin="round" fill="none">
+          <rect x="-18" y="-16" width="36" height="16" rx="5" stroke-width="3.2"/>
+          <circle cx="0" cy="-24" r="2.8" fill="var(--ok)" stroke="none"/>
+          <path d="M-8 -32a11 11 0 0 1 16 0" stroke-width="3.2"/>
+          <path d="M-16 -40a19 19 0 0 1 32 0" stroke-width="3.2"/>
+          <path d="M-24 -48a27 27 0 0 1 48 0" stroke-width="3.2"/>
         </g>
 
-        <line x1="72" y1="148" x2="154" y2="89" stroke="var(--ok)" stroke-width="2" stroke-dasharray="4 5" opacity="0.55"/>
-        <line x1="154" y1="89" x2="212" y2="148" stroke="var(--ok)" stroke-width="2" stroke-dasharray="4 5" opacity="0.55"/>
-        <circle class="privacy-packet privacy-packet-ar" cx="72" cy="148" r="4"/>
-        <circle class="privacy-packet privacy-packet-rb" cx="154" cy="89" r="4"/>
-        <circle class="privacy-packet privacy-packet-br" cx="212" cy="148" r="4"/>
-        <circle class="privacy-packet privacy-packet-ra" cx="154" cy="89" r="4"/>
+        <line x1="250" y1="232" x2="140" y2="290" stroke="var(--ok)" stroke-width="2.4" stroke-dasharray="5 6" opacity="0.55"/>
+        <line x1="250" y1="232" x2="250" y2="290" stroke="var(--ok)" stroke-width="2.4" stroke-dasharray="5 6" opacity="0.55"/>
+        <line x1="250" y1="232" x2="360" y2="290" stroke="var(--ok)" stroke-width="2.4" stroke-dasharray="5 6" opacity="0.55"/>
+        <circle class="privacy-packet privacy-packet-1" cx="140" cy="290" r="5"/>
+        <circle class="privacy-packet privacy-packet-2a" cx="250" cy="232" r="5"/>
+        <circle class="privacy-packet privacy-packet-2b" cx="250" cy="232" r="5"/>
 
-        <!-- 端末 (ノートPC) -->
-        <g transform="translate(50,150)" stroke="var(--ink)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none">
-          <rect x="0" y="0" width="44" height="30" rx="3"/>
-          <path d="M-6 34h56"/>
+        <!-- 端末: ノートPC・iMac風・ノートPC の3台 (2台だと1対1に見えるため) -->
+        <g transform="translate(112,290)" stroke="var(--ink)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none">
+          <rect x="0" y="0" width="56" height="38" rx="4"/>
+          <path d="M-8 43h72"/>
         </g>
-        <g transform="translate(190,150)" stroke="var(--ink)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none">
-          <rect x="0" y="0" width="44" height="30" rx="3"/>
-          <path d="M-6 34h56"/>
+        <g transform="translate(222,290)" stroke="var(--ink)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none">
+          <rect x="0" y="0" width="56" height="38" rx="4"/>
+          <path d="M28 38v12"/>
+          <path d="M13 50h30"/>
+        </g>
+        <g transform="translate(332,290)" stroke="var(--ink)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none">
+          <rect x="0" y="0" width="56" height="38" rx="4"/>
+          <path d="M-8 43h72"/>
         </g>
 
         <!-- 範囲の外: クラウドサーバーには最初から届かない -->
-        <g transform="translate(310,40) scale(1.3)" stroke="rgba(60,60,67,0.5)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none">
+        <g transform="translate(480,86) scale(3.3)" stroke="rgba(60,60,67,0.5)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none">
           <path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/>
         </g>
-        <circle cx="341" cy="68" r="9" fill="#ff3b30"/>
-        <path d="M337 64l8 8M345 64l-8 8" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>
-        <text x="298" y="92" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="#3c5c44" opacity="0.6">外部サーバーなし</text>
+        <circle cx="550" cy="148" r="13" fill="#ff3b30"/>
+        <path d="M544 142l12 12M556 142l-12 12" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/>
+
+        <rect x="452" y="196" width="132" height="36" rx="18" fill="#fbfbfa" stroke="rgba(60,60,67,0.16)" stroke-width="1"/>
+        <text x="518" y="219" text-anchor="middle" font-family="var(--sans)" font-size="14.5" font-weight="700" fill="var(--ink)">外部サーバーなし</text>
       </svg>
     </div>
   </div>
