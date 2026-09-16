@@ -179,14 +179,24 @@
   .feature h3{font-size:18px;margin-bottom:8px;}
   .feature p{font-size:14.5px;line-height:1.6;}
 
-  /* ---- trust callout ---- */
-  .trust{
-    display:grid;grid-template-columns:auto 1fr;gap:24px;align-items:flex-start;
-    background:var(--ok-tint);border-radius:var(--radius-m);padding:32px 34px;
+  /* ---- privacy: no-cloudの説明を図解つきで ---- */
+  .privacy{
+    display:grid;grid-template-columns:1fr 1fr;gap:40px;align-items:center;
+    background:var(--ok-tint);border-radius:var(--radius-m);padding:44px 44px;
   }
-  .trust .dot{width:14px;height:14px;border-radius:50%;background:var(--ok);margin-top:6px;flex-shrink:0;}
-  .trust h3{font-size:19px;margin-bottom:8px;}
-  .trust p{font-size:14.5px;color:#3c5c44;}
+  .privacy-text h2{font-size:26px;margin-bottom:12px;}
+  .privacy-text p{font-size:14.5px;color:#3c5c44;}
+  .privacy-text .checklist{margin-top:18px;}
+  .privacy-text .checklist li{color:#3c5c44;}
+  .privacy-text .checklist li::before{color:var(--ok);}
+  .privacy-diagram{display:flex;justify-content:center;}
+  .privacy-diagram svg{width:100%;max-width:380px;}
+  .privacy-packet{fill:var(--ok);opacity:0;}
+  .privacy-diagram.in-view .privacy-packet-a{animation:privacy-packet-ab 2.6s ease-in-out infinite;}
+  .privacy-diagram.in-view .privacy-packet-b{animation:privacy-packet-ba 2.6s ease-in-out infinite;animation-delay:1.3s;}
+  @keyframes privacy-packet-ab{0%{transform:translateX(0);opacity:0;}12%{opacity:1;}88%{opacity:1;}100%{transform:translateX(96px);opacity:0;}}
+  @keyframes privacy-packet-ba{0%{transform:translateX(0);opacity:0;}12%{opacity:1;}88%{opacity:1;}100%{transform:translateX(-96px);opacity:0;}}
+  @media (max-width:860px){ .privacy{grid-template-columns:1fr;} }
 
   /* ---- detail row (screenshot + text) ---- */
   .detail-row{display:grid;grid-template-columns:1fr 1fr;gap:52px;align-items:center;}
@@ -373,6 +383,7 @@
     <div class="brand"><img src="icon.png" alt="Bridge" />Bridge</div>
     <div class="links">
       <a href="#features">機能</a>
+      <a href="#privacy">プライバシー</a>
       <a href="#faq">よくある質問</a>
       <a href="https://github.com/haruhito767676/bridge" target="_blank" rel="noopener">GitHub</a>
     </div>
@@ -490,12 +501,42 @@
   </div>
 </section>
 
-<section>
-  <div class="trust">
-    <div class="dot"></div>
-    <div>
-      <h3>クラウドを、経由しない。</h3>
-      <p>コピーした内容や送ったファイルは、あなたの Wi-Fi の中だけを通る。外部のサーバーには一切送られない。同期したい相手とだけ、同じ「合言葉」を共有するだけでいい。コードも MIT ライセンスで公開しているので、その動作は自分の目で確認できる。</p>
+<section id="privacy">
+  <div class="privacy">
+    <div class="privacy-text">
+      <p class="eyebrow">privacy</p>
+      <h2>クラウドを、経由しない。</h2>
+      <p>コピーした内容や送ったファイルは、あなたの Wi-Fi の中だけを通る。外部のサーバーには一切送られない。</p>
+      <ul class="checklist">
+        <li>同期したい相手とだけ、同じ「合言葉」を共有する</li>
+        <li>合言葉が違う端末は、同じ Wi-Fi にいても一切繋がらない</li>
+        <li>コードも MIT ライセンスで公開。動作は自分の目で確認できる</li>
+      </ul>
+    </div>
+    <div class="privacy-diagram" id="privacy-diagram">
+      <svg viewBox="0 0 440 210" role="img" aria-label="同じ Wi-Fi の中にある2台の端末同士だけがやり取りしていて、外部のクラウドサーバーとは繋がっていない図">
+        <rect x="20" y="26" width="290" height="158" rx="18" fill="none" stroke="#3c5c44" stroke-width="1.6" stroke-dasharray="5 6" opacity="0.55"/>
+        <text x="38" y="50" font-family="IBM Plex Mono, monospace" font-size="11" fill="#3c5c44" opacity="0.75">同じ Wi-Fi の中</text>
+
+        <g transform="translate(70,96)" stroke="#3c5c44" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none">
+          <rect x="0" y="0" width="44" height="30" rx="3"/>
+          <path d="M-6 34h56"/>
+        </g>
+        <g transform="translate(216,96)" stroke="#3c5c44" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none">
+          <rect x="0" y="0" width="44" height="30" rx="3"/>
+          <path d="M-6 34h56"/>
+        </g>
+
+        <line x1="114" y1="111" x2="216" y2="111" stroke="var(--ok)" stroke-width="2" stroke-dasharray="5 5"/>
+        <circle class="privacy-packet privacy-packet-a" cx="114" cy="111" r="4"/>
+        <circle class="privacy-packet privacy-packet-b" cx="216" cy="111" r="4"/>
+
+        <g transform="translate(350,44)" stroke="rgba(60,60,67,0.45)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none">
+          <path d="M-24 14a13 13 0 0 1 4-25 15 15 0 0 1 28-6 11 11 0 0 1 14 14 10 10 0 0 1-3 17z"/>
+          <path d="M-30 -6 30 34" stroke="rgba(60,60,67,0.6)"/>
+        </g>
+        <text x="316" y="82" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="#3c5c44" opacity="0.6">外部サーバーなし</text>
+      </svg>
     </div>
   </div>
 </section>
@@ -1271,6 +1312,19 @@
   var laptopBrdRoot = document.getElementById('laptop-brd');
   if (laptopBrdRoot) initDemo(laptopBrdRoot, JSON.parse(JSON.stringify(DATA)));
 })();
+</script>
+<script>
+  // ---- privacyセクションの図解: スクロールで画面に入ったときだけパケットのアニメーションを流す ----
+  (function () {
+    var diagram = document.getElementById('privacy-diagram');
+    if (!diagram || !('IntersectionObserver' in window)) return;
+    var observer = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        diagram.classList.toggle('in-view', entry.isIntersecting);
+      });
+    }, { threshold: 0.4 });
+    observer.observe(diagram);
+  })();
 </script>
 <script>
   // ---- アンカーリンクで #laptop-stage をまたいで下へ飛ぶときのカクつき対策 ----
