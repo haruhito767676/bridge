@@ -96,15 +96,6 @@
        別途制御しているため、ここでhiddenにする必要はない */
     overflow:visible;
   }
-  /* ---- laptop-caption: ズームが始まる前の一瞬だけ現れて消える、控えめなキャプション ----
-     見せ場(Bridgeのスライドイン)の前に退場させるので、演出同士が競合しない */
-  .laptop-caption{
-    position:absolute;top:13%;left:50%;transform:translate(-50%,0);
-    z-index:5;pointer-events:none;opacity:0;will-change:opacity;
-    font-family:var(--display);font-weight:700;font-size:clamp(22px,3vw,32px);
-    color:var(--ink);text-align:center;letter-spacing:-0.01em;
-    text-shadow:0 2px 30px rgba(251,251,250,0.85),0 2px 30px rgba(251,251,250,0.85);
-  }
   .laptop-crop{
     position:relative;width:min(980px,92vw);aspect-ratio:16/10;border-radius:22px;overflow:hidden;
     box-shadow:0 50px 120px -30px rgba(20,20,25,0.35), 0 0 0 1px var(--line);
@@ -422,7 +413,6 @@
 
 <div class="laptop-stage" id="laptop-stage">
   <div class="laptop-stage-inner">
-    <div class="laptop-caption" id="laptop-caption" aria-hidden="true">頼れる、あなたの右腕。</div>
     <div class="laptop-crop" role="img" aria-label="ノートPCの画面右端からBridgeのパネルがスライドして現れる演出">
       <div class="laptop-desktop"></div>
       <div class="laptop-desktop-icon" style="top:64px;left:52px;"></div>
@@ -500,25 +490,25 @@
     <div class="feature">
       <div class="f-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v10M8 9l4 4 4-4"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg></div>
       <h3>ファイルの一時置き場</h3>
-      <p>置いたファイルは、いつでも本物のファイルとしてコピーできる。ドラッグ&ドロップで置くだけ。</p>
+      <p>ドラッグ&ドロップで置いておくだけ。使いたい瞬間に、本物のファイルとしてコピーできる。</p>
     </div>
     <div class="flow-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></div>
     <div class="feature">
       <div class="f-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 4V3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1"/></svg></div>
       <h3>消えないクリップボード履歴</h3>
-      <p>文字・画像・ファイルを自動で記録。再起動しても残るから、「さっきコピーしたやつ」を探し回らなくていい。</p>
+      <p>文字・画像・ファイルを自動で記録。再起動しても消えないから、「さっきコピーしたやつ」を探し回らなくていい。</p>
     </div>
     <div class="flow-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></div>
     <div class="feature">
       <div class="f-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="13" height="10" rx="2.5"/><path d="M7 7h5M7 9.5h3"/><path d="M14 13l2 6 2-4 4-2z"/></svg></div>
       <h3>その場でペースト</h3>
-      <p>ショートカットひとつで、カーソルのそばに履歴が現れる。選ぶだけで、その場に貼り付く。</p>
+      <p>呼び出せば、カーソルのそばに履歴が浮かぶ。選ぶだけで、その場に貼り付く。</p>
     </div>
     <div class="flow-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></div>
     <div class="feature">
       <div class="f-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="12" r="3"/><circle cx="18" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><path d="M8.6 10.5 15.4 7M8.6 13.5l6.8 3.5"/></svg></div>
       <h3>もう1台にも自動で届く</h3>
-      <p>同じ Wi-Fi にいる端末同士が、設定ひとつで見つけ合ってつながる。あとは意識しなくていい。</p>
+      <p>同じ Wi-Fi にいれば、あとは端末同士が見つけ合ってつながる。意識するのは、最初の設定だけ。</p>
     </div>
   </div>
 </section>
@@ -599,11 +589,11 @@
   <div class="detail-solo">
     <p class="eyebrow">smooth by design</p>
     <h3>Mac では Mac らしく、<br>Windows では Windows らしく。</h3>
-    <p>見た目を移植しただけではない。細かい動き方まで、それぞれの OS の標準に合わせている。</p>
+    <p>細部の動きまで、それぞれの OS の作法にならう。</p>
     <ul class="checklist">
-      <li>macOS: すりガラスの質感とバネのような展開アニメーション</li>
-      <li>Windows: Fluent Design のフライアウトと通知領域の作法</li>
-      <li>どちらもキーボードショートカットとクイックルックに対応</li>
+      <li>macOS: すりガラスの質感と、バネのように弾む展開アニメーション</li>
+      <li>Windows: Fluent Design のフライアウトと、通知領域の作法</li>
+      <li>キーボードショートカットとクイックルック、どちらにも対応</li>
     </ul>
   </div>
 </section>
@@ -709,8 +699,8 @@
   <div class="detail-row reverse">
     <div class="detail-text">
       <p class="eyebrow">quick paste</p>
-      <h3>パネルを開かなくても、その場で貼り付け。</h3>
-      <p>今使っているアプリの上で呼び出すと、カーソルの近くに履歴のミニ一覧が出る。選ぶだけで、そのままそこに貼り付く。</p>
+      <h3>呼び出せば、その場で貼り付け。</h3>
+      <p>今使っているアプリの上で呼び出すと、カーソルの近くに履歴が浮かぶ。選ぶだけで、そのままそこに貼り付く。</p>
       <ul class="checklist">
         <li>どのアプリを使っていても呼び出せる</li>
         <li>↑↓ で選んでEnterでペースト</li>
@@ -872,7 +862,7 @@
 
 <footer class="site">
   <div class="wrap" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;">
-    <span class="fine">Mac と Windows の間に架けた橋、だから Bridge。 · MIT License © haruhito767676</span>
+    <span class="fine">MIT License © haruhito767676</span>
     <div class="flinks">
       <a class="plain" href="https://github.com/haruhito767676/bridge" target="_blank" rel="noopener">GitHub</a>
       <a class="plain" href="https://github.com/haruhito767676/bridge/blob/main/README.md" target="_blank" rel="noopener">README</a>
@@ -1450,7 +1440,6 @@
     var stageInner = document.querySelector('.laptop-stage-inner');
     var crop = document.querySelector('.laptop-crop');
     var panel = document.getElementById('laptop-bridge-dock');
-    var caption = document.getElementById('laptop-caption');
     if (!stage || !stageInner || !crop || !panel) return;
 
     var ZOOM_END = 0.45;  // 0〜45%: ズーム。ここに達した瞬間にBridgeのスライドインを1回だけ発火する
@@ -1485,23 +1474,12 @@
       panel.style.left = pos.left + 'px';
       panel.style.top = pos.top + 'px';
       panel.style.opacity = '1';
-      if (caption) caption.style.display = 'none';
       return;
     }
 
     var ticking = false;
 
     function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
-
-    // キャプションは、ズーム開始直後に現れ、パネルのスライドイン(ZOOM_END=0.45)より
-    // 前に消えきるようにする (見せ場と競合させないため)
-    function captionOpacity(p) {
-      if (p < 0.04) return 0;
-      if (p < 0.16) return (p - 0.04) / 0.12;
-      if (p < 0.26) return 1;
-      if (p < 0.38) return 1 - (p - 0.26) / 0.12;
-      return 0;
-    }
 
     // Bridgeのスライドインはスクロール量にそのまま連動させず (=スクロールを止めると
     // 半端な位置で静止して見えるのを避けるため)、ズームが終わったその瞬間に
@@ -1528,7 +1506,6 @@
       var zoomT = Math.min(1, progress / ZOOM_END);
       var zoomEased = easeOutCubic(zoomT);
       crop.style.transform = 'scale(' + (1 + zoomEased * (targetScale - 1)) + ')';
-      if (caption) caption.style.opacity = String(captionOpacity(progress));
 
       var pos = dockPosition();
       var offscreenLeft = pos.left + BRIDGE_W + 40;
