@@ -1520,6 +1520,14 @@
   var clearBtn = root.querySelector('.clear-button');
   var mode = ''; // '' | 'file' | 'clip' (本物の data-mode と同じ空文字が「すべて」)
 
+  // win-skin時は、ファイル種別アイコン (file-xxx.png) とterminalバッジだけ、実機のWindowsから
+  // 抽出した -win.png 版に差し替える (ブランドロゴのバッジはOSを問わず同じなので対象外)
+  var isWin = root.classList.contains('win-skin');
+  function winIcon(path) {
+    if (!isWin || !path) return path;
+    return path.replace(/(file-[a-z0-9]+|terminal)\.png$/i, '$1-win.png');
+  }
+
   // デバイス絞り込み: 右クリックメニュー「◯◯のアイテムだけ表示」から入る一時的な状態
   // (本物と同じく常設ボタンにはしない)。LOCAL は「ローカル生まれのアイテムだけ」を表す専用値
   var LOCAL_DEVICE_FILTER = {};
@@ -1580,7 +1588,7 @@
     if (item.kind === 'file' || !item.sourceApp || !item.sourceApp.icon) return null;
     var badge = document.createElement('img');
     badge.className = 'source-app-badge';
-    badge.src = item.sourceApp.icon;
+    badge.src = winIcon(item.sourceApp.icon);
     badge.draggable = false;
     badge.alt = item.sourceApp.name || '';
     badge.title = item.sourceApp.name || '';
@@ -1604,7 +1612,7 @@
         img.src = item.thumb;
       } else {
         img.className = 'file-icon';
-        img.src = item.icon;
+        img.src = winIcon(item.icon);
       }
       leading.appendChild(img);
     }
