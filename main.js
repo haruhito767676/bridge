@@ -673,11 +673,24 @@ function pollCursorForEdgeReveal() {
   }
 }
 
+// Windows 専用の強制格納だけの軽量版。ドッキング中のディスプレイ (dockSpring.display) の
+// 座標だけを見るため、pollCursorForEdgeReveal の展開判定 (getDisplayNearestPoint を毎回
+// 引き直す) と違ってモニター間の DPI 差でズレることがなく、無限ループの原因にならない
+function pollForcedCollapseWindows() {
+  if (!winAlive() || !expanded || rendererHoldsPointer || devHoldOpen || win.isFocused()) return;
+  if (Date.now() - lastExpandedAt <= EXPAND_GRACE_MS) return;
+  if (cursorOutsideExpandedWindow(screen.getCursorScreenPoint())) collapseShelterNow();
+}
+
 function startEdgeRevealWatcher() {
-  // Windows ではカーソル座標を使った開閉判定を一切行わない (DPI の異なるモニター間で座標系が
-  // 食い違うと、展開 → 強制格納 → 再展開の無限ループになる)。開閉は Renderer 自身の
-  // ホバーイベント (つまみへの滞留 / ウインドウからの離脱) だけで決める
-  if (IS_WINDOWS) return;
+  // Windows では「つまみゾーンへの進入で展開する」判定は行わない (DPI の異なるモニター間で
+  // 座標系が食い違うと、展開 → 強制格納 → 再展開の無限ループになるため。展開はモニターごとの
+  // タブウインドウ (tab.js) のホバーが担う)。ただし展開中に Renderer の mouseleave を
+  // 取りこぼす (マウスの高速移動) と閉じなくなるため、強制格納の安全網だけは別途動かす
+  if (IS_WINDOWS) {
+    setInterval(pollForcedCollapseWindows, EDGE_POLL_MS);
+    return;
+  }
   // 起動時点で既にゾーン内に居た場合は「進入済み」として扱い、勝手に開かないようにする
   const cursor = screen.getCursorScreenPoint();
   if (cursorInTabZone(cursor, screen.getDisplayNearestPoint(cursor))) tabZoneEnteredAt = Infinity;
