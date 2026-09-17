@@ -142,6 +142,14 @@
     background:linear-gradient(160deg,#8fc0ff 0%,#5b9bf0 100%);
     box-shadow:0 3px 8px rgba(0,0,0,0.25);
   }
+  /* Windowsのフォルダは黄色寄りで、タブが左に小さく付くだけの平たい見た目 */
+  #laptop-stage.win-skin .laptop-desktop-icon::before{
+    width:16px;background:linear-gradient(160deg,#ffd873 0%,#ffb300 100%);
+  }
+  #laptop-stage.win-skin .laptop-desktop-icon::after{
+    border-radius:2px 6px 6px 6px;
+    background:linear-gradient(165deg,#ffe28a 0%,#ffb300 100%);
+  }
   /* ---- win-skin chassis: メニューバー/Dock→タスクバー、信号機ボタン→キャプションボタン。
      #laptop-stage 側に付いた .win-skin で、静止画演出のうち「OSらしさ」が出る部分だけ差し替える ---- */
   .win-caption{display:none;}
@@ -162,8 +170,9 @@
     font:500 11px "Segoe UI Variable","Segoe UI",sans-serif;color:#fff;
   }
   .laptop-taskbar .taskbar-center{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;align-items:center;gap:6px;}
-  .laptop-taskbar .taskbar-start svg{width:16px;height:16px;fill:rgba(255,255,255,0.85);}
-  .laptop-taskbar .taskbar-center span:not(.taskbar-start){width:22px;height:22px;border-radius:5px;background:rgba(255,255,255,0.5);}
+  .laptop-taskbar .taskbar-center span{width:22px;height:22px;border-radius:5px;display:flex;align-items:center;justify-content:center;}
+  .laptop-taskbar .taskbar-center span:not(.taskbar-start){background:rgba(255,255,255,0.5);}
+  .laptop-taskbar .taskbar-start svg{width:14px;height:14px;fill:rgba(255,255,255,0.85);}
   .laptop-taskbar .taskbar-tray{margin-left:auto;display:flex;align-items:center;gap:10px;opacity:0.9;font-variant-numeric:tabular-nums;}
   .laptop-bezel-edge{
     position:absolute;top:0;right:0;bottom:0;width:18px;
