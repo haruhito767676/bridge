@@ -3624,9 +3624,12 @@ const DEFAULT_TOGGLE_SHORTCUT = process.platform === 'darwin' ? 'Alt+Space' : 'C
 // ⌘⇧V / Ctrl+Shift+V は「書式なしで貼り付け」として多くのアプリ (ブラウザ、Slack、Office、
 // エディタ等) が内部的に使う定番の組み合わせで、既に別の常駐ユーティリティに global hotkey として
 // 押さえられていることも多い。特に Windows の Ctrl+Alt+V は AltGr (多くの非 US 配列で
-// Ctrl+Alt と等価) と衝突し、意図せず暴発するため避け、OS 側にもほぼ予約されていない
-// 組み合わせを既定にする (ユーザーはいつでも設定シートで変更できる)
-const DEFAULT_PASTE_SHORTCUT = process.platform === 'darwin' ? 'Alt+CommandOrControl+V' : 'Control+Super+V';
+// Ctrl+Alt と等価) と衝突し、意図せず暴発するため避ける。
+// Windows は以前 Ctrl+Win+V を既定にしていたが、クリップボード履歴 (Win+V) を有効にしている
+// 環境ではエクスプローラーがシェルレベルで Win+V 系のフックを握ってしまい、Win キーを含む組み合わせの
+// globalShortcut.register が常に失敗する (実機で bridge.log の [hotkey] 登録に失敗 を確認済み)。
+// そのため Windows では Win キーを含まない組み合わせを既定にする
+const DEFAULT_PASTE_SHORTCUT = process.platform === 'darwin' ? 'Alt+CommandOrControl+V' : 'Control+Alt+Shift+V';
 
 let toggleShortcut = DEFAULT_TOGGLE_SHORTCUT;
 let pasteShortcut = DEFAULT_PASTE_SHORTCUT;
@@ -3767,11 +3770,15 @@ app.whenReady().then(() => {
       screen.on(evt, () => setTimeout(refreshTabWindows, 500));
     }
   }
+  // startDeviceSync() (loadSyncConfig() 経由) が toggleShortcut/pasteShortcut を
+  // sync-config.json から読み込むため、ホットキー登録より必ず先に呼ぶこと。
+  // 逆順だとユーザーが設定シートで変更したショートカットが読み込まれる前に
+  // ハードコードの既定値で登録されてしまい、設定を変えても効かないように見える
+  startDeviceSync();
   registerToggleShortcut();
   if (IS_WINDOWS) setInterval(checkFullscreenAndHide, 1500);
   startClipboardWatcher();
   startEdgeRevealWatcher();
-  startDeviceSync();
   createPopupWindow(); // 初回の ⌘⇧V で待たせないよう先に読み込んでおく
   if (app.isPackaged) {
     setTimeout(() => checkForUpdates(), 6 * 60 * 60 * 1000);
