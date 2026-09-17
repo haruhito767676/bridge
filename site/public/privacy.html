@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>プライバシーポリシー | Bridge</title>
+<meta name="description" content="Bridge が、あなたの情報をどう扱っているかについての説明。">
+<meta name="robots" content="noindex">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+  :root{
+    --paper:#fbfbfa;
+    --panel:#f2f1ed;
+    --line:rgba(60,60,67,0.13);
+    --ink:#1d1d1f;
+    --ink-dim:rgba(60,60,67,0.66);
+    --ink-faint:rgba(60,60,67,0.42);
+    --accent:#0a84ff;
+    --display:'Sora','Hiragino Sans',sans-serif;
+    --sans:'IBM Plex Sans','Hiragino Sans','Yu Gothic',sans-serif;
+    --mono:'IBM Plex Mono','SF Mono',Menlo,monospace;
+  }
+  *{box-sizing:border-box;}
+  html{color-scheme:light;}
+  body{
+    margin:0;background:var(--paper);color:var(--ink);
+    font-family:var(--sans);font-size:16px;line-height:1.75;
+    -webkit-font-smoothing:antialiased;
+  }
+  img{max-width:100%;display:block;}
+  a{color:var(--accent);text-decoration:none;}
+  a.plain{color:inherit;}
+  a:hover{text-decoration:underline;}
+
+  .wrap{max-width:720px;margin:0 auto;padding:0 28px;}
+
+  nav{display:flex;align-items:center;justify-content:space-between;padding:22px 0;max-width:1080px;margin:0 auto;padding-left:28px;padding-right:28px;}
+  .brand{display:flex;align-items:center;gap:10px;font-family:var(--display);font-weight:700;font-size:17px;color:var(--ink);}
+  .brand img{width:28px;height:28px;border-radius:7px;}
+
+  main{padding:24px 0 96px;}
+  h1{font-family:var(--display);font-weight:700;letter-spacing:-0.01em;font-size:32px;margin:0 0 8px;color:var(--ink);}
+  .updated{font-family:var(--mono);font-size:12.5px;color:var(--ink-faint);margin:0 0 40px;}
+  h2{font-family:var(--display);font-weight:700;font-size:19px;margin:40px 0 12px;color:var(--ink);}
+  h2:first-of-type{margin-top:0;}
+  h3{font-family:var(--sans);font-weight:600;font-size:15.5px;margin:24px 0 8px;color:var(--ink);}
+  p{margin:0 0 14px;color:var(--ink-dim);font-size:15px;}
+  ul{margin:0 0 14px;padding-left:22px;color:var(--ink-dim);font-size:15px;}
+  li{margin-bottom:4px;}
+  strong{color:var(--ink);font-weight:600;}
+  code{font-family:var(--mono);font-size:0.9em;background:var(--panel);padding:0.15em 0.4em;border-radius:5px;}
+  .lede{background:var(--panel);border-radius:14px;padding:20px 22px;margin:0 0 40px;}
+  .lede p{margin:0;color:var(--ink);font-size:15px;}
+  hr{border:none;border-top:1px solid var(--line);margin:40px 0 20px;}
+  .note{font-size:13.5px;color:var(--ink-faint);}
+
+  footer.site{padding:40px 0 60px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;max-width:1080px;margin:0 auto;padding-left:28px;padding-right:28px;}
+  footer.site .fine{font-size:13px;color:var(--ink-faint);}
+  footer.site .flinks{display:flex;gap:20px;font-size:13.5px;font-weight:500;}
+</style>
+</head>
+<body>
+
+<nav>
+  <a class="brand plain" href="index.html"><img src="icon.png" alt="Bridge" />Bridge</a>
+</nav>
+
+<div class="wrap">
+<main>
+  <h1>プライバシーポリシー</h1>
+  <p class="updated">最終更新日: 2026年9月18日</p>
+
+  <div class="lede">
+    <p>Bridge は、あなたのコピーした内容やファイルを、開発者を含む誰にも送信しません。</p>
+  </div>
+
+  <p>Bridge (以下「本ソフトウェア」) は、クリップボード機能の拡張および複数デバイスの間でクリップボードを同期する無料・オープンソースのアプリケーションです。このページでは、本ソフトウェアおよびこのサイトが、あなたの情報をどう扱っているかを説明します。</p>
+
+  <h2>1. 本ソフトウェアが扱う情報</h2>
+
+  <h3>1-1. クリップボード履歴・ファイル</h3>
+  <p>コピーした文字・画像・ファイルは、あなたの端末の中だけに保存されます。保存先はあなたのコンピューターのローカルディスクのみで、外部のサーバーやクラウドサービスには一切送信されません。</p>
+
+  <h3>1-2. 同期する場合</h3>
+  <p>複数の端末で同期を有効にした場合、コピーした内容は次の条件を満たす範囲でのみ、他の端末に送られます。</p>
+  <ul>
+    <li>同じネットワーク (Wi-Fi / LAN) 内にあること</li>
+    <li>同じ「同期キー」を設定していること</li>
+  </ul>
+  <p>同期キーが一致しない端末には、内容は一切送られません。また、開発者を含む第三者のサーバーを経由することもありません。</p>
+
+  <h3>通信の暗号化について</h3>
+  <p>同期する内容(メタデータ・ファイル本体とも)は、設定した同期キーから導出した鍵により AES-256-GCM 方式で暗号化されます。同じネットワーク内であっても、同期キーを知らない第三者が通信内容を読み取ることはできません。</p>
+  <p>※ただし、通信相手が「本当に意図した端末かどうか」を証明書などで検証する仕組み (PKI) は備えていません。なりすまし対策は同期キーが一致するかどうかに依っているため、信頼できるネットワーク内での利用を前提としています。公衆Wi-Fiなど、見知らぬ人と同じネットワークを共有する環境での利用はお控えください。</p>
+
+  <h3>1-3. 設定情報</h3>
+  <p>デバイス名や同期キーなどの設定は、あなたの端末内の設定ファイル (<code>sync-config.json</code>) に保存されます。これも外部には送信されません。</p>
+
+  <h2>2. 本ソフトウェアが行う、唯一の外部通信</h2>
+  <p>本ソフトウェアがインターネット上の外部サービスと通信するのは、<strong>設定画面より「アップデートを確認」ボタンを選択した時のみ</strong>です。この操作を行うと、GitHub (api.github.com) に最新リリース情報を問い合わせ、ブラウザでリリースページを開きます。</p>
+  <ul>
+    <li>この通信は、あなたが明示的に操作した場合にのみ発生します。バックグラウンドや起動時に自動で行われることはありません。</li>
+    <li>自動的にファイルをダウンロードしたり、インストールしたりすることはありません。</li>
+    <li>これ以外に、本ソフトウェアが外部と通信することはありません。利用状況の収集(アナリティクス)、クラッシュレポートの送信、広告のための通信なども一切行っていません。</li>
+  </ul>
+
+  <h2>3. アカウント・個人情報について</h2>
+  <p>本ソフトウェアの利用にアカウント登録は必要ありません。氏名・メールアドレスなどの個人情報の入力を求めることもありません。</p>
+
+  <h2>4. このWebページについて</h2>
+  <p>このサイト自体は、アクセス解析ツールや広告用のトラッキングタグを使用していません。Cookieを使った利用者の追跡も行っていません。</p>
+
+  <h2>5. ソースコードについて</h2>
+  <p>本ソフトウェアはオープンソース (MITライセンス) で、すべてのソースコードを <a href="https://github.com/haruhito767676/bridge" target="_blank" rel="noopener">GitHub</a> で公開しています。</p>
+
+  <h2>6. お問い合わせ</h2>
+  <p>本ポリシーについてのご質問や、記載内容と実際の動作に相違がある場合のご指摘は、<a href="https://github.com/haruhito767676/bridge/issues" target="_blank" rel="noopener">GitHubのIssue</a> にてお願いします。</p>
+
+  <h2>7. このポリシーの変更について</h2>
+  <p>本ソフトウェアの仕様変更に伴い、本ポリシーの内容を更新することがあります。重要な変更がある場合は、このページの「最終更新日」を更新します。</p>
+</main>
+</div>
+
+<footer class="site">
+  <span class="fine">MIT License © haruhito767676</span>
+  <div class="flinks">
+    <a class="plain" href="index.html">トップへ戻る</a>
+    <a class="plain" href="https://github.com/haruhito767676/bridge" target="_blank" rel="noopener">GitHub</a>
+  </div>
+</footer>
+
+</body>
+</html>
