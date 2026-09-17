@@ -10,6 +10,7 @@
 <meta property="og:type" content="website">
 <meta property="og:image" content="hero.png">
 <meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="icon.png" type="image/png">
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
 
@@ -55,8 +56,8 @@
 
   /* ---- nav ---- */
   nav{display:flex;align-items:center;justify-content:space-between;padding:22px 0;}
-  .brand{display:flex;align-items:center;gap:10px;font-family:var(--display);font-weight:700;font-size:17px;color:var(--ink);}
-  .brand img{width:28px;height:28px;border-radius:7px;}
+  .brand{display:flex;align-items:center;gap:11px;font-family:var(--display);font-weight:700;font-size:20px;color:var(--ink);}
+  .brand img{width:34px;height:34px;border-radius:8px;}
   nav .links{display:flex;gap:26px;font-size:14px;font-weight:500;color:var(--ink-dim);}
   nav .links a{color:var(--ink-dim);}
   nav .links a:hover{color:var(--ink);}
@@ -244,10 +245,11 @@
 
   /* ---- relatable: 「こんなこと、していませんか？」の"あるある"リスト。
      checklistの緑チェックは"良いこと"に見えてしまうので、あえて中立なダッシュにする ---- */
-  .relatable-list{margin:24px 0 0;padding:0;list-style:none;display:inline-flex;flex-direction:column;gap:12px;text-align:left;}
-  .relatable-list li{font-size:15.5px;color:var(--ink-dim);display:flex;align-items:center;gap:12px;}
-  .relatable-list li img{width:24px;height:24px;border-radius:6px;flex-shrink:0;box-shadow:0 1px 2px rgba(0,0,0,0.12);}
-  .punchline{margin-top:26px;font-family:var(--display);font-weight:700;font-size:22px;color:var(--ink);}
+  #relatable h3{font-size:34px;}
+  .relatable-list{margin:28px 0 0;padding:0;list-style:none;display:inline-flex;flex-direction:column;gap:16px;text-align:left;}
+  .relatable-list li{font-size:18px;color:var(--ink-dim);display:flex;align-items:center;gap:14px;}
+  .relatable-list li img{width:32px;height:32px;border-radius:8px;flex-shrink:0;box-shadow:0 1px 2px rgba(0,0,0,0.12);}
+  .punchline{margin-top:36px;font-family:var(--display);font-weight:700;font-size:38px;color:var(--ink);letter-spacing:-0.01em;}
 
   /* ---- faq ---- */
   .faq{max-width:720px;}
