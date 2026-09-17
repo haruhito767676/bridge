@@ -297,6 +297,17 @@
   .os-compare-label{position:absolute;top:-26px;font-family:var(--mono);font-size:11px;font-weight:600;color:var(--ink-faint);letter-spacing:0.04em;}
   .os-compare-label-mac{left:0;}
   .os-compare-label-win{right:0;}
+  /* gapは、ハンドルのオーバーシュート(最大108%側)+グリップの半径がtraitsの文字に
+     被らないだけの余白を確保する必要がある (320px*8% + グリップ半径16px ≒ 42px) */
+  .os-compare-wrap{display:flex;align-items:center;justify-content:center;gap:56px;}
+  .os-compare-traits{list-style:none;margin:0;padding:0;width:150px;flex:0 0 auto;display:flex;flex-direction:column;gap:14px;font-size:13.5px;line-height:1.5;color:var(--ink-dim);}
+  .os-compare-traits-mac{text-align:right;}
+  .os-compare-traits-win{text-align:left;}
+  @media (max-width:860px){
+    .os-compare-wrap{flex-direction:column;gap:16px;}
+    .os-compare-traits{width:100%;flex-direction:row;justify-content:center;flex-wrap:wrap;gap:8px 20px;}
+    .os-compare-traits-mac,.os-compare-traits-win{text-align:center;}
+  }
 
   /* ---- relatable: 「こんなこと、していませんか？」の"あるある"リスト。
      checklistの緑チェックは"良いこと"に見えてしまうので、あえて中立なダッシュにする ---- */
@@ -683,10 +694,14 @@
     <h3>Mac では Mac らしく、<br>Windows では Windows らしく。</h3>
     <p>細部の動きまで、それぞれの OS の作法にならう。バーを動かして見比べてみて。</p>
     <ul class="checklist">
-      <li>macOS: すりガラスの質感と、バネのように弾む展開アニメーション</li>
-      <li>Windows: Fluent Design のフライアウトと、通知領域の作法</li>
       <li>キーボードショートカットとクイックルック、どちらにも対応</li>
     </ul>
+
+    <div class="os-compare-wrap">
+      <ul class="os-compare-traits os-compare-traits-mac">
+        <li>すりガラスの質感</li>
+        <li>バネのように弾む展開アニメーション</li>
+      </ul>
 
     <div class="os-compare" id="os-compare">
       <div class="os-compare-panel os-compare-mac">
@@ -880,6 +895,12 @@
       </div>
       <span class="os-compare-label os-compare-label-mac">macOS</span>
       <span class="os-compare-label os-compare-label-win">Windows</span>
+    </div>
+
+      <ul class="os-compare-traits os-compare-traits-win">
+        <li>Fluent Design のフライアウト</li>
+        <li>通知領域の作法</li>
+      </ul>
     </div>
   </div>
 </section>
