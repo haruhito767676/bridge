@@ -430,6 +430,30 @@
   .popup-mock-time{flex-shrink:0;font-size:11px;color:var(--fg-secondary);}
   .popup-mock-item.active .popup-mock-time{color:inherit;opacity:0.8;}
   .popup-mock-footer{margin-top:6px;padding-top:6px;border-top:1px solid var(--divider);font-size:10.5px;color:var(--fg-secondary);text-align:center;}
+
+  /* ---- win-skin: laptop-stageのライブデモだけ、訪問者がWindowsならFluent風の見た目に
+     差し替える。マークアップ/JSは.brdと完全共通のまま、CSS変数とレイアウト系の
+     ルールだけ .win-skin 配下で上書きする (実機のWindows版スクショに合わせた値) ---- */
+  .brd.win-skin{
+    --fg:#1b1b1b; --fg-secondary:rgba(0,0,0,0.58); --fg-tertiary:rgba(0,0,0,0.36);
+    --accent:#0f6cbd; --accent-fg:#fff; --accent-tint:rgba(15,108,189,0.12);
+    --panel-fallback:#f3f3f3; --fill:rgba(0,0,0,0.05); --fill-hover:rgba(0,0,0,0.07); --fill-strong:rgba(0,0,0,0.06);
+    --search-fill:#fff; --segment-active-bg:transparent;
+    --divider:rgba(0,0,0,0.09); --popover-bg:#fff; --popover-border:rgba(0,0,0,0.08);
+    --popover-shadow:0 8px 24px rgba(0,0,0,0.18),0 0 0 1px rgba(0,0,0,0.06);
+    --radius-s:4px; --radius-m:4px; --radius-l:8px;
+    font-family:"Segoe UI Variable","Segoe UI","Yu Gothic UI",sans-serif;
+    box-shadow:0 20px 48px -24px rgba(0,0,0,0.32),0 0 0 1px rgba(0,0,0,0.07);
+  }
+  .brd.win-skin .search-field{border:1px solid rgba(0,0,0,0.09);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23616161' stroke-width='2.5' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E");}
+  .brd.win-skin .filter-segment{background:transparent;padding:0;gap:18px;margin-top:10px;border-bottom:1px solid var(--divider);border-radius:0;}
+  .brd.win-skin .filter-segment-thumb{display:none;}
+  .brd.win-skin .segment-item{flex:none;padding:0 2px 8px;font-size:12.5px;font-weight:600;border-radius:0;}
+  .brd.win-skin .segment-item.active{position:relative;}
+  .brd.win-skin .segment-item.active::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;border-radius:1px;background:var(--accent);}
+  .brd.win-skin .origin-chip{border-radius:4px;border:1px solid var(--divider);background:transparent;}
+  .brd.win-skin .context-menu{backdrop-filter:none;-webkit-backdrop-filter:none;box-shadow:0 8px 24px rgba(0,0,0,0.18),0 0 0 1px rgba(0,0,0,0.06);}
+  .brd.win-skin .context-menu li:hover{border-radius:4px;}
 </style>
 </head>
 <body>
@@ -1786,7 +1810,13 @@
   }
 
   var laptopBrdRoot = document.getElementById('laptop-brd');
-  if (laptopBrdRoot) initDemo(laptopBrdRoot, JSON.parse(JSON.stringify(DATA)));
+  if (laptopBrdRoot) {
+    // Windows からの訪問者には、実際のWindows版 (Fluentのフライアウト) に近い見た目でデモを見せる。
+    // マークアップ/ロジックは共通のまま、.win-skin で配色・角丸・セグメントの見た目だけ差し替える
+    var ua = navigator.userAgent || '';
+    if (/Win/i.test(ua)) laptopBrdRoot.classList.add('win-skin');
+    initDemo(laptopBrdRoot, JSON.parse(JSON.stringify(DATA)));
+  }
 })();
 </script>
 <script>
