@@ -698,7 +698,7 @@
               <button type="button" class="segment-item">クリップ</button>
             </div>
           </div>
-          <div class="drop-zone" style="height:auto;">
+          <div class="drop-zone">
             <ul class="file-list">
               <li class="section-header">ピン留め</li>
               <li class="file-item">
@@ -730,6 +730,27 @@
                   <div class="item-meta-line">PowerPoint プレゼンテーション (.pptx) · 20:54</div>
                 </div>
               </li>
+              <li class="file-item">
+                <div class="item-leading"><img class="file-icon thumbnail" src="../icons/thumb-clipboard.png" alt="" /><img class="source-app-badge" src="../icons/figma.png" alt="" /></div>
+                <div class="item-lines">
+                  <div class="item-title">clipboard_2026-09-14_20-10-00.png</div>
+                  <div class="item-meta-line">画像 · 20:27</div>
+                </div>
+              </li>
+              <li class="file-item">
+                <div class="item-leading"><div class="clip-glyph"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="12" height="14" rx="2.5"/><path d="M7.5 4V3.5A1.5 1.5 0 0 1 9 2h2a1.5 1.5 0 0 1 1.5 1.5V4M7.5 9.5h5M7.5 13h3.5"/></svg></div><img class="source-app-badge" src="../icons/terminal.png" alt="" /></div>
+                <div class="item-lines">
+                  <div class="item-title clip-preview">ssh deploy@192.168.1.42 -p 2222</div>
+                  <div class="item-meta-line">テキスト · 11:27</div>
+                </div>
+              </li>
+              <li class="file-item">
+                <div class="item-leading"><img class="file-icon thumbnail" src="../icons/thumb-logo.png" alt="" /></div>
+                <div class="item-lines">
+                  <div class="item-title">ロゴ差分_v3.png</div>
+                  <div class="item-meta-line">PNG画像 · 10:27</div>
+                </div>
+              </li>
             </ul>
           </div>
           <div class="shelf-footer">
@@ -753,7 +774,7 @@
               <button type="button" class="segment-item">クリップ</button>
             </div>
           </div>
-          <div class="drop-zone" style="height:auto;">
+          <div class="drop-zone">
             <ul class="file-list">
               <li class="section-header">ピン留め</li>
               <li class="file-item">
@@ -783,6 +804,27 @@
                 <div class="item-lines">
                   <div class="item-title">週次レポート_W34.pptx</div>
                   <div class="item-meta-line">PowerPoint プレゼンテーション (.pptx) · 20:54</div>
+                </div>
+              </li>
+              <li class="file-item">
+                <div class="item-leading"><img class="file-icon thumbnail" src="../icons/thumb-clipboard.png" alt="" /></div>
+                <div class="item-lines">
+                  <div class="item-title">clipboard_2026-09-14_20-10-00.png</div>
+                  <div class="item-meta-line">画像 · 20:27</div>
+                </div>
+              </li>
+              <li class="file-item">
+                <div class="item-leading"><div class="clip-glyph"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="12" height="14" rx="2.5"/><path d="M7.5 4V3.5A1.5 1.5 0 0 1 9 2h2a1.5 1.5 0 0 1 1.5 1.5V4M7.5 9.5h5M7.5 13h3.5"/></svg></div></div>
+                <div class="item-lines">
+                  <div class="item-title clip-preview">ssh deploy@192.168.1.42 -p 2222</div>
+                  <div class="item-meta-line">テキスト · 11:27</div>
+                </div>
+              </li>
+              <li class="file-item">
+                <div class="item-leading"><img class="file-icon thumbnail" src="../icons/thumb-logo.png" alt="" /></div>
+                <div class="item-lines">
+                  <div class="item-title">ロゴ差分_v3.png</div>
+                  <div class="item-meta-line">PNG画像 · 10:27</div>
                 </div>
               </li>
             </ul>
@@ -2035,11 +2077,11 @@
     if (!root || !handle) return;
 
     var ua = navigator.userAgent || '';
-    var initial = /Win/i.test(ua) ? 22 : 78;
+    var initial = /Win/i.test(ua) ? 0 : 100;
     setSplit(initial);
 
     function setSplit(pct) {
-      pct = Math.max(4, Math.min(96, pct));
+      pct = Math.max(0, Math.min(100, pct));
       root.style.setProperty('--split', pct + '%');
     }
 
