@@ -241,6 +241,13 @@
   .checklist li::before{content:"✓";position:absolute;left:0;color:var(--ok);font-weight:700;}
   .detail-solo .checklist{display:inline-flex;margin:20px auto 0;}
 
+  /* ---- relatable: 「こんなこと、していませんか？」の"あるある"リスト。
+     checklistの緑チェックは"良いこと"に見えてしまうので、あえて中立なダッシュにする ---- */
+  .relatable-list{margin:24px 0 0;padding:0;list-style:none;display:inline-flex;flex-direction:column;gap:10px;text-align:left;}
+  .relatable-list li{font-size:15px;color:var(--ink-dim);padding-left:22px;position:relative;}
+  .relatable-list li::before{content:"–";position:absolute;left:0;color:var(--ink-faint);font-weight:600;}
+  .punchline{margin-top:26px;font-family:var(--display);font-weight:700;font-size:20px;color:var(--ink);}
+
   /* ---- faq ---- */
   .faq{max-width:720px;}
   .faq-item{padding:22px 0;border-bottom:1px solid var(--line);}
@@ -508,6 +515,20 @@
 
 <div class="wrap">
 
+<section id="relatable">
+  <div class="detail-solo">
+    <p class="eyebrow">before bridge</p>
+    <h3>こんなこと、していませんか？</h3>
+    <ul class="relatable-list">
+      <li>資料を、自分宛てにメールで送ったことがある</li>
+      <li>Slackの「自分だけ」チャンネルに、URLを貼ったことがある</li>
+      <li>LINEのKeepメモが、気づけば会社ファイルだらけ</li>
+      <li>そのためだけに、USBメモリを持ち歩いている</li>
+    </ul>
+    <p class="punchline">それ、全部いらなくなります。</p>
+  </div>
+</section>
+
 <section id="features">
   <div class="prose" style="margin:0 auto 44px;text-align:center;">
     <h2 style="font-size:30px;">残る。呼べる。届く。</h2>
@@ -563,17 +584,17 @@
         <rect x="79" y="52" width="176" height="34" rx="17" fill="#fbfbfa" stroke="rgba(60,60,67,0.16)" stroke-width="1"/>
         <text x="167" y="74" text-anchor="middle" font-family="var(--sans)" font-size="13.5" font-weight="600" fill="#2f5138">同じネットワークの中</text>
 
-        <rect x="505" y="135" width="140" height="140" rx="28" fill="rgba(255,255,255,0.6)" stroke="rgba(60,60,67,0.14)" stroke-width="1" filter="url(#privacy-card-shadow)"/>
-        <rect x="510" y="119" width="130" height="34" rx="17" fill="#fbfbfa" stroke="rgba(60,60,67,0.16)" stroke-width="1"/>
-        <text x="575" y="141" text-anchor="middle" font-family="var(--sans)" font-size="13.5" font-weight="600" fill="#5c3c3c">外部サーバー</text>
+        <rect x="505" y="70" width="140" height="140" rx="28" fill="rgba(255,255,255,0.6)" stroke="rgba(60,60,67,0.14)" stroke-width="1" filter="url(#privacy-card-shadow)"/>
+        <rect x="510" y="54" width="130" height="34" rx="17" fill="#fbfbfa" stroke="rgba(60,60,67,0.16)" stroke-width="1"/>
+        <text x="575" y="76" text-anchor="middle" font-family="var(--sans)" font-size="13.5" font-weight="600" fill="#5c3c3c">外部サーバー</text>
 
         <!-- ブロックされた経路: ルーターの中心からクラウドの中心まで、一本の点線でそのまま
              繋ぐ (境界の×印はこの線の上に重ねるだけで、線自体は途切れさせない)。
              ここだけは動かさず赤いまま止めておく (端末への3本は実際に流れるアニメーション、
              こちらは動かないこと自体で「繋がらない」を示す) -->
-        <line x1="265" y1="141" x2="575" y2="205" stroke="#ff3b30" stroke-width="2.4" stroke-dasharray="5 6" opacity="0.75"/>
-        <circle cx="490" cy="187" r="11" fill="#ff3b30"/>
-        <path d="M485 182l10 10M495 182l-10 10" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
+        <line x1="265" y1="141" x2="575" y2="140" stroke="#ff3b30" stroke-width="2.4" stroke-dasharray="5 6" opacity="0.75"/>
+        <circle cx="490" cy="140" r="11" fill="#ff3b30"/>
+        <path d="M485 135l10 10M495 135l-10 10" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
 
         <line class="privacy-line" x1="265" y1="163" x2="155" y2="221" stroke="var(--ok)" stroke-width="2.4" stroke-dasharray="5 6" opacity="0.6"/>
         <line class="privacy-line" x1="265" y1="163" x2="265" y2="221" stroke="var(--ok)" stroke-width="2.4" stroke-dasharray="5 6" opacity="0.6"/>
@@ -608,7 +629,7 @@
           <path d="M-8 43h72"/>
         </g>
 
-        <g transform="translate(541,171) scale(2.8)" stroke="rgba(60,60,67,0.55)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none">
+        <g transform="translate(541,106) scale(2.8)" stroke="rgba(60,60,67,0.55)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none">
           <path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/>
         </g>
       </svg>
