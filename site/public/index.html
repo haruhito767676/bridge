@@ -278,14 +278,16 @@
   /* ---- os-compare: 同じ内容のパネルを2枚重ね、ハンドルより左をmac/右をwinで
      clip-pathで出し分けるビフォーアフター比較スライダー。バー位置は初期表示だけ
      訪問者のOSで決め、あとは自由にドラッグして見比べさせる ---- */
-  .os-compare{position:relative;width:320px;margin:40px auto 0;--split:50%;}
+  .os-compare{position:relative;width:320px;margin:40px auto 0;text-align:left;--split:100%;--handle-pos:100%;}
   /* isolation:isolate が無いと、macパネル内の.segment-item(z-index:1)が.os-compareの
      スタッキングコンテキストに直接参加し、winパネル(z-index:auto)より上に漏れて出てしまう */
   .os-compare-mac{isolation:isolate;}
   .os-compare-mac .brd{box-shadow:0 20px 50px -24px rgba(20,20,25,0.3),0 0 0 1px var(--line);}
   .os-compare-win{position:absolute;inset:0;overflow:hidden;clip-path:inset(0 0 0 var(--split));}
   .os-compare-win .brd{box-shadow:0 20px 50px -24px rgba(20,20,25,0.3),0 0 0 1px var(--line);}
-  .os-compare-handle{position:absolute;top:0;bottom:0;left:var(--split);width:0;cursor:ew-resize;touch-action:none;z-index:5;}
+  /* ハンドルの見た目位置(--handle-pos)はclip-pathの値(--split)と分け、0/100%を
+     少し超えてオーバーシュートできるようにする (clip-pathは0/100%でクランプしたまま) */
+  .os-compare-handle{position:absolute;top:0;bottom:0;left:var(--handle-pos);width:0;cursor:ew-resize;touch-action:none;z-index:5;}
   .os-compare-handle::before{content:"";position:absolute;top:0;bottom:0;left:-1px;width:2px;background:#fff;box-shadow:0 0 0 1px rgba(0,0,0,0.18),0 0 10px rgba(0,0,0,0.15);}
   .os-compare-handle-grip{
     position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:32px;height:32px;border-radius:50%;
@@ -731,6 +733,22 @@
                 </div>
               </li>
               <li class="file-item">
+                <div class="item-leading"><img class="file-icon" src="../icons/file-xlsx.png" alt="" /></div>
+                <div class="item-lines">
+                  <div class="item-title">経費精算_9月.xlsx</div>
+                  <div class="item-meta-line">Microsoft Excel Workbook (.xlsx) · 18:54</div>
+                  <div class="item-badge-line"><span class="origin-chip"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="12" height="8" rx="1"/><path d="M6 13.5h4M8 11v2.5"/></svg><span>会社用PC</span></span></div>
+                </div>
+              </li>
+              <li class="file-item">
+                <div class="item-leading"><div class="clip-glyph"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="12" height="14" rx="2.5"/><path d="M7.5 4V3.5A1.5 1.5 0 0 1 9 2h2a1.5 1.5 0 0 1 1.5 1.5V4M7.5 9.5h5M7.5 13h3.5"/></svg></div></div>
+                <div class="item-lines">
+                  <div class="item-title clip-preview">brew install --cask font-jetbrains-mono</div>
+                  <div class="item-meta-line">テキスト · 07:20</div>
+                  <div class="item-badge-line"><span class="origin-chip"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3.5" width="10" height="7" rx="1"/><path d="M1.5 12.5h13"/></svg><span>自宅iMac</span></span></div>
+                </div>
+              </li>
+              <li class="file-item">
                 <div class="item-leading"><img class="file-icon thumbnail" src="../icons/thumb-clipboard.png" alt="" /><img class="source-app-badge" src="../icons/figma.png" alt="" /></div>
                 <div class="item-lines">
                   <div class="item-title">clipboard_2026-09-14_20-10-00.png</div>
@@ -804,6 +822,22 @@
                 <div class="item-lines">
                   <div class="item-title">週次レポート_W34.pptx</div>
                   <div class="item-meta-line">PowerPoint プレゼンテーション (.pptx) · 20:54</div>
+                </div>
+              </li>
+              <li class="file-item">
+                <div class="item-leading"><img class="file-icon" src="../icons/file-xlsx-win.png" alt="" /></div>
+                <div class="item-lines">
+                  <div class="item-title">経費精算_9月.xlsx</div>
+                  <div class="item-meta-line">Microsoft Excel Workbook (.xlsx) · 18:54</div>
+                  <div class="item-badge-line"><span class="origin-chip"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="12" height="8" rx="1"/><path d="M6 13.5h4M8 11v2.5"/></svg><span>会社用PC</span></span></div>
+                </div>
+              </li>
+              <li class="file-item">
+                <div class="item-leading"><div class="clip-glyph"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="12" height="14" rx="2.5"/><path d="M7.5 4V3.5A1.5 1.5 0 0 1 9 2h2a1.5 1.5 0 0 1 1.5 1.5V4M7.5 9.5h5M7.5 13h3.5"/></svg></div></div>
+                <div class="item-lines">
+                  <div class="item-title clip-preview">brew install --cask font-jetbrains-mono</div>
+                  <div class="item-meta-line">テキスト · 07:20</div>
+                  <div class="item-badge-line"><span class="origin-chip"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3.5" width="10" height="7" rx="1"/><path d="M1.5 12.5h13"/></svg><span>自宅iMac</span></span></div>
                 </div>
               </li>
               <li class="file-item">
@@ -2081,8 +2115,10 @@
     setSplit(initial);
 
     function setSplit(pct) {
-      pct = Math.max(0, Math.min(100, pct));
-      root.style.setProperty('--split', pct + '%');
+      var handlePct = Math.max(-8, Math.min(108, pct));
+      var clipPct = Math.max(0, Math.min(100, pct));
+      root.style.setProperty('--handle-pos', handlePct + '%');
+      root.style.setProperty('--split', clipPct + '%');
     }
 
     function pctFromEvent(e) {
