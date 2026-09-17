@@ -175,12 +175,26 @@
      矢印を挟んだ4枚を横一列にし、折り返さないことで「向き」を保つ (2x2にすると
      折り返し地点で矢印の向きが破綻するため) ---- */
   .features{display:flex;align-items:stretch;gap:0;}
-  .feature{flex:1;min-width:0;background:var(--panel);border-radius:var(--radius-m);padding:24px 16px;}
+  .feature{
+    flex:1;min-width:0;background:var(--panel);border-radius:var(--radius-m);padding:24px 16px;
+    position:relative;display:block;color:inherit;text-decoration:none;
+    transition:transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .feature:hover{transform:translateY(-2px);box-shadow:0 10px 24px -12px rgba(20,20,25,0.22);}
+  .feature-arrow{
+    position:absolute;right:16px;bottom:18px;width:15px;height:15px;color:var(--ink-faint);
+    transition:transform 0.15s ease,color 0.15s ease;
+  }
+  .feature:hover .feature-arrow{transform:translateX(3px);color:var(--ink-dim);}
   .flow-arrow{flex:0 0 auto;width:22px;display:flex;align-items:center;justify-content:center;color:var(--ink-faint);}
   .flow-arrow svg{width:15px;height:15px;}
   .f-icon{width:40px;height:40px;border-radius:11px;background:#fff;display:flex;align-items:center;justify-content:center;margin-bottom:18px;box-shadow:0 1px 2px rgba(0,0,0,0.06);}
   .f-icon svg{width:20px;height:20px;stroke:var(--accent);}
-  .feature h3{font-size:16.5px;line-height:1.25;margin-bottom:10px;white-space:nowrap;}
+  .feature h3{font-size:16.5px;line-height:1.25;margin-bottom:10px;white-space:nowrap;padding-right:20px;}
+  /* ---- history detail: 職種ごとの履歴を横に並べて「なんでも記録」を具体例で見せる ---- */
+  .persona-row{display:flex;gap:20px;justify-content:center;flex-wrap:wrap;margin-top:40px;}
+  .persona-card{display:flex;flex-direction:column;align-items:center;gap:12px;flex:0 1 240px;}
+  .persona-label{font-size:12.5px;font-weight:600;color:var(--ink-dim);}
   /* .featuresは共有の860pxブレークポイントより広い1000pxで先に縦積みへ切り替える
      (このカード数だと860〜1000px幅で1行タイトルが収まりきらなくなるため、
      他セクションと同じブレークポイントを流用せずここだけ独自に早める) */
@@ -489,32 +503,29 @@
 
 <section id="features">
   <div class="prose" style="margin:0 auto 44px;text-align:center;">
-    <h2 style="font-size:30px;">置く。残る。呼べる。届く。</h2>
+    <h2 style="font-size:30px;">残る。呼べる。届く。</h2>
   </div>
   <div class="features">
-    <div class="feature">
-      <div class="f-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v10M8 9l4 4 4-4"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg></div>
-      <h3>ファイルは、ファイルのまま。</h3>
-      <p>いつもの ⌘+C で置いておける。使いたい瞬間に、本物のファイルとしてそのままコピーできる。</p>
-    </div>
-    <div class="flow-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></div>
-    <div class="feature">
+    <a class="feature" href="#detail-store">
       <div class="f-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 4V3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1"/></svg></div>
       <h3>なんでも格納。</h3>
       <p>文字も画像もファイルも、なんでも自動で記録。再起動しても消えないから、「さっきコピーしたやつ」を探し回らなくていい。</p>
-    </div>
+      <svg class="feature-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    </a>
     <div class="flow-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></div>
-    <div class="feature">
+    <a class="feature" href="#detail-pick">
       <div class="f-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="13" height="10" rx="2.5"/><path d="M7 7h5M7 9.5h3"/><path d="M14 13l2 6 2-4 4-2z"/></svg></div>
       <h3>その場でペースト。</h3>
       <p>呼び出せば、カーソルのそばに履歴が浮かぶ。選ぶだけで、その場に貼り付く。</p>
-    </div>
+      <svg class="feature-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    </a>
     <div class="flow-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></div>
-    <div class="feature">
+    <a class="feature" href="#detail-deliver">
       <div class="f-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="12" r="3"/><circle cx="18" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><path d="M8.6 10.5 15.4 7M8.6 13.5l6.8 3.5"/></svg></div>
       <h3>どこからでも。</h3>
       <p>Mac でも Windows でも、同じ Wi-Fi にいる端末同士が自動で見つけ合う。意識するのは、最初の設定だけ。</p>
-    </div>
+      <svg class="feature-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    </a>
   </div>
 </section>
 
@@ -603,7 +614,134 @@
   </div>
 </section>
 
-<section>
+<section id="detail-store">
+  <div class="detail-solo">
+    <p class="eyebrow">history</p>
+    <h3>どんな仕事でも、ちゃんと残る。</h3>
+    <p>文字も画像もファイルも、自動で記録される。ファイルは本物のファイルのまま返ってくる。再起動しても消えないから、探し回らなくていい。</p>
+  </div>
+  <div class="persona-row">
+    <div class="persona-card">
+      <div class="persona-label">動画クリエイター</div>
+      <div class="brd brd-static" style="max-width:230px;box-shadow:0 20px 50px -24px rgba(20,20,25,0.3),0 0 0 1px var(--line);" role="img" aria-label="「ファイル」のみが絞り込まれ、動画編集の書き出しファイルが並んでいる">
+        <div class="search-area">
+          <div class="search-field"><input class="search-bar" type="text" placeholder="検索" readonly /></div>
+          <div class="filter-segment" role="tablist" aria-label="種別で絞り込み">
+            <div class="filter-segment-thumb" aria-hidden="true" style="transform:translateX(100%);"></div>
+            <button type="button" class="segment-item">すべて</button>
+            <button type="button" class="segment-item active">ファイル</button>
+            <button type="button" class="segment-item">クリップ</button>
+          </div>
+        </div>
+        <div class="drop-zone" style="height:auto;">
+          <ul class="file-list">
+            <li class="file-item">
+              <div class="item-leading"><img class="file-icon thumbnail" src="../icons/thumb-banner.png" alt="" /></div>
+              <div class="item-lines">
+                <div class="item-title">サムネイル案_B.png</div>
+                <div class="item-meta-line">PNG画像 · 21:40</div>
+              </div>
+            </li>
+            <li class="file-item">
+              <div class="item-leading"><img class="file-icon" src="../icons/file-pptx.png" alt="" /></div>
+              <div class="item-lines">
+                <div class="item-title">クライアント確認_絵コンテ.pptx</div>
+                <div class="item-meta-line">PowerPoint · 19:12</div>
+              </div>
+            </li>
+            <li class="file-item">
+              <div class="item-leading"><img class="file-icon" src="../icons/file-csv.png" alt="" /></div>
+              <div class="item-lines">
+                <div class="item-title">納品リスト_10月.csv</div>
+                <div class="item-meta-line">CSV · 18:05</div>
+              </div>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div class="persona-card">
+      <div class="persona-label">個人開発エンジニア</div>
+      <div class="brd brd-static" style="max-width:230px;box-shadow:0 20px 50px -24px rgba(20,20,25,0.3),0 0 0 1px var(--line);" role="img" aria-label="「クリップ」のみが絞り込まれ、開発中のコマンドやリンクが並んでいる">
+        <div class="search-area">
+          <div class="search-field"><input class="search-bar" type="text" placeholder="検索" readonly /></div>
+          <div class="filter-segment" role="tablist" aria-label="種別で絞り込み">
+            <div class="filter-segment-thumb" aria-hidden="true" style="transform:translateX(200%);"></div>
+            <button type="button" class="segment-item">すべて</button>
+            <button type="button" class="segment-item">ファイル</button>
+            <button type="button" class="segment-item active">クリップ</button>
+          </div>
+        </div>
+        <div class="drop-zone" style="height:auto;">
+          <ul class="file-list">
+            <li class="file-item">
+              <div class="item-leading"><div class="clip-glyph"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="12" height="14" rx="2.5"/><path d="M7.5 4V3.5A1.5 1.5 0 0 1 9 2h2a1.5 1.5 0 0 1 1.5 1.5V4M7.5 9.5h5M7.5 13h3.5"/></svg></div><img class="source-app-badge" src="../icons/terminal.png" alt="" /></div>
+              <div class="item-lines">
+                <div class="item-title clip-preview">flutter build ios --release</div>
+                <div class="item-meta-line">テキスト · 23:41</div>
+              </div>
+            </li>
+            <li class="file-item">
+              <div class="item-leading"><div class="clip-glyph"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="12" height="14" rx="2.5"/><path d="M7.5 4V3.5A1.5 1.5 0 0 1 9 2h2a1.5 1.5 0 0 1 1.5 1.5V4M7.5 9.5h5M7.5 13h3.5"/></svg></div><img class="source-app-badge" src="../icons/chrome.png" alt="" /></div>
+              <div class="item-lines">
+                <div class="item-title clip-preview">https://github.com/example/app/pull/58</div>
+                <div class="item-meta-line">テキスト · 22:58</div>
+              </div>
+            </li>
+            <li class="file-item">
+              <div class="item-leading"><div class="clip-glyph"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="12" height="14" rx="2.5"/><path d="M7.5 4V3.5A1.5 1.5 0 0 1 9 2h2a1.5 1.5 0 0 1 1.5 1.5V4M7.5 9.5h5M7.5 13h3.5"/></svg></div><img class="source-app-badge" src="../icons/vscode.png" alt="" /></div>
+              <div class="item-lines">
+                <div class="item-title clip-preview">TODO: 通知権限のダイアログ文言を直す</div>
+                <div class="item-meta-line">テキスト · 21:03</div>
+              </div>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div class="persona-card">
+      <div class="persona-label">オフィスワーカー</div>
+      <div class="brd brd-static" style="max-width:230px;box-shadow:0 20px 50px -24px rgba(20,20,25,0.3),0 0 0 1px var(--line);" role="img" aria-label="「すべて」が選択され、テキストとファイルが混在して並んでいる">
+        <div class="search-area">
+          <div class="search-field"><input class="search-bar" type="text" placeholder="検索" readonly /></div>
+          <div class="filter-segment" role="tablist" aria-label="種別で絞り込み">
+            <div class="filter-segment-thumb" aria-hidden="true"></div>
+            <button type="button" class="segment-item active">すべて</button>
+            <button type="button" class="segment-item">ファイル</button>
+            <button type="button" class="segment-item">クリップ</button>
+          </div>
+        </div>
+        <div class="drop-zone" style="height:auto;">
+          <ul class="file-list">
+            <li class="file-item">
+              <div class="item-leading"><div class="clip-glyph"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="12" height="14" rx="2.5"/><path d="M7.5 4V3.5A1.5 1.5 0 0 1 9 2h2a1.5 1.5 0 0 1 1.5 1.5V4M7.5 9.5h5M7.5 13h3.5"/></svg></div><img class="source-app-badge" src="../icons/outlook.png" alt="" /></div>
+              <div class="item-lines">
+                <div class="item-title clip-preview">明日14時、会議室Bでキックオフです。</div>
+                <div class="item-meta-line">テキスト · 17:20</div>
+              </div>
+            </li>
+            <li class="file-item">
+              <div class="item-leading"><img class="file-icon" src="../icons/file-docx.png" alt="" /></div>
+              <div class="item-lines">
+                <div class="item-title">議事録_キックオフ.docx</div>
+                <div class="item-meta-line">Word文書 · 17:05</div>
+              </div>
+            </li>
+            <li class="file-item">
+              <div class="item-leading"><div class="clip-glyph"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="12" height="14" rx="2.5"/><path d="M7.5 4V3.5A1.5 1.5 0 0 1 9 2h2a1.5 1.5 0 0 1 1.5 1.5V4M7.5 9.5h5M7.5 13h3.5"/></svg></div><img class="source-app-badge" src="../icons/teams.png" alt="" /></div>
+              <div class="item-lines">
+                <div class="item-title clip-preview">本日16時からの定例、資料共有をお願いします。</div>
+                <div class="item-meta-line">テキスト · 15:40</div>
+              </div>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="detail-deliver">
   <div class="detail-row">
     <div class="detail-shot">
     <div class="brd brd-static" style="max-width:360px;margin:0 auto;box-shadow:0 24px 60px -28px rgba(0,0,0,0.6),0 0 0 1px var(--line);" role="img" aria-label="種別セグメントの下に「会社用PC のみ」というデバイス絞り込みチップが表示され、該当デバイスのアイテムだけに絞り込まれている" aria-hidden="false">
@@ -700,7 +838,7 @@
   </div>
 </section>
 
-<section>
+<section id="detail-pick">
   <div class="detail-row reverse">
     <div class="detail-text">
       <p class="eyebrow">quick paste</p>
