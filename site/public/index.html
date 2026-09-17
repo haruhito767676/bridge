@@ -175,12 +175,20 @@
      矢印を挟んだ4枚を横一列にし、折り返さないことで「向き」を保つ (2x2にすると
      折り返し地点で矢印の向きが破綻するため) ---- */
   .features{display:flex;align-items:stretch;gap:0;}
-  .feature{flex:1;min-width:0;background:var(--panel);border-radius:var(--radius-m);padding:26px 22px;}
-  .flow-arrow{flex:0 0 auto;width:34px;display:flex;align-items:center;justify-content:center;color:var(--ink-faint);}
+  .feature{flex:1;min-width:0;background:var(--panel);border-radius:var(--radius-m);padding:24px 16px;}
+  .flow-arrow{flex:0 0 auto;width:22px;display:flex;align-items:center;justify-content:center;color:var(--ink-faint);}
   .flow-arrow svg{width:15px;height:15px;}
   .f-icon{width:40px;height:40px;border-radius:11px;background:#fff;display:flex;align-items:center;justify-content:center;margin-bottom:18px;box-shadow:0 1px 2px rgba(0,0,0,0.06);}
   .f-icon svg{width:20px;height:20px;stroke:var(--accent);}
-  .feature h3{font-size:17px;line-height:1.25;min-height:2.5em;margin-bottom:8px;}
+  .feature h3{font-size:16.5px;line-height:1.25;margin-bottom:10px;white-space:nowrap;}
+  /* .featuresは共有の860pxブレークポイントより広い1000pxで先に縦積みへ切り替える
+     (このカード数だと860〜1000px幅で1行タイトルが収まりきらなくなるため、
+     他セクションと同じブレークポイントを流用せずここだけ独自に早める) */
+  @media (max-width:1000px){
+    .features{flex-direction:column;}
+    .flow-arrow{width:auto;height:28px;}
+    .flow-arrow svg{transform:rotate(90deg);}
+  }
   .feature p{font-size:14px;line-height:1.6;}
 
   /* ---- privacy: no-cloudの説明を図解つきで (軽めのアーキテクチャ図として大きめに見せる) ---- */
@@ -240,9 +248,6 @@
 
   @media (max-width:860px){
     .hero h1{font-size:36px;}
-    .features{flex-direction:column;}
-    .flow-arrow{width:auto;height:34px;}
-    .flow-arrow svg{transform:rotate(90deg);}
     .detail-row, .detail-row.reverse{grid-template-columns:1fr;}
     .detail-row.reverse .detail-shot{order:0;}
     .footer-cta{padding:44px 24px;}
