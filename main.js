@@ -37,6 +37,14 @@ const {
   syncMetadata,
   compareVersions,
 } = require('./lib/sync-utils');
+const {
+  deriveSyncKey,
+  encryptJson,
+  decryptJson,
+  createEncryptStream,
+  createDecryptStream,
+  encryptedFileLength,
+} = require('./lib/sync-crypto');
 
 // 開発時 (`npm start` / `electron .`) はインストール済みの本番 Bridge と userData
 // (設定・sync-config.json 等) を共有すると requestSingleInstanceLock が競合し、
@@ -2103,6 +2111,18 @@ const SYNC_TOKEN_HEADER = 'x-bridge-token';
 
 let syncConfig = { port: DEFAULT_SYNC_PORT, peers: [], autoScan: true, secretToken: null };
 
+// secretToken から導出した暗号鍵。同期ごとに引き伸ばし直すと重いので、
+// トークンが変わったとき (設定画面からの変更を含む) だけ再計算してキャッシュする
+let cachedSyncKey = null;
+let cachedSyncKeyToken = null;
+function syncKey() {
+  if (cachedSyncKeyToken !== syncConfig.secretToken) {
+    cachedSyncKey = deriveSyncKey(syncConfig.secretToken);
+    cachedSyncKeyToken = syncConfig.secretToken;
+  }
+  return cachedSyncKey;
+}
+
 // 同期台帳: 自分が生成したアイテムと他拠点から受信したアイテムの両方を持ち、
 // 3 台以上のメッシュ構成でも任意の 2 台が到達可能でさえあれば全体が収束するよう中継役も担う。
 // { id, type: 'text' | 'image' | 'file', name, text, path, timestamp, fromDevice, fromPlatform }
@@ -2283,7 +2303,7 @@ function httpGetJson(host, port, pathName, timeoutMs = PROBE_TIMEOUT_MS) {
         res.on('end', () => {
           if (res.statusCode !== 200) return reject(new Error(`HTTP ${res.statusCode}`));
           try {
-            resolve(JSON.parse(body));
+            resolve(decryptJson(syncKey(), body));
           } catch (err) {
             reject(err);
           }
@@ -2297,7 +2317,7 @@ function httpGetJson(host, port, pathName, timeoutMs = PROBE_TIMEOUT_MS) {
 
 function httpPostJson(host, port, pathName, payload, timeoutMs = 3000) {
   return new Promise((resolve, reject) => {
-    const body = JSON.stringify(payload);
+    const body = encryptJson(syncKey(), payload);
     const req = http.request(
       {
         host,
@@ -2306,7 +2326,7 @@ function httpPostJson(host, port, pathName, payload, timeoutMs = 3000) {
         method: 'POST',
         timeout: timeoutMs,
         headers: {
-          'Content-Type': 'application/json; charset=utf-8',
+          'Content-Type': 'application/octet-stream',
           'Content-Length': Buffer.byteLength(body),
           [SYNC_TOKEN_HEADER]: syncConfig.secretToken || '',
         },
@@ -2422,6 +2442,11 @@ function downloadEntryFile(peer, entry) {
         trackDownload(entry.id, record);
         sendSyncProgress(entry.id, 0, total); // ヘッダーが届いた時点でサイズが分かるので、0% でもすぐ知らせる
 
+        // ファイル本体は暗号化されて流れてくる (x-bridge-salt がストリーム毎のノンス起点)。
+        // 復号ストリームを res と out の間に挟み、tag 不一致 (改ざん・破損) はエラーとして
+        // 既存の fail() 経路 (欠損ファイル削除・次回再試行) にそのまま乗せる
+        const decryptStream = createDecryptStream(syncKey(), res.headers['x-bridge-salt']);
+
         // 転送途中のネットワークエラーやソケットハングアップでは、両側のストリームを
         // 確実に閉じて欠損ファイルを削除する。reject は次回ポーリングでの再試行につながる
         let settled = false;
@@ -2431,6 +2456,7 @@ function downloadEntryFile(peer, entry) {
           untrackDownload(entry.id);
           out.destroy();
           res.destroy();
+          decryptStream.destroy();
           fsp.unlink(dest).catch(() => {});
           reject(err);
         };
@@ -2456,7 +2482,7 @@ function downloadEntryFile(peer, entry) {
             lastSampleReceived = record.received;
           }
         });
-        res.pipe(out);
+        res.pipe(decryptStream).pipe(out);
         out.on('finish', () => {
           if (settled) return;
           settled = true;
@@ -2474,6 +2500,7 @@ function downloadEntryFile(peer, entry) {
         out.on('error', fail);
         res.on('error', fail);
         res.on('aborted', () => fail(new Error('socket hang up')));
+        decryptStream.on('error', fail);
       }
     );
     // ヘッダー到着前でもキャンセルできるよう、reject 前に record を持たない段階から追跡する
@@ -2707,9 +2734,12 @@ function pushEntriesToPeers(entries) {
 
 // ---- 同期サーバー (node:http、外部パッケージ不使用) ----
 
+// メタデータ (JSON) は secretToken 由来の鍵で暗号化してから返す。平文 HTTP でも
+// 通信内容が同一 LAN 上の第三者に読めないようにするため
 function respondJson(res, obj) {
-  res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-  res.end(JSON.stringify(obj));
+  const body = encryptJson(syncKey(), obj);
+  res.writeHead(200, { 'Content-Type': 'application/octet-stream' });
+  res.end(body);
 }
 
 // リクエストヘッダーの secretToken を厳格に照合する。
@@ -2794,20 +2824,30 @@ function startSyncServer() {
           res.end();
           return;
         }
-        // 一括読み込みせずストリームでパイプする。数 GB のファイルでもメモリを圧迫しない
+        // 一括読み込みせずストリームでパイプする。数 GB のファイルでもメモリを圧迫しない。
+        // 暗号化ストリームを間に挟むため、Content-Length は暗号化後の正確なサイズに置き換える
+        const encryptStream = createEncryptStream(syncKey());
         res.writeHead(200, {
           'Content-Type': 'application/octet-stream',
-          'Content-Length': stat.size,
+          'Content-Length': encryptedFileLength(stat.size),
+          'x-bridge-salt': encryptStream.salt.toString('base64'),
         });
         const stream = fs.createReadStream(entry.path);
-        stream.pipe(res);
-        // 読み取りエラー時も res.end() で接続を確実に閉じ、後続の同期通信を巻き添えにしない
-        stream.on('error', (err) => {
+        stream.pipe(encryptStream).pipe(res);
+        // 読み取り・暗号化エラー時も res.end() で接続を確実に閉じ、後続の同期通信を巻き添えにしない
+        const failFileResponse = (err) => {
           console.error('同期ファイルの配信に失敗:', entry.path, err.message);
+          stream.destroy();
+          encryptStream.destroy();
           res.end();
-        });
+        };
+        stream.on('error', failFileResponse);
+        encryptStream.on('error', failFileResponse);
         // 受信側の切断 (ソケットハングアップ) では読み取りを即座に止めて fd を解放する
-        res.on('close', () => stream.destroy());
+        res.on('close', () => {
+          stream.destroy();
+          encryptStream.destroy();
+        });
         return;
       }
 
@@ -2820,7 +2860,7 @@ function startSyncServer() {
         });
         req.on('end', async () => {
           try {
-            const payload = JSON.parse(body);
+            const payload = decryptJson(syncKey(), body);
             if (payload.app !== 'bridge' || !Array.isArray(payload.items)) {
               res.writeHead(400);
               res.end();
