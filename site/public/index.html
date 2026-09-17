@@ -258,6 +258,22 @@
   .faq-item h4{font-family:var(--sans);font-size:15.5px;font-weight:600;margin:0 0 8px;color:var(--ink);}
   .faq-item p{font-size:14.5px;}
 
+  /* ---- getting started: 3ステップ + 動作環境。footer-ctaの直前に置き、
+     「読んだらすぐ試せる」という流れでダウンロードに繋げる ---- */
+  .steps{display:flex;gap:28px;margin-top:8px;}
+  .step{flex:1;min-width:0;text-align:center;}
+  .step-num{
+    width:34px;height:34px;border-radius:50%;background:var(--ink);color:#fff;
+    display:flex;align-items:center;justify-content:center;
+    font-family:var(--display);font-weight:700;font-size:15px;margin:0 auto 16px;
+  }
+  .step h3{font-size:17px;margin-bottom:8px;}
+  .step p{font-size:14px;line-height:1.6;}
+  .req-line{margin:40px 0 0;text-align:center;font-family:var(--mono);font-size:12.5px;color:var(--ink-faint);}
+  @media (max-width:860px){
+    .steps{flex-direction:column;gap:30px;}
+  }
+
   /* ---- footer cta ---- */
   .footer-cta{
     background:var(--ink);color:#fff;border-radius:24px;padding:56px 48px;text-align:center;
@@ -1167,6 +1183,31 @@
       <p>Mac と Windows の組み合わせで動き、クラウドを経由せず、通信も暗号化されていて、無料でオープンソースです。この5つを同時に満たすツールとして作りました。</p>
     </div>
   </div>
+</section>
+
+<section id="getting-started">
+  <div class="prose" style="margin:0 auto 44px;text-align:center;">
+    <p class="eyebrow">getting started</p>
+    <h2 style="font-size:28px;">はじめかた</h2>
+  </div>
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <h3>インストール</h3>
+      <p>Mac と Windows、それぞれの端末にインストーラーを落として起動するだけ。</p>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <h3>合言葉を合わせる</h3>
+      <p>同期したい端末同士で、同じ「同期キー」を設定する。それだけで専用の繋がりができる。</p>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <h3>コピーして、試す</h3>
+      <p>片方で ⌘C / Ctrl+C。もう片方で ⌘V / Ctrl+V。もう迷わない。</p>
+    </div>
+  </div>
+  <p class="req-line">動作環境 — macOS 12 以降 / Windows 10 以降・同期には同じ Wi-Fi または LAN への接続が必要です</p>
 </section>
 
 <section id="download">
