@@ -298,8 +298,8 @@
      被らないだけの余白を確保する必要がある (320px*8% + グリップ半径16px ≒ 42px) */
   .os-compare-wrap{display:flex;align-items:flex-start;justify-content:center;gap:56px;margin-top:40px;}
   .os-compare-col{display:flex;flex-direction:column;gap:16px;flex:0 0 auto;}
-  .os-compare-heading{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12px;font-weight:600;color:var(--ink-faint);letter-spacing:0.04em;}
-  .os-compare-heading img{width:20px;height:20px;border-radius:5px;flex-shrink:0;}
+  .os-compare-heading{display:flex;align-items:center;gap:10px;font-family:var(--display);font-size:17px;font-weight:700;color:var(--ink);}
+  .os-compare-heading img{width:32px;height:32px;border-radius:8px;flex-shrink:0;box-shadow:0 1px 2px rgba(0,0,0,0.12);}
   .os-compare-col:has(.os-compare-traits-mac) .os-compare-heading{justify-content:flex-end;}
   .os-compare-traits{list-style:none;margin:0;padding:0;width:190px;display:flex;flex-direction:column;gap:14px;font-size:13.5px;line-height:1.5;color:var(--ink-dim);}
   .os-compare-traits-mac{text-align:right;}
@@ -714,6 +714,8 @@
           <li>メニューバーに進捗表示</li>
           <li>⌘+C ですぐ格納</li>
           <li>出身のわかるアイコン</li>
+          <li>⌥Space で呼び出し</li>
+          <li>⌘+Enter で Finder表示</li>
         </ul>
       </div>
 
@@ -912,12 +914,14 @@
       <div class="os-compare-col">
         <div class="os-compare-heading"><img src="../icons/windows.png" alt="" />Windows</div>
         <ul class="os-compare-traits os-compare-traits-win">
-          <li>Fluent Design のフライアウト</li>
+          <li>Fluentのフライアウト</li>
           <li>通知領域の作法</li>
           <li>下線タブでパッと切替</li>
           <li>トレイに進捗を表示</li>
           <li>Ctrl+C ですぐ格納</li>
           <li>フルスクリーンを邪魔しない</li>
+          <li>Ctrl+Shift+Space で呼び出し</li>
+          <li>タスクバーに出さない</li>
         </ul>
       </div>
     </div>
