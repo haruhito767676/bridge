@@ -1675,6 +1675,72 @@
 })();
 </script>
 
+<script>
+(function () {
+  // <details>はopen属性がfalseの間、summary以外をdisplay:noneにするため、高さをそのまま
+  // transitionできない。WAAPIでdetails要素自体の高さを開始値→終了値へアニメーションさせ、
+  // 完了時にopen属性を実際の状態へ同期させる (web.devのdetails拡張パターンを踏襲)。
+  var easing = 'cubic-bezier(0.2,0.8,0.2,1)';
+  var duration = 280;
+  var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  document.querySelectorAll('.faq-item').forEach(function (item) {
+    var summary = item.querySelector('summary');
+    var animation = null;
+    var isClosing = false;
+    var isExpanding = false;
+
+    summary.addEventListener('click', function (e) {
+      e.preventDefault();
+      if (reduceMotion) { item.open = !item.open; return; }
+      item.style.overflow = 'hidden';
+      if (isClosing || !item.open) {
+        expand();
+      } else if (isExpanding || item.open) {
+        shrink();
+      }
+    });
+
+    function shrink() {
+      isClosing = true;
+      var startHeight = item.offsetHeight + 'px';
+      var endHeight = summary.offsetHeight + 'px';
+      runAnimation(startHeight, endHeight, false);
+    }
+
+    function expand() {
+      item.style.height = item.offsetHeight + 'px';
+      item.open = true;
+      window.requestAnimationFrame(function () {
+        isExpanding = true;
+        var startHeight = item.offsetHeight + 'px';
+        var endHeight = item.scrollHeight + 'px';
+        runAnimation(startHeight, endHeight, true);
+      });
+    }
+
+    function runAnimation(startHeight, endHeight, opening) {
+      if (animation) animation.cancel();
+      animation = item.animate(
+        { height: [startHeight, endHeight] },
+        { duration: duration, easing: easing }
+      );
+      animation.onfinish = function () { onFinish(opening); };
+      animation.oncancel = function () { isClosing = false; isExpanding = false; };
+    }
+
+    function onFinish(openState) {
+      item.open = openState;
+      animation = null;
+      isClosing = false;
+      isExpanding = false;
+      item.style.height = '';
+      item.style.overflow = '';
+    }
+  });
+})();
+</script>
+
 </div>
 
 <footer class="site">
