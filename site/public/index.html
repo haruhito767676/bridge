@@ -410,12 +410,14 @@
   @media (min-width:641px){
     .features-heading{white-space:nowrap;}
   }
+  br.sm-only{display:none;}
   @media (max-width:860px){
     .hero h1{font-size:36px;}
     .detail-row, .detail-row.reverse{grid-template-columns:1fr;}
     .detail-row.reverse .detail-shot{order:0;}
     .footer-cta{padding:44px 24px;}
     nav .links{display:none;}
+    br.sm-only{display:inline;}
   }
   @media (prefers-reduced-motion: reduce){ *{animation:none !important;transition:none !important;} }
 
@@ -608,7 +610,7 @@
 <section id="relatable">
   <div class="detail-solo">
     <p class="eyebrow">before bridge</p>
-    <h3>こんなこと、していませんか？</h3>
+    <h3>こんなこと、<br class="sm-only">していませんか？</h3>
     <ul class="relatable-list">
       <li><img src="../icons/mail.png" alt="" />資料を、自分宛てにメールで送ったことがある</li>
       <li><img src="../icons/slack.png" alt="" />Slackの「自分だけ」チャンネルに、URLを貼ったことがある</li>
@@ -719,7 +721,7 @@
     <a class="feature" href="#detail-store">
       <div class="f-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 4V3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1"/></svg></div>
       <h3>なんでも格納。</h3>
-      <p>文字も、画像も、ファイルも。消えずに、<span style="white-space:nowrap;">積もっていく。</span>「さっきのやつ」は、もうどこにもいかない。</p>
+      <p>文字も、画像も、ファイルも。<br>消えずに、積もっていく。<br>「さっきのやつ」は、もう<span style="white-space:nowrap;">どこにもいかない。</span></p>
       <svg class="feature-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
     </a>
     <div class="flow-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></div>
@@ -743,7 +745,7 @@
   <div class="detail-solo">
     <p class="eyebrow">history</p>
     <h3>どんな仕事でも、ちゃんと残る。</h3>
-    <p>テキストでも、ファイルでも。形を問わず、そのまま残っていく。ファイルは本物のファイルとして返ってくるから、開き直すときに迷わない。</p>
+    <p>テキストでも、ファイルでも。<br class="sm-only">形を問わず、そのまま残っていく。<br>ファイルは本物のファイルとして<br class="sm-only">返ってくるから、開き直すときに迷わない。</p>
   </div>
   <div class="persona-row">
     <div class="persona-card">
@@ -1130,7 +1132,7 @@
     <div class="detail-text">
       <p class="eyebrow">multi-device</p>
       <h3>「あれ、どっちの PC だっけ」がなくなる。</h3>
-      <p>書斎のPC、リビングのPC、会社のPC。あの作業をやったのは、どれだっけ？<br>そんなときも、選ぶだけで出身がわかる。</p>
+      <p>書斎のPC、リビングのPC、会社のPC。<br>あの作業をやったのは、どれだっけ？<br>そんなときも、選ぶだけで出身がわかる。</p>
     </div>
   </div>
 </section>
@@ -1140,7 +1142,7 @@
     <div class="detail-text">
       <p class="eyebrow">quick paste</p>
       <h3>呼び出せば、その場で貼り付け。</h3>
-      <p>あっちに行ったり、こっちに行ったり。目の回るような往復に、さよならを。<br>いつでも、どこでも。あなたのそばに。</p>
+      <p>あっちに行ったり、こっちに行ったり。<br>目の回るような往復に、さよならを。<br>いつでも、どこでも。あなたのそばに。</p>
       <ul class="checklist">
         <li>どのアプリを使っていても呼び出せる</li>
         <li>↑↓ で選んでEnterでペースト</li>
@@ -1215,7 +1217,7 @@
   <div class="detail-solo detail-solo-compare">
     <p class="eyebrow">smooth by design</p>
     <h3>Mac では Mac らしく、<br>Windows では Windows らしく。</h3>
-    <p>郷に入っては、郷に従え。細かい動きまで、それぞれの作法にならう。まるで、はじめからそこにいたみたいに。</p>
+    <p>郷に入っては、郷に従え。<br>細かい動きまで、それぞれの作法にならう。<br>まるで、はじめからそこにいたみたいに。</p>
     <ul class="checklist">
       <li>アイコンとサムネイルで、一目で種類がわかる</li>
       <li>キーボードショートカットとクイックルック、どちらにも対応</li>
@@ -1459,11 +1461,11 @@
     <div class="privacy-text">
       <p class="eyebrow">privacy</p>
       <h2>クラウドを、経由しない。</h2>
-      <p>コピーした内容や送ったファイルは、あなたのネットワークの中だけを通る。それだけ。</p>
+      <p>コピーした内容や送ったファイルは、あなたの<span style="white-space:nowrap;">ネットワーク</span>の中だけを通る。それだけ。</p>
       <ul class="checklist">
-        <li>同期したい相手とだけ、同じ「合言葉」を共有する</li>
+        <li>同期したい相手とだけ、同じ「合言葉」を<span style="white-space:nowrap;">共有する</span></li>
         <li>合言葉が違う端末には、そもそも見えない</li>
-        <li>やり取りの中身も、合言葉から作った鍵で暗号化される</li>
+        <li>やり取りの中身も、合言葉から作った鍵で<span style="white-space:nowrap;">暗号化される</span></li>
         <li>コードも MIT ライセンスで公開。動作は自分の目で確認できる</li>
       </ul>
     </div>
