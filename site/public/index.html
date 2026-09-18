@@ -278,7 +278,10 @@
   /* ---- os-compare: 同じ内容のパネルを2枚重ね、ハンドルより左をmac/右をwinで
      clip-pathで出し分けるビフォーアフター比較スライダー。バー位置は初期表示だけ
      訪問者のOSで決め、あとは自由にドラッグして見比べさせる ---- */
-  .os-compare{position:relative;width:320px;text-align:left;--split:100%;--handle-pos:108%;}
+  /* 本物の実測幅(325px)に合わせる。.brd自体は320pxでmax-widthされているので、
+     ここだけそれより広く出せるよう上書きする */
+  .os-compare{position:relative;width:325px;text-align:left;--split:100%;--handle-pos:108%;}
+  .os-compare .brd{max-width:325px;}
   /* isolation:isolate が無いと、macパネル内の.segment-item(z-index:1)が.os-compareの
      スタッキングコンテキストに直接参加し、winパネル(z-index:auto)より上に漏れて出てしまう */
   .os-compare-mac{isolation:isolate;}
@@ -288,12 +291,20 @@
   /* ハンドルの見た目位置(--handle-pos)はclip-pathの値(--split)と分け、0/100%を
      少し超えてオーバーシュートできるようにする (clip-pathは0/100%でクランプしたまま) */
   .os-compare-handle{position:absolute;top:0;bottom:0;left:var(--handle-pos);width:0;cursor:ew-resize;touch-action:none;z-index:5;}
-  .os-compare-handle::before{content:"";position:absolute;top:0;bottom:0;left:-1px;width:2px;background:#fff;box-shadow:0 0 0 1px rgba(0,0,0,0.18),0 0 10px rgba(0,0,0,0.15);}
-  .os-compare-handle-grip{
-    position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:32px;height:32px;border-radius:50%;
-    background:#fff;box-shadow:0 4px 14px rgba(0,0,0,0.28),0 0 0 1px rgba(0,0,0,0.06);
-    display:flex;align-items:center;justify-content:center;color:var(--ink-dim);
+  /* すりガラス風の縁: 不透明な棒ではなく、内側にハイライトを持つ半透明の帯にする
+     (macOSのバイブランシーの縁取りに近い質感を意識) */
+  .os-compare-handle::before{
+    content:"";position:absolute;top:0;bottom:0;left:-0.75px;width:1.5px;
+    background:rgba(255,255,255,0.9);
+    box-shadow:0 0 0 1px rgba(0,0,0,0.08),0 0 12px rgba(0,0,0,0.12);
   }
+  .os-compare-handle-grip{
+    position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:34px;height:34px;border-radius:50%;
+    background:rgba(255,255,255,0.6);backdrop-filter:blur(10px) saturate(1.8);-webkit-backdrop-filter:blur(10px) saturate(1.8);
+    box-shadow:0 6px 18px rgba(0,0,0,0.22),0 0 0 1px rgba(255,255,255,0.7) inset,0 0 0 1px rgba(0,0,0,0.06);
+    display:flex;align-items:center;justify-content:center;gap:3px;color:var(--ink-dim);
+  }
+  .os-compare-handle-grip svg{width:8px;height:11px;}
   /* os-compareは横方向のclip-pathで左右を継ぎ合わせているので、行の高さが
      mac/win間でズレると境目より下の行すべてがどんどんズレて、テキストが
      混ざって見える。原因は主に2行折り返し(clip-preview)がOSごとのフォント幅で
@@ -1390,7 +1401,8 @@
 
       <div class="os-compare-handle" id="os-compare-handle">
         <div class="os-compare-handle-grip">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M8 6L2 12l6 6M16 6l6 6-6 6"/></svg>
+          <svg viewBox="0 0 8 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 1.5 1 7l5 5.5"/></svg>
+          <svg viewBox="0 0 8 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 1.5 7 7l-5 5.5"/></svg>
         </div>
       </div>
     </div>
