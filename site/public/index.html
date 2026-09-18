@@ -284,9 +284,16 @@
   .os-compare .brd{max-width:325px;}
   /* isolation:isolate が無いと、macパネル内の.segment-item(z-index:1)が.os-compareの
      スタッキングコンテキストに直接参加し、winパネル(z-index:auto)より上に漏れて出てしまう */
-  .os-compare-mac{isolation:isolate;}
+  /* z-indexを明示しないと、macの中身(isolationでできた独立スタック)がwinより
+     後の重なり順として解釈されることがあり、macのテキストがwin側に染み出して見える。
+     position:relativeを添えてz-indexを効かせ、winより確実に下に固定する */
+  .os-compare-mac{isolation:isolate;position:relative;z-index:1;}
   .os-compare-mac .brd{box-shadow:0 20px 50px -24px rgba(20,20,25,0.3),0 0 0 1px var(--line);}
-  .os-compare-win{position:absolute;inset:0;overflow:hidden;clip-path:inset(0 0 0 var(--split));}
+  /* clip-pathだと境目でChromeが極小のアーティファクトを出すことがあるので、
+     幅そのものを可変にしてoverflow:hiddenで切る古典的な手法にする。
+     中のbrdは常に実寸325pxで描き、外側の枠(split〜325の範囲)だけがのぞき窓になる */
+  .os-compare-win{position:absolute;top:0;bottom:0;left:var(--split);right:0;z-index:2;overflow:hidden;}
+  .os-compare-win .brd{position:absolute;top:0;left:calc(-1 * var(--split));width:325px;max-width:325px;}
   .os-compare-win .brd{box-shadow:0 20px 50px -24px rgba(20,20,25,0.3),0 0 0 1px var(--line);}
   /* ハンドルの見た目位置(--handle-pos)はclip-pathの値(--split)と分け、0/100%を
      少し超えてオーバーシュートできるようにする (clip-pathは0/100%でクランプしたまま) */
@@ -305,6 +312,10 @@
     display:flex;align-items:center;justify-content:center;gap:3px;color:var(--ink-dim);
   }
   .os-compare-handle-grip svg{width:8px;height:11px;}
+  /* win-skinのSegoe UIはmacの文字幅と微妙に違うので、同じテキストでも
+     グリフの位置が左右レイヤーでズレて、境目で二重に見えてしまう。
+     このスライダーの中だけは、両OSで完全に同じフォントで文字を組む */
+  .os-compare .brd.win-skin{font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Segoe UI","Yu Gothic UI",sans-serif;}
   /* os-compareは横方向のclip-pathで左右を継ぎ合わせているので、行の高さが
      mac/win間でズレると境目より下の行すべてがどんどんズレて、テキストが
      混ざって見える。原因は主に2行折り返し(clip-preview)がOSごとのフォント幅で
@@ -2198,8 +2209,12 @@
     function setSplit(pct) {
       var handlePct = Math.max(-8, Math.min(108, pct));
       var clipPct = Math.max(0, Math.min(100, pct));
+      // %のままだと境目が小数px(サブピクセル)になり、macとwinの2枚の境目に
+      // アンチエイリアスでうっすら混ざって、ghost文字が見えてしまう。
+      // 整数pxに丸めて、境目を必ずピクセルの境界線上に落とす
+      var clipPx = Math.round(root.getBoundingClientRect().width * clipPct / 100);
       root.style.setProperty('--handle-pos', handlePct + '%');
-      root.style.setProperty('--split', clipPct + '%');
+      root.style.setProperty('--split', clipPx + 'px');
     }
 
     function pctFromEvent(e) {
