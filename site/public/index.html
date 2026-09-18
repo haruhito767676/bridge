@@ -61,6 +61,11 @@
   nav .links{display:flex;gap:26px;font-size:14px;font-weight:500;color:var(--ink-dim);}
   nav .links a{color:var(--ink-dim);}
   nav .links a:hover{color:var(--ink);}
+  nav .nav-cta{
+    font-family:var(--sans);font-weight:600;font-size:13.5px;color:#fff;background:var(--ink);
+    padding:9px 18px;border-radius:999px;white-space:nowrap;
+  }
+  nav .nav-cta:hover{opacity:0.85;}
 
   /* ---- hero ---- */
   .hero{padding:56px 0 0;text-align:center;}
@@ -75,13 +80,6 @@
   .btn-primary{background:var(--ink);color:#fff;}
   .btn-secondary{background:var(--panel);color:var(--ink);}
   .hero-meta{margin-top:22px;font-family:var(--mono);font-size:12.5px;color:var(--ink-faint);}
-  .hero-try-link{
-    margin-top:18px;display:inline-flex;align-items:center;gap:6px;
-    font-size:13.5px;font-weight:600;color:var(--accent);
-  }
-  .hero-try-link svg{animation:hero-try-bounce 1.6s ease-in-out infinite;}
-  @keyframes hero-try-bounce{0%,100%{transform:translateY(0);}50%{transform:translateY(3px);}}
-  @media (prefers-reduced-motion: reduce){ .hero-try-link svg{animation:none;} }
 
   /* ---- laptop-stage: スクロール駆動でBridgeが画面端からスライドインしてくる演出 ----
      ズームはせず、最初からノートPC画面の右端に寄ったアングルで固定表示する
@@ -403,6 +401,9 @@
   footer.site .fine{font-size:13px;color:var(--ink-faint);}
   footer.site .flinks{display:flex;gap:20px;font-size:13.5px;font-weight:500;}
 
+  @media (min-width:641px){
+    .features-heading{white-space:nowrap;}
+  }
   @media (max-width:860px){
     .hero h1{font-size:36px;}
     .detail-row, .detail-row.reverse{grid-template-columns:1fr;}
@@ -579,6 +580,7 @@
       <a href="#faq">よくある質問</a>
       <a href="https://github.com/haruhito767676/bridge" target="_blank" rel="noopener">GitHub</a>
     </div>
+    <a class="nav-cta" href="#download">ダウンロード</a>
   </nav>
 </div>
 
@@ -592,10 +594,6 @@
       <a class="btn btn-secondary" href="#laptop-stage">デモを触ってみる</a>
     </div>
     <div class="hero-meta">macOS 12+ ・ Windows 10/11 ・ 無料・オープンソース</div>
-    <a class="hero-try-link" href="#laptop-stage">
-      <span>ダウンロード不要、このままスクロールして触ってみてください</span>
-      <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v10M4 9l4 4 4-4"/></svg>
-    </a>
   </div>
 </div>
 
@@ -708,8 +706,8 @@
 <div class="wrap">
 
 <section id="features">
-  <div class="prose" style="margin:0 auto 44px;text-align:center;">
-    <h2 style="font-size:30px;">残る。呼べる。届く。</h2>
+  <div class="prose" style="margin:0 auto 44px;text-align:center;max-width:760px;">
+    <h2 class="features-heading" style="font-size:30px;">なんでも残る。いつでも呼べる。どこでも届く。</h2>
   </div>
   <div class="features">
     <a class="feature" href="#detail-store">
