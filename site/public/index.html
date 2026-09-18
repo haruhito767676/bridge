@@ -294,6 +294,14 @@
     background:#fff;box-shadow:0 4px 14px rgba(0,0,0,0.28),0 0 0 1px rgba(0,0,0,0.06);
     display:flex;align-items:center;justify-content:center;color:var(--ink-dim);
   }
+  /* os-compareは横方向のclip-pathで左右を継ぎ合わせているので、行の高さが
+     mac/win間でズレると境目より下の行すべてがどんどんズレて、テキストが
+     混ざって見える。原因は主に2行折り返し(clip-preview)がOSごとのフォント幅で
+     折り返し位置が変わること。ここだけ折り返させず1行省略に統一して高さを固定する */
+  .os-compare .file-item .item-title.clip-preview{
+    display:block;-webkit-line-clamp:unset;-webkit-box-orient:unset;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
   /* gapは、ハンドルのオーバーシュート(最大108%側)+グリップの半径がtraitsの文字に
      被らないだけの余白を確保する必要がある (320px*8% + グリップ半径16px ≒ 42px) */
   .os-compare-wrap{display:flex;align-items:flex-start;justify-content:center;gap:56px;margin-top:40px;}
@@ -517,7 +525,7 @@
     box-shadow:0 20px 48px -24px rgba(0,0,0,0.32),0 0 0 1px rgba(0,0,0,0.07);
   }
   .brd.win-skin .search-field{border:1px solid rgba(0,0,0,0.09);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23616161' stroke-width='2.5' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E");}
-  .brd.win-skin .filter-segment{background:transparent;padding:0;gap:18px;margin-top:10px;border-bottom:1px solid var(--divider);border-radius:0;}
+  .brd.win-skin .filter-segment{background:transparent;padding:0;gap:18px;margin-top:6px;border-bottom:1px solid var(--divider);border-radius:0;}
   .brd.win-skin .filter-segment-thumb{display:none;}
   .brd.win-skin .segment-item{flex:none;padding:0 2px 8px;font-size:12.5px;font-weight:600;border-radius:0;}
   .brd.win-skin .segment-item.active{position:relative;}
