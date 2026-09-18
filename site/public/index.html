@@ -301,6 +301,11 @@
   /* ハンドルの見た目位置(--handle-pos)はclip-pathの値(--split)と分け、0/100%を
      少し超えてオーバーシュートできるようにする (clip-pathは0/100%でクランプしたまま) */
   .os-compare-handle{position:absolute;top:0;bottom:0;left:var(--handle-pos);width:0;cursor:ew-resize;touch-action:none;z-index:5;}
+  /* ドラッグ追従中は指にぴったり付いてくる必要があるのでtransitionなし。
+     指を離して端まで寄せる/クリックで移動する瞬間だけ.is-settlingを付けて、
+     ワープではなくバネで滑らかに動くようにする (Apple製UIの挙動に合わせる) */
+  .os-compare.is-settling .os-compare-handle{transition:left 0.32s cubic-bezier(0.22,1,0.36,1);}
+  .os-compare.is-settling .os-compare-win{transition:clip-path 0.32s cubic-bezier(0.22,1,0.36,1);}
   /* すりガラス風の縁: 不透明な棒ではなく、内側にハイライトを持つ半透明の帯にする
      (macOSのバイブランシーの縁取りに近い質感を意識) */
   .os-compare-handle::before{
@@ -2225,13 +2230,26 @@
       root.style.setProperty('--split', clipPx + 'px');
     }
 
+    // is-settling中だけCSS transitionを効かせて、瞬間移動(ワープ)ではなく
+    // 短いバネで滑らかに動かす。ドラッグ追従(onMove)ではこれを使わず、常に
+    // setSplitを直接呼んで指に1:1でついてこさせる
+    var settleTimer;
+    function animateTo(pct) {
+      root.classList.add('is-settling');
+      setSplit(pct);
+      clearTimeout(settleTimer);
+      settleTimer = setTimeout(function () {
+        root.classList.remove('is-settling');
+      }, 340);
+    }
+
     // 端から10%以内で指を離したら、その端まで一気に寄せる。footerの設定ボタンなど、
     // パネル端すれすれの要素が細い隙間から半端に見切れた状態で止まらないようにする。
     // ハンドル自体はBridge本体の端ぴったりに密着させず、少しはみ出した位置で止める
     // (clip側は0/100%のままなので表示上はどちらかのOSに完全に切り替わる)
     function settle() {
-      if (lastPct <= 10) setSplit(-15);
-      else if (lastPct >= 90) setSplit(115);
+      if (lastPct <= 10) animateTo(-15);
+      else if (lastPct >= 90) animateTo(115);
     }
 
     function pctFromEvent(e) {
@@ -2260,8 +2278,8 @@
     });
     root.addEventListener('pointerdown', function (e) {
       if (e.target === handle || handle.contains(e.target)) return;
-      setSplit(pctFromEvent(e));
-      settle();
+      var pct = pctFromEvent(e);
+      animateTo(pct <= 10 ? -15 : pct >= 90 ? 115 : pct);
     });
   })();
 </script>
