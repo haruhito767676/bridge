@@ -1082,7 +1082,7 @@
             </div>
           </li>
           <li class="file-item">
-            <div class="item-leading"><div class="clip-glyph"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="12" height="14" rx="2.5"/><path d="M7.5 4V3.5A1.5 1.5 0 0 1 9 2h2a1.5 1.5 0 0 1 1.5 1.5V4M7.5 9.5h5M7.5 13h3.5"/></svg></div><img class="source-app-badge" src="../icons/line.png" alt="" /></div>
+            <div class="item-leading"><div class="clip-glyph"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="12" height="14" rx="2.5"/><path d="M7.5 4V3.5A1.5 1.5 0 0 1 9 2h2a1.5 1.5 0 0 1 1.5 1.5V4M7.5 9.5h5M7.5 13h3.5"/></svg></div></div>
             <div class="item-lines">
               <div class="item-title clip-preview">運動会は10/12(土)、雨天の場合は10/13に延期です</div>
               <div class="item-meta-line">テキスト · 15:43</div>
@@ -1090,7 +1090,7 @@
             </div>
           </li>
           <li class="file-item">
-            <div class="item-leading"><div class="clip-glyph"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="12" height="14" rx="2.5"/><path d="M7.5 4V3.5A1.5 1.5 0 0 1 9 2h2a1.5 1.5 0 0 1 1.5 1.5V4M7.5 9.5h5M7.5 13h3.5"/></svg></div><img class="source-app-badge" src="../icons/mail.png" alt="" /></div>
+            <div class="item-leading"><div class="clip-glyph"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="12" height="14" rx="2.5"/><path d="M7.5 4V3.5A1.5 1.5 0 0 1 9 2h2a1.5 1.5 0 0 1 1.5 1.5V4M7.5 9.5h5M7.5 13h3.5"/></svg></div></div>
             <div class="item-lines">
               <div class="item-title clip-preview">木曜14時、小児科の予約が取れました。</div>
               <div class="item-meta-line">テキスト · 15:00</div>
@@ -1107,7 +1107,7 @@
             </div>
           </li>
           <li class="file-item">
-            <div class="item-leading"><div class="clip-glyph"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="12" height="14" rx="2.5"/><path d="M7.5 4V3.5A1.5 1.5 0 0 1 9 2h2a1.5 1.5 0 0 1 1.5 1.5V4M7.5 9.5h5M7.5 13h3.5"/></svg></div><img class="source-app-badge" src="../icons/line.png" alt="" /></div>
+            <div class="item-leading"><div class="clip-glyph"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="12" height="14" rx="2.5"/><path d="M7.5 4V3.5A1.5 1.5 0 0 1 9 2h2a1.5 1.5 0 0 1 1.5 1.5V4M7.5 9.5h5M7.5 13h3.5"/></svg></div></div>
             <div class="item-lines">
               <div class="item-title clip-preview">参観日は10/18(土)、上履き持参とのことです</div>
               <div class="item-meta-line">テキスト · 11:27</div>
@@ -1329,7 +1329,7 @@
                 </div>
               </li>
               <li class="file-item">
-                <div class="item-leading"><div class="clip-glyph"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="12" height="14" rx="2.5"/><path d="M7.5 4V3.5A1.5 1.5 0 0 1 9 2h2a1.5 1.5 0 0 1 1.5 1.5V4M7.5 9.5h5M7.5 13h3.5"/></svg></div><img class="source-app-badge" src="../icons/chrome.png" alt="" /></div>
+                <div class="item-leading"><div class="clip-glyph"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="12" height="14" rx="2.5"/><path d="M7.5 4V3.5A1.5 1.5 0 0 1 9 2h2a1.5 1.5 0 0 1 1.5 1.5V4M7.5 9.5h5M7.5 13h3.5"/></svg></div></div>
                 <div class="item-lines">
                   <div class="item-title clip-preview">doi.org/10.1234/eg2026</div>
                   <div class="item-meta-line">テキスト · 07:20</div>
@@ -2040,6 +2040,10 @@
     // 実機の Windows 版は showSourceApp のデフォルトが false (main.js) なので、
     // win-skin (Windows訪問者向け) のデモでも出身アプリバッジは出さない
     if (isWin) return null;
+    // 出身アプリは、その場でコピーした端末でしか取得できない (実機の同期台帳に
+    // sourceApp は乗らない)。item.device が付いている = 他デバイスからの同期なので、
+    // デバイスチップと出身アプリバッジを同時には出さない
+    if (item.device) return null;
     if (item.kind === 'file' || !item.sourceApp || !item.sourceApp.icon) return null;
     var badge = document.createElement('img');
     badge.className = 'source-app-badge';
