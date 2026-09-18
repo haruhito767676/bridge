@@ -367,10 +367,23 @@
 
   /* ---- faq ---- */
   .faq{max-width:720px;}
-  .faq-item{padding:22px 0;border-bottom:1px solid var(--line);}
+  .faq-item{padding:6px 0;border-bottom:1px solid var(--line);}
   .faq-item:first-child{padding-top:0;}
-  .faq-item h4{font-family:var(--sans);font-size:15.5px;font-weight:600;margin:0 0 8px;color:var(--ink);}
-  .faq-item p{font-size:14.5px;}
+  .faq-item summary{
+    display:flex;align-items:center;justify-content:space-between;gap:16px;
+    padding:16px 0;cursor:pointer;list-style:none;
+  }
+  .faq-item summary::-webkit-details-marker{display:none;}
+  .faq-item h4{font-family:var(--sans);font-size:15.5px;font-weight:600;margin:0;color:var(--ink);}
+  .faq-item summary::after{
+    content:"";flex-shrink:0;width:18px;height:18px;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233c3c43' stroke-opacity='0.66' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M12 5v14M5 12h14'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;background-position:center;background-size:contain;
+    transition:transform 0.2s ease;
+  }
+  .faq-item[open] summary::after{transform:rotate(45deg);}
+  .faq-item summary:hover h4{color:var(--accent);}
+  .faq-item p{font-size:14.5px;padding-bottom:20px;}
 
   /* ---- getting started: 3ステップ + 動作環境。footer-ctaの直前に置き、
      「読んだらすぐ試せる」という流れでダウンロードに繋げる ---- */
@@ -1542,46 +1555,46 @@
     <h2 style="font-size:28px;">よくある質問</h2>
   </div>
   <div class="faq">
-    <div class="faq-item">
-      <h4>インターネットに繋がっていなくても使えますか？</h4>
+    <details class="faq-item">
+      <summary><h4>インターネットに繋がっていなくても使えますか？</h4></summary>
       <p>ファイルの一時置き場とクリップボード履歴は、単体でも動きます。他のデバイスとの同期だけ、同じ Wi-Fi / LAN への接続が必要です。</p>
-    </div>
-    <div class="faq-item">
-      <h4>スマートフォンには対応していますか？</h4>
+    </details>
+    <details class="faq-item">
+      <summary><h4>スマートフォンには対応していますか？</h4></summary>
       <p>今のところは macOS と Windows だけです。スマホは今後の話です。</p>
-    </div>
-    <div class="faq-item">
-      <h4>Linux でも使えますか？</h4>
+    </details>
+    <details class="faq-item">
+      <summary><h4>Linux でも使えますか？</h4></summary>
       <p>動きますが、公式にサポートしているのは macOS と Windows のみです。Linux はベストエフォートとなります。</p>
-    </div>
-    <div class="faq-item">
-      <h4>料金はかかりますか？</h4>
+    </details>
+    <details class="faq-item">
+      <summary><h4>料金はかかりますか？</h4></summary>
       <p>無料で、ソースコードも MIT ライセンスで公開しています。外部サービスへの課金や登録も一切ありません。</p>
-    </div>
-    <div class="faq-item">
-      <h4>何台まで同時に繋げられますか？</h4>
+    </details>
+    <details class="faq-item">
+      <summary><h4>何台まで同時に繋げられますか？</h4></summary>
       <p>台数の上限は設けていません。同じ同期キーを使っている端末であれば、いくつでも自動で見つけ合います。</p>
-    </div>
-    <div class="faq-item">
-      <h4>Mac 同士や Windows 同士でも使えますか？</h4>
+    </details>
+    <details class="faq-item">
+      <summary><h4>Mac 同士や Windows 同士でも使えますか？</h4></summary>
       <p>使えます。相手が Mac か Windows かは関係なく、同じ同期キーであれば繋がります。</p>
-    </div>
-    <div class="faq-item">
-      <h4>1台のPCでしか使いませんが、意味ありますか？</h4>
+    </details>
+    <details class="faq-item">
+      <summary><h4>1台のPCでしか使いませんが、意味ありますか？</h4></summary>
       <p>あります。同期は使わなくても、消えないクリップボード履歴・ファイルの一時置き場・その場でペーストは単体でそのまま使えます。複数端末は「使うと強力になる」おまけだと思ってください。</p>
-    </div>
-    <div class="faq-item">
-      <h4>コピーした内容はどこかに送信されますか？</h4>
+    </details>
+    <details class="faq-item">
+      <summary><h4>コピーした内容はどこかに送信されますか？</h4></summary>
       <p>同じ LAN 上の、同じ「同期キー」を持つデバイスにしか送られません。外部のサーバーやクラウドは経由しません。</p>
-    </div>
-    <div class="faq-item">
-      <h4>通信は暗号化されていますか？</h4>
+    </details>
+    <details class="faq-item">
+      <summary><h4>通信は暗号化されていますか？</h4></summary>
       <p>されています。同期キーから作った鍵で、やり取りする内容(メタデータもファイル本体も)を暗号化しています。合言葉を知らない相手には、同じネットワークにいても中身を読み取れません。</p>
-    </div>
-    <div class="faq-item">
-      <h4>Universal Clipboard や類似ツールと何が違いますか？</h4>
+    </details>
+    <details class="faq-item">
+      <summary><h4>Universal Clipboard や類似ツールと何が違いますか？</h4></summary>
       <p>Mac と Windows の組み合わせで動き、クラウドを経由せず、通信も暗号化されていて、無料でオープンソースです。この5つを同時に満たすツールとして作りました。</p>
-    </div>
+    </details>
   </div>
 </section>
 
