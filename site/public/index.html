@@ -282,6 +282,10 @@
      ここだけそれより広く出せるよう上書きする */
   .os-compare{position:relative;width:325px;text-align:left;--split:100%;--handle-pos:100%;}
   .os-compare .brd{max-width:325px;}
+  /* 本物のdrop-zoneは常に480px固定(スクロール前提)だが、ここは件数固定の
+     静止デモなので高さを中身に合わせる。480pxのまま出すとアイテムの下に
+     大きな余白ができて、パネル全体が不自然に縦長に見えてしまうため */
+  .os-compare .brd .drop-zone{height:auto;overflow:visible;}
   /* isolation:isolate が無いと、macパネル内の.segment-item(z-index:1)が.os-compareの
      スタッキングコンテキストに直接参加し、winパネル(z-index:auto)より上に漏れて出てしまう */
   /* z-indexを明示しないと、macの中身(isolationでできた独立スタック)がwinより
@@ -325,7 +329,7 @@
   }
   /* gapは、ハンドルのオーバーシュート(最大108%側)+グリップの半径がtraitsの文字に
      被らないだけの余白を確保する必要がある (320px*8% + グリップ半径16px ≒ 42px) */
-  .os-compare-wrap{display:flex;align-items:flex-start;justify-content:center;gap:56px;margin-top:40px;}
+  .os-compare-wrap{display:flex;align-items:flex-start;justify-content:center;gap:72px;margin-top:40px;}
   .os-compare-col{display:flex;flex-direction:column;gap:16px;flex:0 0 auto;}
   .os-compare-heading{display:flex;align-items:center;gap:10px;font-family:var(--display);font-size:17px;font-weight:700;color:var(--ink);}
   .os-compare-heading img{width:32px;height:32px;border-radius:8px;flex-shrink:0;box-shadow:0 1px 2px rgba(0,0,0,0.12);}
@@ -2208,7 +2212,7 @@
     var lastPct = initial;
     function setSplit(pct) {
       lastPct = pct;
-      var handlePct = Math.max(-8, Math.min(108, pct));
+      var handlePct = Math.max(-15, Math.min(115, pct));
       var clipPct = Math.max(0, Math.min(100, pct));
       // %のままだと境目が小数px(サブピクセル)になり、macとwinの2枚の境目に
       // アンチエイリアスでうっすら混ざって、ghost文字が見えてしまう。
