@@ -278,7 +278,13 @@
      訪問者のOSで決め、あとは自由にドラッグして見比べさせる ---- */
   /* 本物の実測幅(325px)に合わせる。.brd自体は320pxでmax-widthされているので、
      ここだけそれより広く出せるよう上書きする */
-  .os-compare{position:relative;width:325px;text-align:left;--split:100%;--handle-pos:100%;}
+  /* .detail-soloの標準max-width(640px)だと、traitsの2列(190px×2)+gap(72px×2)+
+     パネル(325px)=849pxが収まらず、flexのデフォルトshrinkでパネルが約295pxまで
+     縮んでいた(実機の325pxより明らかに細く見えるバグの原因)。この節だけ幅を
+     849pxが余裕を持って収まる900pxまで広げる (見出し文はもともと640px分も
+     使っていないので、広げても見た目上センタリングのまま変わらない) */
+  .detail-solo-compare{max-width:900px;}
+  .os-compare{position:relative;width:325px;flex-shrink:0;text-align:left;--split:100%;--handle-pos:100%;}
   /* 本物の実寸(325×600px相当)に固定する。drop-zoneは480px固定(スクロール前提)
      だが、ここは件数固定の静止デモなので中身の高さに合わせて伸縮させ、
      パネル全体としては実機と同じ325×600pxの箱に収める */
@@ -1206,7 +1212,7 @@
 </section>
 
 <section>
-  <div class="detail-solo">
+  <div class="detail-solo detail-solo-compare">
     <p class="eyebrow">smooth by design</p>
     <h3>Mac では Mac らしく、<br>Windows では Windows らしく。</h3>
     <p>郷に入っては、郷に従え。細かい動きまで、それぞれの作法にならう。まるで、はじめからそこにいたみたいに。</p>
