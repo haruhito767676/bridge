@@ -278,7 +278,7 @@
   /* ---- os-compare: 同じ内容のパネルを2枚重ね、ハンドルより左をmac/右をwinで
      clip-pathで出し分けるビフォーアフター比較スライダー。バー位置は初期表示だけ
      訪問者のOSで決め、あとは自由にドラッグして見比べさせる ---- */
-  .os-compare{position:relative;width:320px;margin:40px auto 0;text-align:left;--split:100%;--handle-pos:108%;}
+  .os-compare{position:relative;width:320px;text-align:left;--split:100%;--handle-pos:108%;}
   /* isolation:isolate が無いと、macパネル内の.segment-item(z-index:1)が.os-compareの
      スタッキングコンテキストに直接参加し、winパネル(z-index:auto)より上に漏れて出てしまう */
   .os-compare-mac{isolation:isolate;}
@@ -294,19 +294,22 @@
     background:#fff;box-shadow:0 4px 14px rgba(0,0,0,0.28),0 0 0 1px rgba(0,0,0,0.06);
     display:flex;align-items:center;justify-content:center;color:var(--ink-dim);
   }
-  .os-compare-label{position:absolute;top:-26px;font-family:var(--mono);font-size:11px;font-weight:600;color:var(--ink-faint);letter-spacing:0.04em;}
-  .os-compare-label-mac{left:0;}
-  .os-compare-label-win{right:0;}
   /* gapは、ハンドルのオーバーシュート(最大108%側)+グリップの半径がtraitsの文字に
      被らないだけの余白を確保する必要がある (320px*8% + グリップ半径16px ≒ 42px) */
-  .os-compare-wrap{display:flex;align-items:center;justify-content:center;gap:56px;}
-  .os-compare-traits{list-style:none;margin:0;padding:0;width:190px;flex:0 0 auto;display:flex;flex-direction:column;gap:14px;font-size:13.5px;line-height:1.5;color:var(--ink-dim);}
+  .os-compare-wrap{display:flex;align-items:flex-start;justify-content:center;gap:56px;margin-top:40px;}
+  .os-compare-col{display:flex;flex-direction:column;gap:16px;flex:0 0 auto;}
+  .os-compare-heading{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12px;font-weight:600;color:var(--ink-faint);letter-spacing:0.04em;}
+  .os-compare-heading img{width:20px;height:20px;border-radius:5px;flex-shrink:0;}
+  .os-compare-col:has(.os-compare-traits-mac) .os-compare-heading{justify-content:flex-end;}
+  .os-compare-traits{list-style:none;margin:0;padding:0;width:190px;display:flex;flex-direction:column;gap:14px;font-size:13.5px;line-height:1.5;color:var(--ink-dim);}
   .os-compare-traits-mac{text-align:right;}
   .os-compare-traits-win{text-align:left;}
   @media (max-width:860px){
-    .os-compare-wrap{flex-direction:column;gap:16px;}
+    .os-compare-wrap{flex-direction:column;align-items:center;gap:16px;}
+    .os-compare-col{width:100%;align-items:center;}
     .os-compare-traits{width:100%;flex-direction:row;justify-content:center;flex-wrap:wrap;gap:8px 20px;}
     .os-compare-traits-mac,.os-compare-traits-win{text-align:center;}
+    .os-compare-col:has(.os-compare-traits-mac) .os-compare-heading{justify-content:center;}
   }
 
   /* ---- relatable: 「こんなこと、していませんか？」の"あるある"リスト。
@@ -702,14 +705,17 @@
     </ul>
 
     <div class="os-compare-wrap">
-      <ul class="os-compare-traits os-compare-traits-mac">
-        <li>すりガラスの質感</li>
-        <li>バネで滑らかに開閉</li>
-        <li>タブがスーッと動く</li>
-        <li>メニューバーに進捗表示</li>
-        <li>⌘+C ですぐ格納</li>
-        <li>出身のわかるアイコン</li>
-      </ul>
+      <div class="os-compare-col">
+        <div class="os-compare-heading"><img src="../icons/finder.png" alt="" />macOS</div>
+        <ul class="os-compare-traits os-compare-traits-mac">
+          <li>すりガラスの質感</li>
+          <li>バネで滑らかに開閉</li>
+          <li>タブがスーッと動く</li>
+          <li>メニューバーに進捗表示</li>
+          <li>⌘+C ですぐ格納</li>
+          <li>出身のわかるアイコン</li>
+        </ul>
+      </div>
 
     <div class="os-compare" id="os-compare">
       <div class="os-compare-panel os-compare-mac">
@@ -901,18 +907,19 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M8 6L2 12l6 6M16 6l6 6-6 6"/></svg>
         </div>
       </div>
-      <span class="os-compare-label os-compare-label-mac">macOS</span>
-      <span class="os-compare-label os-compare-label-win">Windows</span>
     </div>
 
-      <ul class="os-compare-traits os-compare-traits-win">
-        <li>Fluent Design のフライアウト</li>
-        <li>通知領域の作法</li>
-        <li>下線タブでパッと切替</li>
-        <li>トレイに進捗を表示</li>
-        <li>Ctrl+C ですぐ格納</li>
-        <li>フルスクリーンを邪魔しない</li>
-      </ul>
+      <div class="os-compare-col">
+        <div class="os-compare-heading"><img src="../icons/windows.png" alt="" />Windows</div>
+        <ul class="os-compare-traits os-compare-traits-win">
+          <li>Fluent Design のフライアウト</li>
+          <li>通知領域の作法</li>
+          <li>下線タブでパッと切替</li>
+          <li>トレイに進捗を表示</li>
+          <li>Ctrl+C ですぐ格納</li>
+          <li>フルスクリーンを邪魔しない</li>
+        </ul>
+      </div>
     </div>
   </div>
 </section>
