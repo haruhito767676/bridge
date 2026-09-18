@@ -281,11 +281,11 @@
   /* 本物の実測幅(325px)に合わせる。.brd自体は320pxでmax-widthされているので、
      ここだけそれより広く出せるよう上書きする */
   .os-compare{position:relative;width:325px;text-align:left;--split:100%;--handle-pos:100%;}
-  .os-compare .brd{max-width:325px;}
-  /* 本物のdrop-zoneは常に480px固定(スクロール前提)だが、ここは件数固定の
-     静止デモなので高さを中身に合わせる。480pxのまま出すとアイテムの下に
-     大きな余白ができて、パネル全体が不自然に縦長に見えてしまうため */
-  .os-compare .brd .drop-zone{height:auto;overflow:visible;}
+  /* 本物の実寸(325×600px相当)に固定する。drop-zoneは480px固定(スクロール前提)
+     だが、ここは件数固定の静止デモなので中身の高さに合わせて伸縮させ、
+     パネル全体としては実機と同じ325×600pxの箱に収める */
+  .os-compare .brd{max-width:325px;height:600px;display:flex;flex-direction:column;overflow:hidden;}
+  .os-compare .brd .drop-zone{flex:1;height:auto;overflow:hidden;}
   /* isolation:isolate が無いと、macパネル内の.segment-item(z-index:1)が.os-compareの
      スタッキングコンテキストに直接参加し、winパネル(z-index:auto)より上に漏れて出てしまう */
   /* z-indexを明示しないと、macの中身(isolationでできた独立スタック)がwinより
@@ -327,6 +327,9 @@
     display:block;-webkit-line-clamp:unset;-webkit-box-orient:unset;
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
   }
+  /* 325×600pxの箱に9件をちょうど収めるため、行間だけ詰める
+     (アイテム自体の余白は変えず、行と行の隙間だけ縮める) */
+  .os-compare .brd .file-item{padding-top:4px;padding-bottom:4px;margin-bottom:0;}
   /* gapは、ハンドルのオーバーシュート(最大108%側)+グリップの半径がtraitsの文字に
      被らないだけの余白を確保する必要がある (320px*8% + グリップ半径16px ≒ 42px) */
   .os-compare-wrap{display:flex;align-items:flex-start;justify-content:center;gap:72px;margin-top:40px;}
@@ -2206,7 +2209,7 @@
     if (!root || !handle) return;
 
     var ua = navigator.userAgent || '';
-    var initial = /Win/i.test(ua) ? 0 : 100;
+    var initial = /Win/i.test(ua) ? -15 : 115;
     setSplit(initial);
 
     var lastPct = initial;
@@ -2223,10 +2226,12 @@
     }
 
     // 端から10%以内で指を離したら、その端まで一気に寄せる。footerの設定ボタンなど、
-    // パネル端すれすれの要素が細い隙間から半端に見切れた状態で止まらないようにする
+    // パネル端すれすれの要素が細い隙間から半端に見切れた状態で止まらないようにする。
+    // ハンドル自体はBridge本体の端ぴったりに密着させず、少しはみ出した位置で止める
+    // (clip側は0/100%のままなので表示上はどちらかのOSに完全に切り替わる)
     function settle() {
-      if (lastPct <= 10) setSplit(0);
-      else if (lastPct >= 90) setSplit(100);
+      if (lastPct <= 10) setSplit(-15);
+      else if (lastPct >= 90) setSplit(115);
     }
 
     function pctFromEvent(e) {
