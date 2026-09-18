@@ -229,10 +229,15 @@
   .persona-card{display:flex;flex-direction:column;align-items:center;gap:12px;flex:0 0 auto;}
   .persona-label{font-size:12.5px;font-weight:600;color:var(--ink-dim);}
   .persona-frame{
-    width:236px;height:450px;overflow:hidden;border-radius:14px;
+    width:300px;height:572px;overflow:hidden;border-radius:14px;
     box-shadow:0 20px 50px -24px rgba(20,20,25,0.3),0 0 0 1px var(--line);
   }
-  .persona-frame .brd{transform:scale(0.7375);transform-origin:top left;}
+  .persona-frame .brd{transform:scale(0.9375);transform-origin:top left;}
+  /* 300pxだと狭い画面で.wrapの左右余白を超えてはみ出すため、860px以下は元の縮小率に戻す */
+  @media (max-width:860px){
+    .persona-frame{width:236px;height:450px;}
+    .persona-frame .brd{transform:scale(0.7375);}
+  }
   /* .featuresは共有の860pxブレークポイントより広い1000pxで先に縦積みへ切り替える
      (このカード数だと860〜1000px幅で1行タイトルが収まりきらなくなるため、
      他セクションと同じブレークポイントを流用せずここだけ独自に早める) */
