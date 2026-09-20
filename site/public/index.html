@@ -289,6 +289,12 @@
   .privacy-text .checklist{display:inline-flex;margin:20px auto 0;}
   .privacy-text .checklist li{color:#3c5c44;}
   .privacy-text .checklist li::before{color:var(--ok);}
+  .privacy-policy-link{
+    display:flex;justify-content:center;align-items:center;gap:6px;margin-top:24px;
+    font-size:13.5px;font-weight:600;color:#2f5138;
+  }
+  .privacy-policy-link svg{width:13px;height:13px;transition:transform 0.15s;}
+  .privacy-policy-link:hover svg{transform:translateX(3px);}
   .privacy-diagram{display:flex;justify-content:center;margin-top:40px;}
   .privacy-diagram svg{width:100%;max-width:700px;}
   /* 個別の「パケット」を動かすと、静止画で捉えたときに端末の脇に染みのような点が
@@ -1526,6 +1532,10 @@
         <li>やり取りの中身も、合言葉から作った鍵で<span style="white-space:nowrap;">暗号化される</span></li>
         <li>コードも MIT ライセンスで公開。動作は自分の目で確認できる</li>
       </ul>
+      <a class="privacy-policy-link" href="privacy.html">
+        <span>プライバシーポリシーを読む</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+      </a>
     </div>
     <div class="privacy-diagram" id="privacy-diagram">
       <svg viewBox="0 0 700 380" role="img" aria-label="同じネットワークの中で、3台の端末が自宅のルーターだけを経由して暗号化されたやり取りをしていて、外部サーバーへの経路は途中で遮断されている図">
