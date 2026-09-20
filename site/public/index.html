@@ -61,34 +61,21 @@
      (iOS/macOSのツールバーと同じ手法)は、ぼかし量を少しずつ弱めた層を
      複数重ね、それぞれをマスクで違う範囲にフェードさせて作る ---- */
   .site-header{position:sticky;top:0;z-index:50;}
-  .header-glass{position:absolute;left:0;right:0;top:0;height:calc(100% + 96px);pointer-events:none;z-index:-1;opacity:0;transition:opacity 0.25s ease;}
+  .header-glass{position:absolute;left:0;right:0;top:0;height:calc(100% + 56px);pointer-events:none;z-index:-1;opacity:0;transition:opacity 0.25s ease;}
   .site-header.scrolled .header-glass{opacity:1;}
   .header-glass span{position:absolute;inset:0;}
-  /* 4層それぞれの「消える位置」を大きくずらして重ねる: どの深さでも必ず
-     1〜2層は薄く効いている状態を作ることで、合成結果がなめらかな連続に見える */
-  .header-glass span:nth-child(1){
-    background:rgba(251,251,250,0.55);
-    backdrop-filter:blur(24px) saturate(1.6);-webkit-backdrop-filter:blur(24px) saturate(1.6);
-    -webkit-mask-image:linear-gradient(to bottom, #000 0%, #000 46%, transparent 65%);
-    mask-image:linear-gradient(to bottom, #000 0%, #000 46%, transparent 65%);
-  }
-  .header-glass span:nth-child(2){
-    background:rgba(251,251,250,0.45);
-    backdrop-filter:blur(13px) saturate(1.5);-webkit-backdrop-filter:blur(13px) saturate(1.5);
-    -webkit-mask-image:linear-gradient(to bottom, #000 0%, #000 55%, transparent 80%);
-    mask-image:linear-gradient(to bottom, #000 0%, #000 55%, transparent 80%);
-  }
-  .header-glass span:nth-child(3){
-    background:rgba(251,251,250,0.35);
-    backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
-    -webkit-mask-image:linear-gradient(to bottom, #000 0%, #000 65%, transparent 92%);
-    mask-image:linear-gradient(to bottom, #000 0%, #000 65%, transparent 92%);
-  }
-  .header-glass span:nth-child(4){
-    background:rgba(251,251,250,0.35);
-    -webkit-mask-image:linear-gradient(to bottom, #000 0%, #000 75%, transparent 100%);
-    mask-image:linear-gradient(to bottom, #000 0%, #000 75%, transparent 100%);
-  }
+  /* 8層、消える位置を少しずつずらして重ねる: どの深さでも常に複数層が薄く
+     効いている状態を作ることで、合成結果がなめらかな連続に見える。
+     表示範囲(header-glassの高さ)自体も96px→56pxへ縮め、フェードが
+     ヒーローの奥まで間延びしないようにしている */
+  .header-glass span:nth-child(1){background:rgba(251,251,250,0.42);backdrop-filter:blur(22px) saturate(1.6);-webkit-backdrop-filter:blur(22px) saturate(1.6);-webkit-mask-image:linear-gradient(to bottom,#000 0%,#000 32%,transparent 50%);mask-image:linear-gradient(to bottom,#000 0%,#000 32%,transparent 50%);}
+  .header-glass span:nth-child(2){background:rgba(251,251,250,0.38);backdrop-filter:blur(17px) saturate(1.55);-webkit-backdrop-filter:blur(17px) saturate(1.55);-webkit-mask-image:linear-gradient(to bottom,#000 0%,#000 38%,transparent 57%);mask-image:linear-gradient(to bottom,#000 0%,#000 38%,transparent 57%);}
+  .header-glass span:nth-child(3){background:rgba(251,251,250,0.34);backdrop-filter:blur(13px) saturate(1.5);-webkit-backdrop-filter:blur(13px) saturate(1.5);-webkit-mask-image:linear-gradient(to bottom,#000 0%,#000 44%,transparent 64%);mask-image:linear-gradient(to bottom,#000 0%,#000 44%,transparent 64%);}
+  .header-glass span:nth-child(4){background:rgba(251,251,250,0.30);backdrop-filter:blur(9px) saturate(1.45);-webkit-backdrop-filter:blur(9px) saturate(1.45);-webkit-mask-image:linear-gradient(to bottom,#000 0%,#000 50%,transparent 71%);mask-image:linear-gradient(to bottom,#000 0%,#000 50%,transparent 71%);}
+  .header-glass span:nth-child(5){background:rgba(251,251,250,0.27);backdrop-filter:blur(6px) saturate(1.4);-webkit-backdrop-filter:blur(6px) saturate(1.4);-webkit-mask-image:linear-gradient(to bottom,#000 0%,#000 56%,transparent 78%);mask-image:linear-gradient(to bottom,#000 0%,#000 56%,transparent 78%);}
+  .header-glass span:nth-child(6){background:rgba(251,251,250,0.24);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);-webkit-mask-image:linear-gradient(to bottom,#000 0%,#000 62%,transparent 85%);mask-image:linear-gradient(to bottom,#000 0%,#000 62%,transparent 85%);}
+  .header-glass span:nth-child(7){background:rgba(251,251,250,0.21);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);-webkit-mask-image:linear-gradient(to bottom,#000 0%,#000 68%,transparent 92%);mask-image:linear-gradient(to bottom,#000 0%,#000 68%,transparent 92%);}
+  .header-glass span:nth-child(8){background:rgba(251,251,250,0.20);-webkit-mask-image:linear-gradient(to bottom,#000 0%,#000 74%,transparent 100%);mask-image:linear-gradient(to bottom,#000 0%,#000 74%,transparent 100%);}
   nav{display:flex;align-items:center;justify-content:space-between;padding:22px 0;}
   .brand{display:flex;align-items:center;gap:12px;font-family:var(--display);font-weight:700;font-size:23px;color:var(--ink);}
   .brand img{width:40px;height:40px;border-radius:9px;}
@@ -653,7 +640,7 @@
       <a class="nav-cta" href="#download">ダウンロード</a>
     </nav>
   </div>
-  <div class="header-glass" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+  <div class="header-glass" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
 </header>
 
 <div class="hero">
