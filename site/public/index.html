@@ -34,7 +34,7 @@
     --mono:'IBM Plex Mono','SF Mono',Menlo,monospace;
   }
   *{box-sizing:border-box;}
-  html{color-scheme:light;scroll-behavior:smooth;}
+  html{color-scheme:light;scroll-behavior:smooth;scroll-padding-top:88px;}
   @media (prefers-reduced-motion: reduce){ html{scroll-behavior:auto;} }
   body{
     margin:0;background:var(--paper);color:var(--ink);
@@ -54,12 +54,18 @@
   p:last-child{margin-bottom:0;}
   .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:0.06em;text-transform:uppercase;color:var(--accent);margin:0 0 12px;font-weight:500;}
 
-  /* ---- nav ---- */
+  /* ---- nav: 常時position:stickyにしておき、スクロール量に応じて背景/ぼかし/影だけ
+     JSでtoggleする (上端では透明、ヒーローを過ぎたらすりガラス化) ---- */
+  .site-header{position:sticky;top:0;z-index:50;background:transparent;transition:background 0.2s,box-shadow 0.2s;}
+  .site-header.scrolled{
+    background:rgba(251,251,250,0.78);backdrop-filter:blur(16px) saturate(1.6);-webkit-backdrop-filter:blur(16px) saturate(1.6);
+    box-shadow:0 1px 0 var(--line);
+  }
   nav{display:flex;align-items:center;justify-content:space-between;padding:22px 0;}
   .brand{display:flex;align-items:center;gap:12px;font-family:var(--display);font-weight:700;font-size:23px;color:var(--ink);}
   .brand img{width:40px;height:40px;border-radius:9px;}
   nav .links{display:flex;gap:26px;font-size:14px;font-weight:500;color:var(--ink-dim);}
-  nav .links a{color:var(--ink-dim);}
+  nav .links a{color:var(--ink-dim);transition:color 0.15s;}
   nav .links a:hover{color:var(--ink);}
   nav .nav-cta{
     font-family:var(--sans);font-weight:600;font-size:13.5px;color:#fff;background:var(--ink);
@@ -605,18 +611,21 @@
 </head>
 <body>
 
-<div class="wrap">
-  <nav>
-    <div class="brand"><img src="icon.png" alt="Bridge" />Bridge</div>
-    <div class="links">
-      <a href="#features">機能</a>
-      <a href="#privacy">プライバシー</a>
-      <a href="#faq">よくある質問</a>
-      <a href="https://github.com/haruhito767676/bridge" target="_blank" rel="noopener">GitHub</a>
-    </div>
-    <a class="nav-cta" href="#download">ダウンロード</a>
-  </nav>
-</div>
+<header class="site-header" id="site-header">
+  <div class="wrap">
+    <nav>
+      <div class="brand"><img src="icon.png" alt="Bridge" />Bridge</div>
+      <div class="links">
+        <a href="#features">機能</a>
+        <a href="#privacy">プライバシー</a>
+        <a href="#getting-started">はじめかた</a>
+        <a href="#faq">よくある質問</a>
+        <a href="https://github.com/haruhito767676/bridge" target="_blank" rel="noopener">GitHub</a>
+      </div>
+      <a class="nav-cta" href="#download">ダウンロード</a>
+    </nav>
+  </div>
+</header>
 
 <div class="hero">
   <div class="wrap">
@@ -2408,6 +2417,18 @@
       });
     }, { threshold: 0.4 });
     observer.observe(diagram);
+  })();
+</script>
+<script>
+  // ---- ヘッダー: 上端にいる間は透明、少しでもスクロールしたらすりガラス化する ----
+  (function () {
+    var header = document.getElementById('site-header');
+    if (!header) return;
+    function sync() {
+      header.classList.toggle('scrolled', window.scrollY > 8);
+    }
+    sync();
+    window.addEventListener('scroll', sync, { passive: true });
   })();
 </script>
 <script>
