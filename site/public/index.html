@@ -32,9 +32,11 @@
     --display:'Sora','Hiragino Sans',sans-serif;
     --sans:'IBM Plex Sans','Hiragino Sans','Yu Gothic',sans-serif;
     --mono:'IBM Plex Mono','SF Mono',Menlo,monospace;
+    --header-h:84px; /* nav実測: padding22px*2 + brandアイコン40px。stickyヘッダーに
+       隠れる分だけ、アンカー着地位置とlaptop-stageの静止位置をずらすのに使う */
   }
   *{box-sizing:border-box;}
-  html{color-scheme:light;scroll-behavior:smooth;scroll-padding-top:88px;}
+  html{color-scheme:light;scroll-behavior:smooth;scroll-padding-top:var(--header-h);}
   @media (prefers-reduced-motion: reduce){ html{scroll-behavior:auto;} }
   body{
     margin:0;background:var(--paper);color:var(--ink);
@@ -107,7 +109,10 @@
      (ビューポート幅ごとのtransform-origin計算が要らず、実装・表示とも安定するため) */
   .laptop-stage{margin-top:56px;height:280vh;position:relative;}
   .laptop-stage-inner{
-    position:sticky;top:0;height:100vh;
+    /* ヘッダーがposition:stickyで上に乗るようになったので、その分だけ静止位置を
+       下げ、高さも可視領域(100vh - ヘッダー高さ)に合わせる。そうしないとデモの
+       上端がヘッダーの下に隠れたまま止まってしまう */
+    position:sticky;top:var(--header-h);height:calc(100vh - var(--header-h));
     display:flex;align-items:center;justify-content:center;
     background:radial-gradient(120% 100% at 50% 0%, var(--panel) 0%, var(--paper) 62%);
     /* overflow:hiddenだと、ズームでlaptop-cropが100vhを超えたときに下側だけ
