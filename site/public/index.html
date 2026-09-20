@@ -54,13 +54,20 @@
   p:last-child{margin-bottom:0;}
   .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:0.06em;text-transform:uppercase;color:var(--accent);margin:0 0 12px;font-weight:500;}
 
-  /* ---- nav: 常時position:stickyにしておき、スクロール量に応じて背景/ぼかし/影だけ
-     JSでtoggleする (上端では透明、ヒーローを過ぎたらすりガラス化) ---- */
-  .site-header{position:sticky;top:0;z-index:50;background:transparent;transition:background 0.2s,box-shadow 0.2s;}
-  .site-header.scrolled{
-    background:rgba(251,251,250,0.78);backdrop-filter:blur(16px) saturate(1.6);-webkit-backdrop-filter:blur(16px) saturate(1.6);
-    box-shadow:0 1px 0 var(--line);
+  /* ---- nav: 常時position:stickyにしておき、スクロール量に応じてすりガラス面の
+     不透明度だけJSでtoggleする (上端では透明、ヒーローを過ぎたらすりガラス化)。
+     ::beforeをnav本体より下に伸ばし、mask-imageで下端をtransparentへ抜くことで、
+     本体との境界を硬いラインではなく徐々に薄れるフェードにしている ---- */
+  .site-header{position:sticky;top:0;z-index:50;}
+  .site-header::before{
+    content:'';position:absolute;left:0;right:0;top:0;height:calc(100% + 56px);
+    background:rgba(251,251,250,0.85);
+    backdrop-filter:blur(18px) saturate(1.6);-webkit-backdrop-filter:blur(18px) saturate(1.6);
+    -webkit-mask-image:linear-gradient(to bottom, #000 0%, #000 55%, transparent 100%);
+    mask-image:linear-gradient(to bottom, #000 0%, #000 55%, transparent 100%);
+    opacity:0;transition:opacity 0.25s ease;pointer-events:none;z-index:-1;
   }
+  .site-header.scrolled::before{opacity:1;}
   nav{display:flex;align-items:center;justify-content:space-between;padding:22px 0;}
   .brand{display:flex;align-items:center;gap:12px;font-family:var(--display);font-weight:700;font-size:23px;color:var(--ink);}
   .brand img{width:40px;height:40px;border-radius:9px;}
@@ -614,7 +621,7 @@
 <header class="site-header" id="site-header">
   <div class="wrap">
     <nav>
-      <div class="brand"><img src="icon.png" alt="Bridge" />Bridge</div>
+      <a class="brand" href="#"><img src="icon.png" alt="Bridge" />Bridge</a>
       <div class="links">
         <a href="#features">機能</a>
         <a href="#privacy">プライバシー</a>
