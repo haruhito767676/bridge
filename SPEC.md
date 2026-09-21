@@ -166,7 +166,7 @@ Windows では macOS 向けの「毎フレームの `setBounds`」と「カー�
 | `getPathForFile(file)` | — | 同期 | `webUtils.getPathForFile` で File の絶対パス取得（Electron 32+ の `File.path` 廃止対応） |
 | `startDrag(paths)` | `ondragstart` | send | OS ネイティブドラッグアウト（複数可、先頭ファイルのアイコン付与） |
 | `getFileIcon(path)` | `get-file-icon` | invoke | OS 標準ファイルアイコンの Data URL（失敗時 null） |
-| `getFileKind(path)` | `get-file-kind` | invoke | 種類ラベル。フォルダ → `"フォルダ"`、macOS → `mdls kMDItemKind`、他 → 拡張子から生成 |
+| `getFileKind(path)` | `get-file-kind` | invoke | 種類ラベル。フォルダ → `"フォルダ"`(macOS) / `"フォルダー"`(Windows)、macOS のファイル → `mdls kMDItemKind`、他 → 拡張子から生成 |
 | `downloadUrl(url)` | `download-url` | invoke | http(s) を `userData/downloads/` へ保存 → `{ path, name }`。拡張子欠落は Content-Type から補完 |
 | `saveTextSnippet(text)` | `save-text-snippet` | invoke | `snippet_<dt>.txt` として保存（一時ファイル追跡対象） |
 | `getDeviceInfo()` | `get-device-info` | invoke | `{ device, platform }`（バッジのローカル判定用） |

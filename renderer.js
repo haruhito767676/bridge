@@ -218,9 +218,14 @@ searchBar.addEventListener('keydown', (e) => {
   }
 });
 
-// 実体がフォルダになっているか (Finder 純正の種類名で判定。取得前は false)
+// 実体がフォルダになっているか (Finder / Explorer 純正の種類名で判定。取得前は false)
 function isFolderPath(item) {
-  return item.fileKind === 'フォルダ' || item.fileKind === 'Folder' || item.fileKind === 'ファイル フォルダー';
+  return (
+    item.fileKind === 'フォルダ' ||
+    item.fileKind === 'フォルダー' ||
+    item.fileKind === 'Folder' ||
+    item.fileKind === 'ファイル フォルダー'
+  );
 }
 
 // テキスト履歴が「1 本の URL」かどうか (リンクとして開けるもの)
@@ -1661,7 +1666,7 @@ function render() {
     } else if (item.downloading || item.syncing) {
       titleEl.textContent = item.name;
     } else {
-      const isRealFile = item.kind === 'file' && item.fileKind !== 'フォルダ';
+      const isRealFile = item.kind === 'file' && !isFolderPath(item);
       titleEl.textContent = formatFileName(item.name, isRealFile);
     }
 

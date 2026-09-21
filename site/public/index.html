@@ -2079,7 +2079,12 @@
   var isWin = root.classList.contains('win-skin');
   function winIcon(path) {
     if (!isWin || !path) return path;
-    return path.replace(/(file-[a-z0-9]+|terminal)\.png$/i, '$1-win.png');
+    return path.replace(/(file-[a-z0-9]+|terminal|folder)\.png$/i, '$1-win.png');
+  }
+  // Windows は「フォルダー」表記 (Explorerの種類列と同じ長音付き)。macOSの「フォルダ」と分ける
+  function winMeta(meta) {
+    if (!isWin || !meta) return meta;
+    return meta.replace(/^フォルダ(?!ー)/, 'フォルダー');
   }
 
   // デバイス絞り込み: 右クリックメニュー「◯◯のアイテムだけ表示」から入る一時的な状態
@@ -2290,7 +2295,7 @@
 
       var metaLine = document.createElement('div');
       metaLine.className = 'item-meta-line';
-      metaLine.textContent = item.meta;
+      metaLine.textContent = winMeta(item.meta);
       if (item.pinned) {
         var pinIcon = glyph('pin');
         pinIcon.classList.add('meta-pin');

@@ -1288,7 +1288,8 @@ function extensionFallbackKind(filePath) {
 async function getFileKindLabel(filePath) {
   try {
     const stat = await fsp.stat(filePath);
-    if (stat.isDirectory()) return 'フォルダ';
+    // Windows Explorer の「種類」列は長音付きの「フォルダー」。macOS Finder は長音なしの「フォルダ」
+    if (stat.isDirectory()) return process.platform === 'win32' ? 'フォルダー' : 'フォルダ';
   } catch {
     // stat に失敗した場合もフォールバックへ進む (mdls 側の失敗判定に委ねる)
   }
