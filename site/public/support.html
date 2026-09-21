@@ -22,7 +22,8 @@
     --mono:'IBM Plex Mono','SF Mono',Menlo,monospace;
   }
   *{box-sizing:border-box;}
-  html{color-scheme:light;}
+  html{color-scheme:light;scroll-behavior:smooth;}
+  @media (prefers-reduced-motion: reduce){ html{scroll-behavior:auto;} }
   body{
     margin:0;background:var(--paper);color:var(--ink);
     font-family:var(--sans);font-size:16px;line-height:1.75;
@@ -36,8 +37,8 @@
   .wrap{max-width:720px;margin:0 auto;padding:0 28px;}
 
   nav{display:flex;align-items:center;justify-content:space-between;padding:22px 0;max-width:1080px;margin:0 auto;padding-left:28px;padding-right:28px;}
-  .brand{display:flex;align-items:center;gap:11px;font-family:var(--display);font-weight:700;font-size:20px;color:var(--ink);}
-  .brand img{width:34px;height:34px;border-radius:8px;}
+  .brand{display:flex;align-items:center;gap:12px;font-family:var(--display);font-weight:700;font-size:23px;color:var(--ink);}
+  .brand img{width:40px;height:40px;border-radius:9px;}
 
   main{padding:24px 0 96px;}
   h1{font-family:var(--display);font-weight:700;letter-spacing:-0.01em;font-size:32px;margin:0 0 8px;color:var(--ink);}
@@ -73,21 +74,20 @@
   }
   .issue-icon svg{width:19px;height:19px;stroke:var(--accent);}
   .issue h2{margin:0;font-size:17px;}
-  .os-tag{display:inline-flex;align-items:center;gap:7px;font-size:14.5px;margin:18px 0 8px;color:var(--ink);font-weight:600;}
-  .os-tag img{width:17px;height:17px;border-radius:4px;}
+  .os-tag{display:inline-flex;align-items:center;gap:11px;font-size:15.5px;margin:18px 0 10px;color:var(--ink);font-weight:600;}
+  .os-tag img{width:32px;height:32px;border-radius:8px;}
   .issue p,.issue ul{font-size:14.5px;}
   .issue ul{margin-bottom:10px;}
   .issue ul li::marker{color:var(--ink-faint);}
 
-  /* 番号付き手順: ブラウザ標準の数字ではなく、アクセントカラーの丸番号にする */
+  /* 番号付き手順: 丸背景は主張が強すぎたので、色付きの番号だけのシンプルな見た目にする */
   .issue ol{list-style:none;margin:0 0 12px;padding:0;counter-reset:step;}
   .issue ol li{
-    counter-increment:step;position:relative;padding-left:32px;margin-bottom:9px;min-height:21px;
+    counter-increment:step;position:relative;padding-left:24px;margin-bottom:9px;
   }
   .issue ol li::before{
-    content:counter(step);position:absolute;left:0;top:1px;width:21px;height:21px;border-radius:50%;
-    background:var(--accent);color:#fff;font-family:var(--display);font-weight:700;font-size:11.5px;
-    display:flex;align-items:center;justify-content:center;
+    content:counter(step) ".";position:absolute;left:0;top:0;
+    color:var(--accent);font-family:var(--display);font-weight:700;
   }
   .note{
     display:flex;gap:8px;font-size:13.5px;color:var(--ink-faint);background:rgba(255,255,255,0.6);
