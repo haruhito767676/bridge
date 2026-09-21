@@ -1200,10 +1200,13 @@ ipcMain.on('shelter-hold-pointer', (_event, holding) => {
   rendererHoldsPointer = Boolean(holding);
 });
 
-// ---- リスト表示用のファイルアイコン (Finder と同じ OS 標準アイコン) ----
+// ---- リスト表示用のファイルアイコン (Finder / Explorer と同じ OS 標準アイコン) ----
+// size: 'normal' (32px) だと、Windows は SHGetFileInfo が返す小サイズ側の簡略化された
+// アイコン (フォルダなど特に、実際の Explorer が使う大きいサイズの絵と質感が違って見える)
+// になりがちなので、'large' (Windows 48px) を要求して高解像度側の絵を取る
 ipcMain.handle('get-file-icon', async (_event, filePath) => {
   try {
-    const icon = await app.getFileIcon(filePath, { size: 'normal' });
+    const icon = await app.getFileIcon(filePath, { size: 'large' });
     return icon.toDataURL();
   } catch {
     return null;
