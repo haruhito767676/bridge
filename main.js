@@ -1204,7 +1204,69 @@ ipcMain.on('shelter-hold-pointer', (_event, holding) => {
 // size: 'normal' (32px) だと、Windows は SHGetFileInfo が返す小サイズ側の簡略化された
 // アイコン (フォルダなど特に、実際の Explorer が使う大きいサイズの絵と質感が違って見える)
 // になりがちなので、'large' (Windows 48px) を要求して高解像度側の絵を取る
+//
+// Windows のフォルダに限っては、Electron の app.getFileIcon がなぜか本来のフォルダアイコン
+// ではなく汎用の「PC」アイコンを返してしまう (実機検証で確認済み。ファイルは正しく取れる)。
+// そのため Explorer 自身と同じ SHGetFileInfo を PowerShell 経由で直接呼び、実際にその
+// パスが Explorer 上でどう見えるか (既定の黄色いフォルダ、カスタムアイコン設定済みの
+// フォルダも含めて) をそのまま取得する
+async function getWindowsDirectoryIconDataUrl(dirPath) {
+  const tmpPng = path.join(os.tmpdir(), `bridge-dir-icon-${crypto.randomUUID()}.png`);
+  try {
+    const script = `
+Add-Type -AssemblyName System.Drawing
+Add-Type -Namespace BridgeShell -Name Icons -MemberDefinition @'
+[StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+public struct SHFILEINFO {
+  public IntPtr hIcon;
+  public int iIcon;
+  public uint dwAttributes;
+  [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 260)]
+  public string szDisplayName;
+  [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 80)]
+  public string szTypeName;
+}
+[DllImport("shell32.dll", CharSet = CharSet.Unicode)]
+public static extern IntPtr SHGetFileInfo(string pszPath, uint dwFileAttributes, ref SHFILEINFO psfi, uint cbFileInfo, uint uFlags);
+[DllImport("user32.dll")]
+public static extern bool DestroyIcon(IntPtr hIcon);
+'@
+$SHGFI_ICON = 0x100
+$SHGFI_LARGEICON = 0x0
+$fi = New-Object BridgeShell.Icons+SHFILEINFO
+$size = [System.Runtime.InteropServices.Marshal]::SizeOf($fi)
+[BridgeShell.Icons]::SHGetFileInfo('${dirPath}', 0, [ref]$fi, $size, ($SHGFI_ICON -bor $SHGFI_LARGEICON)) | Out-Null
+if ($fi.hIcon -eq [IntPtr]::Zero) { exit 1 }
+try {
+  $icon = [System.Drawing.Icon]::FromHandle($fi.hIcon)
+  $bmp = $icon.ToBitmap()
+  $bmp.Save('${tmpPng}', [System.Drawing.Imaging.ImageFormat]::Png)
+  $bmp.Dispose()
+} finally {
+  [BridgeShell.Icons]::DestroyIcon($fi.hIcon) | Out-Null
+}
+`;
+    await execFileAsync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], {
+      timeout: 5000,
+      windowsHide: true,
+    });
+    const buf = await fsp.readFile(tmpPng);
+    return `data:image/png;base64,${buf.toString('base64')}`;
+  } finally {
+    fsp.unlink(tmpPng).catch(() => {});
+  }
+}
+
 ipcMain.handle('get-file-icon', async (_event, filePath) => {
+  if (process.platform === 'win32') {
+    try {
+      if ((await fsp.stat(filePath)).isDirectory()) {
+        return await getWindowsDirectoryIconDataUrl(filePath);
+      }
+    } catch {
+      // ディレクトリ判定・専用取得に失敗した場合は通常のアイコン取得へフォールバック
+    }
+  }
   try {
     const icon = await app.getFileIcon(filePath, { size: 'large' });
     return icon.toDataURL();
