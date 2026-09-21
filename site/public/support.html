@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>サポート | Bridge</title>
+<meta name="description" content="Bridge の「見つからない」「起動時に警告が出る」など、よくあるつまずきと対処法。">
+<link rel="icon" href="icon.png" type="image/png">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+  :root{
+    --paper:#fbfbfa;
+    --panel:#f2f1ed;
+    --line:rgba(60,60,67,0.13);
+    --ink:#1d1d1f;
+    --ink-dim:rgba(60,60,67,0.66);
+    --ink-faint:rgba(60,60,67,0.42);
+    --accent:#0a84ff;
+    --display:'Sora','Hiragino Sans',sans-serif;
+    --sans:'IBM Plex Sans','Hiragino Sans','Yu Gothic',sans-serif;
+    --mono:'IBM Plex Mono','SF Mono',Menlo,monospace;
+  }
+  *{box-sizing:border-box;}
+  html{color-scheme:light;}
+  body{
+    margin:0;background:var(--paper);color:var(--ink);
+    font-family:var(--sans);font-size:16px;line-height:1.75;
+    -webkit-font-smoothing:antialiased;
+  }
+  img{max-width:100%;display:block;}
+  a{color:var(--accent);text-decoration:none;}
+  a.plain{color:inherit;}
+  a:hover{text-decoration:underline;}
+
+  .wrap{max-width:720px;margin:0 auto;padding:0 28px;}
+
+  nav{display:flex;align-items:center;justify-content:space-between;padding:22px 0;max-width:1080px;margin:0 auto;padding-left:28px;padding-right:28px;}
+  .brand{display:flex;align-items:center;gap:11px;font-family:var(--display);font-weight:700;font-size:20px;color:var(--ink);}
+  .brand img{width:34px;height:34px;border-radius:8px;}
+
+  main{padding:24px 0 96px;}
+  h1{font-family:var(--display);font-weight:700;letter-spacing:-0.01em;font-size:32px;margin:0 0 8px;color:var(--ink);}
+  .updated{font-family:var(--mono);font-size:12.5px;color:var(--ink-faint);margin:0 0 40px;}
+  h2{font-family:var(--display);font-weight:700;font-size:19px;margin:40px 0 12px;color:var(--ink);}
+  h2:first-of-type{margin-top:0;}
+  h3{font-family:var(--sans);font-weight:600;font-size:15.5px;margin:24px 0 8px;color:var(--ink);}
+  p{margin:0 0 14px;color:var(--ink-dim);font-size:15px;}
+  ul,ol{margin:0 0 14px;padding-left:22px;color:var(--ink-dim);font-size:15px;}
+  li{margin-bottom:4px;}
+  strong{color:var(--ink);font-weight:600;}
+  code{font-family:var(--mono);font-size:0.9em;background:var(--panel);padding:0.15em 0.4em;border-radius:5px;}
+  .lede{background:var(--panel);border-radius:14px;padding:20px 22px;margin:0 0 40px;}
+  .lede p{margin:0;color:var(--ink);font-size:15px;}
+  hr{border:none;border-top:1px solid var(--line);margin:40px 0 20px;}
+  .note{font-size:13.5px;color:var(--ink-faint);}
+
+  /* ---- トラブル項目: 「症状→対処」をカードで区切って、目次代わりにも使う ---- */
+  .issue{background:var(--panel);border-radius:14px;padding:22px 24px;margin:0 0 16px;}
+  .issue h2{margin:0 0 10px;font-size:17px;}
+  .issue h3{font-size:14.5px;margin:18px 0 6px;color:var(--ink-dim);}
+  .issue p,.issue ul,.issue ol{font-size:14.5px;}
+  .issue ul,.issue ol{margin-bottom:10px;}
+
+  footer.site{padding:40px 0 60px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;max-width:1080px;margin:0 auto;padding-left:28px;padding-right:28px;}
+  footer.site .fine{font-size:13px;color:var(--ink-faint);}
+  footer.site .flinks{display:flex;gap:20px;font-size:13.5px;font-weight:500;}
+</style>
+</head>
+<body>
+
+<nav>
+  <a class="brand plain" href="index.html"><img src="icon.png" alt="Bridge" />Bridge</a>
+</nav>
+
+<div class="wrap">
+<main>
+  <h1>サポート</h1>
+  <p class="updated">最終更新日: 2026年9月21日</p>
+
+  <div class="lede">
+    <p>よくあるつまずきと、その場で試せる対処法をまとめました。ここで解決しない場合は、ページ下部から GitHub Issue でご連絡ください。</p>
+  </div>
+
+  <div class="issue">
+    <h2>インストール時・起動時に警告が出る</h2>
+    <p>Bridge は個人開発の無料ソフトのため、Apple / Microsoft による署名・審査を受けていません。そのため以下のような警告が出ますが、ソフト自体の問題ではありません。</p>
+
+    <h3>macOS: 「開発元が未確認のため開けません」</h3>
+    <ol>
+      <li>Finder で Bridge のアイコンを<strong>右クリック(または Control+クリック)</strong>し、「開く」を選択</li>
+      <li>表示されるダイアログでもう一度「開く」を選択</li>
+    </ol>
+    <p class="note">一度この方法で開けば、次回からは通常通りダブルクリックで起動できます。</p>
+
+    <h3>Windows: 「WindowsによってPCが保護されました」</h3>
+    <ol>
+      <li>ダイアログ内の「詳細情報」をクリック</li>
+      <li>表示された「実行」ボタンをクリック</li>
+    </ol>
+  </div>
+
+  <div class="issue">
+    <h2>他の端末が見つからない</h2>
+    <p>まず、以下を確認してください。</p>
+    <ul>
+      <li>両方の端末が<strong>同じ Wi-Fi / LAN</strong> に接続されているか</li>
+      <li>設定シートの「同期キー」が、両方の端末で<strong>完全に一致</strong>しているか</li>
+      <li>接続先が<strong>ゲスト用Wi-Fi</strong>になっていないか(端末同士を隔離する設定になっていることが多く、自動発見できません)</li>
+    </ul>
+    <p>それでも見つからない場合は、設定シートの「いま探す」ボタンを押してください。同じネットワーク内を一度スキャンします。</p>
+    <p class="note">それでも改善しない場合、ネットワーク側でUDPマルチキャスト通信がブロックされている可能性があります。その場合は設定シートの「手動で追加するデバイス」に、相手のIPアドレスを直接入力することでも接続できます。</p>
+  </div>
+
+  <div class="issue">
+    <h2>同期が遅い・反映されない</h2>
+    <ul>
+      <li>OS のファイアウォールが Bridge の通信をブロックしていないか確認してください(初回起動時に許可を求めるダイアログが出た場合は「許可」を選択)</li>
+      <li>設定シートで、相手のデバイスが「オンライン」表示になっているか確認してください。オフラインの場合、最後の失敗理由が表示されます</li>
+    </ul>
+    <p>詳しい原因を調べたい場合は、設定シートの「ログを表示」から <code>bridge.log</code> を開いてください。何が起きているか(発見・同期・失敗理由など)が時系列で記録されています。</p>
+  </div>
+
+  <div class="issue">
+    <h2>アンインストールしたい</h2>
+    <h3>macOS</h3>
+    <ol>
+      <li>メニューバーの Bridge アイコンを右クリックし、「Bridge を終了」を選択</li>
+      <li>「アプリケーション」フォルダから Bridge をゴミ箱に入れる</li>
+    </ol>
+    <p class="note">設定や履歴も含めて完全に削除したい場合は、<code>~/Library/Application Support/bridge/</code> フォルダも削除してください。</p>
+
+    <h3>Windows</h3>
+    <ol>
+      <li>「設定」→「アプリ」→ 一覧から Bridge を選び「アンインストール」</li>
+    </ol>
+    <p class="note">設定や履歴も含めて完全に削除したい場合は、<code>%APPDATA%\bridge\</code> フォルダも削除してください。</p>
+  </div>
+
+  <h2>それでも解決しない場合</h2>
+  <p>上記で解決しない場合は、<a href="https://github.com/haruhito767676/bridge/issues" target="_blank" rel="noopener">GitHub の Issue</a> にてご連絡ください。可能であれば、上記の <code>bridge.log</code> の内容と、OS・バージョンを添えていただけると調査がスムーズです。</p>
+</main>
+</div>
+
+<footer class="site">
+  <span class="fine">MIT License © haruhito767676</span>
+  <div class="flinks">
+    <a class="plain" href="index.html">トップへ戻る</a>
+    <a class="plain" href="https://github.com/haruhito767676/bridge" target="_blank" rel="noopener">GitHub</a>
+  </div>
+</footer>
+
+</body>
+</html>
