@@ -53,14 +53,47 @@
   .lede{background:var(--panel);border-radius:14px;padding:20px 22px;margin:0 0 40px;}
   .lede p{margin:0;color:var(--ink);font-size:15px;}
   hr{border:none;border-top:1px solid var(--line);margin:40px 0 20px;}
-  .note{font-size:13.5px;color:var(--ink-faint);}
 
-  /* ---- トラブル項目: 「症状→対処」をカードで区切って、目次代わりにも使う ---- */
-  .issue{background:var(--panel);border-radius:14px;padding:22px 24px;margin:0 0 16px;}
-  .issue h2{margin:0 0 10px;font-size:17px;}
-  .issue h3{font-size:14.5px;margin:18px 0 6px;color:var(--ink-dim);}
-  .issue p,.issue ul,.issue ol{font-size:14.5px;}
-  .issue ul,.issue ol{margin-bottom:10px;}
+  /* ---- 目次: カードが5つあり縦に長いので、上に一覧を置いて拾い読みできるようにする ---- */
+  .toc{display:flex;flex-direction:column;gap:2px;margin:0 0 40px;padding:6px 0;}
+  .toc a{
+    display:flex;align-items:center;gap:10px;padding:10px 6px;border-radius:9px;
+    font-size:14.5px;font-weight:500;color:var(--ink-dim);
+  }
+  .toc a:hover{background:var(--panel);text-decoration:none;color:var(--ink);}
+  .toc a svg{width:14px;height:14px;flex-shrink:0;color:var(--ink-faint);}
+
+  /* ---- トラブル項目: 「症状→対処」をカードで区切る。頭にアイコンを置き、
+     何についてのカードかを文章を読まずとも一目でわかるようにする ---- */
+  .issue{background:var(--panel);border-radius:14px;padding:24px 26px;margin:0 0 16px;scroll-margin-top:20px;}
+  .issue-head{display:flex;align-items:center;gap:13px;margin:0 0 14px;}
+  .issue-icon{
+    width:38px;height:38px;border-radius:11px;background:#fff;flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;box-shadow:0 1px 2px rgba(0,0,0,0.06);
+  }
+  .issue-icon svg{width:19px;height:19px;stroke:var(--accent);}
+  .issue h2{margin:0;font-size:17px;}
+  .os-tag{display:inline-flex;align-items:center;gap:7px;font-size:14.5px;margin:18px 0 8px;color:var(--ink);font-weight:600;}
+  .os-tag img{width:17px;height:17px;border-radius:4px;}
+  .issue p,.issue ul{font-size:14.5px;}
+  .issue ul{margin-bottom:10px;}
+  .issue ul li::marker{color:var(--ink-faint);}
+
+  /* 番号付き手順: ブラウザ標準の数字ではなく、アクセントカラーの丸番号にする */
+  .issue ol{list-style:none;margin:0 0 12px;padding:0;counter-reset:step;}
+  .issue ol li{
+    counter-increment:step;position:relative;padding-left:32px;margin-bottom:9px;min-height:21px;
+  }
+  .issue ol li::before{
+    content:counter(step);position:absolute;left:0;top:1px;width:21px;height:21px;border-radius:50%;
+    background:var(--accent);color:#fff;font-family:var(--display);font-weight:700;font-size:11.5px;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .note{
+    display:flex;gap:8px;font-size:13.5px;color:var(--ink-faint);background:rgba(255,255,255,0.6);
+    border-radius:9px;padding:10px 12px;
+  }
+  .note svg{width:14px;height:14px;flex-shrink:0;margin-top:1.5px;stroke:var(--ink-faint);}
 
   footer.site{padding:40px 0 60px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;max-width:1080px;margin:0 auto;padding-left:28px;padding-right:28px;}
   footer.site .fine{font-size:13px;color:var(--ink-faint);}
@@ -82,26 +115,40 @@
     <p>よくあるつまずきと、その場で試せる対処法をまとめました。ここで解決しない場合は、ページ下部から GitHub Issue でご連絡ください。</p>
   </div>
 
-  <div class="issue">
-    <h2>インストール時・起動時に警告が出る</h2>
+  <div class="toc" role="navigation" aria-label="目次">
+    <a href="#install-warning"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>インストール時・起動時に警告が出る</a>
+    <a href="#cant-find"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>他の端末が見つからない</a>
+    <a href="#sync-slow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>同期が遅い・反映されない</a>
+    <a href="#uninstall"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>アンインストールしたい</a>
+    <a href="#still-stuck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>それでも解決しない場合</a>
+  </div>
+
+  <div class="issue" id="install-warning">
+    <div class="issue-head">
+      <div class="issue-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></div>
+      <h2>インストール時・起動時に警告が出る</h2>
+    </div>
     <p>Bridge は個人開発の無料ソフトのため、Apple / Microsoft による署名・審査を受けていません。そのため以下のような警告が出ますが、ソフト自体の問題ではありません。</p>
 
-    <h3>macOS: 「開発元が未確認のため開けません」</h3>
+    <p class="os-tag"><img src="../icons/finder.png" alt="" />macOS: 「開発元が未確認のため開けません」</p>
     <ol>
       <li>Finder で Bridge のアイコンを<strong>右クリック(または Control+クリック)</strong>し、「開く」を選択</li>
       <li>表示されるダイアログでもう一度「開く」を選択</li>
     </ol>
-    <p class="note">一度この方法で開けば、次回からは通常通りダブルクリックで起動できます。</p>
+    <p class="note"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 16v-5"/><path d="M12 8h.01"/></svg><span>一度この方法で開けば、次回からは通常通りダブルクリックで起動できます。</span></p>
 
-    <h3>Windows: 「WindowsによってPCが保護されました」</h3>
+    <p class="os-tag"><img src="../icons/windows.png" alt="" />Windows: 「WindowsによってPCが保護されました」</p>
     <ol>
       <li>ダイアログ内の「詳細情報」をクリック</li>
       <li>表示された「実行」ボタンをクリック</li>
     </ol>
   </div>
 
-  <div class="issue">
-    <h2>他の端末が見つからない</h2>
+  <div class="issue" id="cant-find">
+    <div class="issue-head">
+      <div class="issue-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></div>
+      <h2>他の端末が見つからない</h2>
+    </div>
     <p>まず、以下を確認してください。</p>
     <ul>
       <li>両方の端末が<strong>同じ Wi-Fi / LAN</strong> に接続されているか</li>
@@ -109,11 +156,14 @@
       <li>接続先が<strong>ゲスト用Wi-Fi</strong>になっていないか(端末同士を隔離する設定になっていることが多く、自動発見できません)</li>
     </ul>
     <p>それでも見つからない場合は、設定シートの「いま探す」ボタンを押してください。同じネットワーク内を一度スキャンします。</p>
-    <p class="note">それでも改善しない場合、ネットワーク側でUDPマルチキャスト通信がブロックされている可能性があります。その場合は設定シートの「手動で追加するデバイス」に、相手のIPアドレスを直接入力することでも接続できます。</p>
+    <p class="note"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 16v-5"/><path d="M12 8h.01"/></svg><span>それでも改善しない場合、ネットワーク側でUDPマルチキャスト通信がブロックされている可能性があります。その場合は設定シートの「手動で追加するデバイス」に、相手のIPアドレスを直接入力することでも接続できます。</span></p>
   </div>
 
-  <div class="issue">
-    <h2>同期が遅い・反映されない</h2>
+  <div class="issue" id="sync-slow">
+    <div class="issue-head">
+      <div class="issue-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h8l-1 8 10-12h-8z"/></svg></div>
+      <h2>同期が遅い・反映されない</h2>
+    </div>
     <ul>
       <li>OS のファイアウォールが Bridge の通信をブロックしていないか確認してください(初回起動時に許可を求めるダイアログが出た場合は「許可」を選択)</li>
       <li>設定シートで、相手のデバイスが「オンライン」表示になっているか確認してください。オフラインの場合、最後の失敗理由が表示されます</li>
@@ -121,24 +171,32 @@
     <p>詳しい原因を調べたい場合は、設定シートの「ログを表示」から <code>bridge.log</code> を開いてください。何が起きているか(発見・同期・失敗理由など)が時系列で記録されています。</p>
   </div>
 
-  <div class="issue">
-    <h2>アンインストールしたい</h2>
-    <h3>macOS</h3>
+  <div class="issue" id="uninstall">
+    <div class="issue-head">
+      <div class="issue-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></div>
+      <h2>アンインストールしたい</h2>
+    </div>
+    <p class="os-tag"><img src="../icons/finder.png" alt="" />macOS</p>
     <ol>
       <li>メニューバーの Bridge アイコンを右クリックし、「Bridge を終了」を選択</li>
       <li>「アプリケーション」フォルダから Bridge をゴミ箱に入れる</li>
     </ol>
-    <p class="note">設定や履歴も含めて完全に削除したい場合は、<code>~/Library/Application Support/bridge/</code> フォルダも削除してください。</p>
+    <p class="note"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 16v-5"/><path d="M12 8h.01"/></svg><span>設定や履歴も含めて完全に削除したい場合は、<code>~/Library/Application Support/bridge/</code> フォルダも削除してください。</span></p>
 
-    <h3>Windows</h3>
+    <p class="os-tag"><img src="../icons/windows.png" alt="" />Windows</p>
     <ol>
       <li>「設定」→「アプリ」→ 一覧から Bridge を選び「アンインストール」</li>
     </ol>
-    <p class="note">設定や履歴も含めて完全に削除したい場合は、<code>%APPDATA%\bridge\</code> フォルダも削除してください。</p>
+    <p class="note"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 16v-5"/><path d="M12 8h.01"/></svg><span>設定や履歴も含めて完全に削除したい場合は、<code>%APPDATA%\bridge\</code> フォルダも削除してください。</span></p>
   </div>
 
-  <h2>それでも解決しない場合</h2>
-  <p>上記で解決しない場合は、<a href="https://github.com/haruhito767676/bridge/issues" target="_blank" rel="noopener">GitHub の Issue</a> にてご連絡ください。可能であれば、上記の <code>bridge.log</code> の内容と、OS・バージョンを添えていただけると調査がスムーズです。</p>
+  <div class="issue" id="still-stuck">
+    <div class="issue-head">
+      <div class="issue-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 2-3 4"/><path d="M12 17h.01"/></svg></div>
+      <h2>それでも解決しない場合</h2>
+    </div>
+    <p>上記で解決しない場合は、<a href="https://github.com/haruhito767676/bridge/issues" target="_blank" rel="noopener">GitHub の Issue</a> にてご連絡ください。可能であれば、上記の <code>bridge.log</code> の内容と、OS・バージョンを添えていただけると調査がスムーズです。</p>
+  </div>
 </main>
 </div>
 
