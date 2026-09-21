@@ -282,23 +282,39 @@
   }
   .feature p{font-size:14px;line-height:1.6;}
 
-  /* ---- privacy: no-cloudの説明を図解つきで (軽めのアーキテクチャ図として大きめに見せる) ---- */
+  /* ---- privacy: no-cloudの説明を図解つきで (軽めのアーキテクチャ図として大きめに見せる)。
+     以前は背景・テキストとも緑一色に染めていたが、サイト全体のニュートラルな配色から
+     浮いて見えていたため、他セクションと同じpanel背景+ink系テキストに揃え、
+     アクセントカラーはチェックアイコンだけに絞った ---- */
   .privacy{
-    background:var(--ok-tint);border-radius:var(--radius-m);padding:48px 44px;
+    background:var(--panel);border-radius:var(--radius-m);padding:56px 44px;
   }
   .privacy-text{max-width:640px;margin:0 auto;text-align:center;}
   .privacy-text h2{font-size:36px;margin-bottom:12px;}
-  .privacy-text p{font-size:14.5px;color:#3c5c44;}
-  .privacy-text .checklist{display:inline-flex;margin:20px auto 0;}
-  .privacy-text .checklist li{color:#3c5c44;}
-  .privacy-text .checklist li::before{color:var(--ok);}
-  .privacy-policy-link{
-    display:flex;justify-content:center;align-items:center;gap:6px;margin-top:24px;
-    font-size:13.5px;font-weight:600;color:#2f5138;
+  .privacy-text p{font-size:15px;color:var(--ink-dim);}
+  .privacy-points{
+    display:grid;grid-template-columns:1fr 1fr;gap:16px 32px;
+    margin:32px auto 0;max-width:560px;text-align:left;list-style:none;padding:0;
   }
+  .privacy-point{display:flex;align-items:flex-start;gap:11px;}
+  .privacy-point .pp-icon{
+    flex:0 0 auto;width:22px;height:22px;margin-top:1px;border-radius:50%;
+    background:#fff;display:flex;align-items:center;justify-content:center;
+    box-shadow:0 1px 2px rgba(0,0,0,0.08);
+  }
+  .privacy-point .pp-icon svg{width:11px;height:11px;stroke:var(--ok);stroke-width:3;}
+  .privacy-point p{margin:0;font-size:14px;line-height:1.55;color:var(--ink-dim);}
+  @media (max-width:640px){
+    .privacy-points{grid-template-columns:1fr;}
+  }
+  .privacy-policy-link{
+    display:flex;justify-content:center;align-items:center;gap:6px;margin-top:28px;
+    font-size:13.5px;font-weight:600;color:var(--ink-dim);transition:color 0.15s;
+  }
+  .privacy-policy-link:hover{color:var(--ink);}
   .privacy-policy-link svg{width:13px;height:13px;transition:transform 0.15s;}
   .privacy-policy-link:hover svg{transform:translateX(3px);}
-  .privacy-diagram{display:flex;justify-content:center;margin-top:40px;}
+  .privacy-diagram{display:flex;justify-content:center;margin-top:44px;}
   .privacy-diagram svg{width:100%;max-width:700px;}
   /* 個別の「パケット」を動かすと、静止画で捉えたときに端末の脇に染みのような点が
      残って見えてしまうため、経路の破線そのものを流すだけのシンプルな表現にする
@@ -1550,11 +1566,23 @@
     <div class="privacy-text">
       <h2>クラウドを、経由しない。</h2>
       <p>コピーした内容や送ったファイルは、あなたの<span style="white-space:nowrap;">ネットワーク</span>の中だけを通る。それだけ。</p>
-      <ul class="checklist">
-        <li>同期したい相手とだけ、同じ「合言葉」を<span style="white-space:nowrap;">共有する</span></li>
-        <li>合言葉が違う端末には、そもそも見えない</li>
-        <li>やり取りの中身も、合言葉から作った鍵で<span style="white-space:nowrap;">暗号化される</span></li>
-        <li>コードも MIT ライセンスで公開。動作は自分の目で確認できる</li>
+      <ul class="privacy-points">
+        <li class="privacy-point">
+          <span class="pp-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg></span>
+          <p>同期したい相手とだけ、同じ「合言葉」を共有する</p>
+        </li>
+        <li class="privacy-point">
+          <span class="pp-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg></span>
+          <p>合言葉が違う端末には、そもそも見えない</p>
+        </li>
+        <li class="privacy-point">
+          <span class="pp-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg></span>
+          <p>やり取りの中身も、合言葉から作った鍵で暗号化される</p>
+        </li>
+        <li class="privacy-point">
+          <span class="pp-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg></span>
+          <p>コードも MIT ライセンスで公開。動作は自分の目で確認できる</p>
+        </li>
       </ul>
       <a class="privacy-policy-link" href="privacy.html">
         <span>プライバシーポリシーを読む</span>
