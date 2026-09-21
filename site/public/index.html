@@ -54,7 +54,9 @@
   h1,h2,h3{font-family:var(--display);font-weight:700;letter-spacing:-0.01em;text-wrap:balance;margin:0;color:var(--ink);}
   p{margin:0 0 1em;color:var(--ink-dim);}
   p:last-child{margin-bottom:0;}
-  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:0.06em;text-transform:uppercase;color:var(--accent);margin:0 0 12px;font-weight:500;}
+  /* 等幅・全大文字・字間広めは「開発者向けSaaS」的な見た目に寄りすぎるので、
+     本文と同じサンセリフ体・通常の大文字小文字で、太さと色だけで存在感を出す */
+  .eyebrow{font-family:var(--sans);font-size:14px;letter-spacing:0;text-transform:none;color:var(--accent);margin:0 0 10px;font-weight:600;}
 
   /* ---- nav: 常時position:stickyにしておき、スクロール量に応じて不透明度だけ
      JSでtoggleする (上端では透明、ヒーローを過ぎたらすりガラス化)。
@@ -104,7 +106,6 @@
   }
   .btn-primary{background:var(--ink);color:#fff;}
   .btn-secondary{background:var(--panel);color:var(--ink);}
-  .hero-meta{margin-top:22px;font-family:var(--mono);font-size:12.5px;color:var(--ink-faint);}
 
   /* ---- laptop-stage: スクロール駆動でBridgeが画面端からスライドインしてくる演出 ----
      ズームはせず、最初からノートPC画面の右端に寄ったアングルで固定表示する
@@ -661,14 +662,12 @@
 
 <div class="hero">
   <div class="wrap">
-    <p class="eyebrow">macOS & Windows 用・無料</p>
     <h1>Mac でも Windows でも、<br><span>コピーひとつ</span>で繋がる。</h1>
     <p class="sub">コピーした内容も、ドロップしたファイルも。<br>もう1台に、そのまま届く。</p>
     <div class="cta-row">
       <a class="btn btn-primary" href="#download">ダウンロード</a>
       <a class="btn btn-secondary" href="#laptop-stage">デモを触ってみる</a>
     </div>
-    <div class="hero-meta">macOS 12+ ・ Windows 10/11 ・ 無料・オープンソース</div>
   </div>
 </div>
 
@@ -676,7 +675,7 @@
 
 <section id="relatable">
   <div class="detail-solo">
-    <p class="eyebrow">before bridge</p>
+    <p class="eyebrow">Before Bridge</p>
     <h3>こんなこと、<br class="sm-only">していませんか？</h3>
     <ul class="relatable-list">
       <li><img src="../icons/mail.png" alt="" />資料を、自分宛てにメールで送ったことがある</li>
@@ -810,7 +809,7 @@
 
 <section id="detail-store">
   <div class="detail-solo">
-    <p class="eyebrow">history</p>
+    <p class="eyebrow">History</p>
     <h3>どんな仕事でも、ちゃんと残る。</h3>
     <p>テキストでも、ファイルでも。<br class="sm-only">形を問わず、そのまま残っていく。<br>ファイルは本物のファイルとして<br class="sm-only">返ってくるから、開き直すときに迷わない。</p>
   </div>
@@ -1212,7 +1211,7 @@
     </div>
 </div>
     <div class="detail-text">
-      <p class="eyebrow">multi-device</p>
+      <p class="eyebrow">Multi-Device</p>
       <h3>「あれ、どっちの PC だっけ」がなくなる。</h3>
       <p>書斎のPC、リビングのPC、会社のPC。<br>あの作業をやったのは、どれだっけ？<br>そんなときも、選ぶだけで出身がわかる。</p>
     </div>
@@ -1222,7 +1221,7 @@
 <section id="detail-pick">
   <div class="detail-row reverse">
     <div class="detail-text">
-      <p class="eyebrow">quick paste</p>
+      <p class="eyebrow">Quick Paste</p>
       <h3>呼び出せば、その場で貼り付け。</h3>
       <p>あっちに行ったり、こっちに行ったり。<br>目の回るような往復に、さよならを。<br>いつでも、どこでも。あなたのそばに。</p>
       <ul class="checklist">
@@ -1297,7 +1296,7 @@
 
 <section>
   <div class="detail-solo detail-solo-compare">
-    <p class="eyebrow">smooth by design</p>
+    <p class="eyebrow">Smooth by Design</p>
     <h3>Mac では Mac らしく、<br>Windows では Windows らしく。</h3>
     <p>郷に入っては、郷に従え。<br>細かい動きまで、それぞれの作法にならう。<br>まるで、はじめからそこにいたみたいに。</p>
     
@@ -1552,7 +1551,7 @@
 <section id="privacy">
   <div class="privacy">
     <div class="privacy-text">
-      <p class="eyebrow">privacy</p>
+      <p class="eyebrow">Privacy</p>
       <h2>クラウドを、経由しない。</h2>
       <p>コピーした内容や送ったファイルは、あなたの<span style="white-space:nowrap;">ネットワーク</span>の中だけを通る。それだけ。</p>
       <ul class="checklist">
@@ -1684,7 +1683,7 @@
 
 <section id="getting-started">
   <div class="prose" style="margin:0 auto 44px;text-align:center;">
-    <p class="eyebrow">getting started</p>
+    <p class="eyebrow">Getting Started</p>
     <h2 style="font-size:28px;">はじめかた</h2>
   </div>
   <div class="steps">
