@@ -20,8 +20,8 @@
     --panel-2:#e9e8e3;
     --line:rgba(60,60,67,0.13);
     --ink:#1d1d1f;
-    --ink-dim:rgba(60,60,67,0.66);
-    --ink-faint:rgba(60,60,67,0.42);
+    --ink-dim:rgba(60,60,67,0.74);
+    --ink-faint:rgba(60,60,67,0.54);
     --accent:#0a84ff;
     --accent-tint:rgba(10,132,255,0.1);
     --accent-tint-2:rgba(10,132,255,0.18);
@@ -29,9 +29,13 @@
     --ok-tint:rgba(52,199,89,0.14);
     --radius-m:16px;
     --radius-s:10px;
-    --display:'Sora','Hiragino Sans',sans-serif;
-    --sans:'IBM Plex Sans','Hiragino Sans','Yu Gothic',sans-serif;
-    --mono:'IBM Plex Mono','SF Mono',Menlo,monospace;
+    /* Windowsは既定のHiragino Sansが無く、素通りするとブラウザ任せの太さになって
+       薄く/見づらく出ることがあるため、Windows側の日本語フォントを明示で並べておく。
+       Yu Gothicは公称ウェイトの割に線が細く見えるとの指摘が多いフォントなので、
+       より視認性の高いMeiryoを先に置いて実質そちらを優先させる */
+    --display:'Sora','Hiragino Sans','Meiryo','Yu Gothic UI','Yu Gothic',sans-serif;
+    --sans:'IBM Plex Sans','Hiragino Sans','Meiryo','Yu Gothic UI','Yu Gothic',sans-serif;
+    --mono:'IBM Plex Mono','SF Mono',Menlo,Consolas,monospace;
     --header-h:84px; /* nav実測: padding22px*2 + brandアイコン40px。stickyヘッダーに
        隠れる分だけ、アンカー着地位置とlaptop-stageの静止位置をずらすのに使う */
   }
@@ -42,6 +46,7 @@
     margin:0;background:var(--paper);color:var(--ink);
     font-family:var(--sans);font-size:16px;line-height:1.65;
     -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
   }
   img{max-width:100%;display:block;}
   a{color:var(--accent);text-decoration:none;}
