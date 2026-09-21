@@ -93,7 +93,7 @@
   /* .heroは<section>ではないので、section{padding:80px 0}の恩恵を受けない。
      下にも同じ80pxを付け、直後の#relatableとの間隔を他セクション間(80+80)と揃える */
   .hero{padding:56px 0 80px;text-align:center;}
-  .hero h1{font-size:52px;line-height:1.08;max-width:760px;margin:0 auto;}
+  .hero h1{font-size:64px;line-height:1.05;max-width:840px;margin:0 auto;}
   .hero h1 span{color:var(--accent);}
   .hero p.sub{font-size:18.5px;max-width:520px;margin:22px auto 0;line-height:1.6;}
   .cta-row{display:flex;gap:12px;justify-content:center;margin-top:32px;flex-wrap:wrap;}
@@ -282,7 +282,7 @@
     background:var(--ok-tint);border-radius:var(--radius-m);padding:48px 44px;
   }
   .privacy-text{max-width:640px;margin:0 auto;text-align:center;}
-  .privacy-text h2{font-size:31px;margin-bottom:12px;}
+  .privacy-text h2{font-size:36px;margin-bottom:12px;}
   .privacy-text p{font-size:14.5px;color:#3c5c44;}
   .privacy-text .checklist{display:inline-flex;margin:20px auto 0;}
   .privacy-text .checklist li{color:#3c5c44;}
@@ -305,8 +305,8 @@
   .detail-row{display:grid;grid-template-columns:1fr 1fr;gap:52px;align-items:center;}
   .detail-row.reverse .detail-shot{order:2;}
   .detail-solo{max-width:640px;margin:0 auto;text-align:center;}
-  .detail-solo h3{font-size:29px;margin-bottom:12px;}
-  .detail-text h3{font-size:27px;margin-bottom:12px;}
+  .detail-solo h3{font-size:34px;margin-bottom:12px;}
+  .detail-text h3{font-size:32px;margin-bottom:12px;}
   .detail-text p{font-size:15.5px;line-height:1.7;}
   .checklist{margin:20px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:10px;text-align:left;}
   .checklist li{font-size:14.5px;color:var(--ink-dim);padding-left:24px;position:relative;}
@@ -399,11 +399,11 @@
 
   /* ---- relatable: 「こんなこと、していませんか？」の"あるある"リスト。
      checklistの緑チェックは"良いこと"に見えてしまうので、あえて中立なダッシュにする ---- */
-  #relatable h3{font-size:34px;}
+  #relatable h3{font-size:40px;}
   .relatable-list{margin:28px 0 0;padding:0;list-style:none;display:inline-flex;flex-direction:column;gap:16px;text-align:left;}
   .relatable-list li{font-size:18px;color:var(--ink-dim);display:flex;align-items:center;gap:14px;}
   .relatable-list li img{width:32px;height:32px;border-radius:8px;flex-shrink:0;box-shadow:0 1px 2px rgba(0,0,0,0.12);}
-  .punchline{margin-top:36px;font-family:var(--display);font-weight:700;font-size:38px;color:var(--ink);letter-spacing:-0.01em;}
+  .punchline{margin-top:36px;font-family:var(--display);font-weight:700;font-size:46px;color:var(--ink);letter-spacing:-0.01em;}
 
   /* ---- faq ---- */
   .faq{max-width:720px;}
@@ -453,7 +453,7 @@
   .footer-cta{
     background:var(--ink);color:#fff;border-radius:24px;padding:56px 48px;text-align:center;
   }
-  .footer-cta h2{color:#fff;font-size:30px;}
+  .footer-cta h2{color:#fff;font-size:36px;}
   .footer-cta p{color:rgba(255,255,255,0.68);margin-top:12px;font-size:15.5px;}
   .footer-cta .cta-row{margin-top:28px;}
   .footer-cta .btn-primary{background:#fff;color:var(--ink);}
@@ -473,7 +473,7 @@
   }
   br.sm-only{display:none;}
   @media (max-width:860px){
-    .hero h1{font-size:36px;}
+    .hero h1{font-size:42px;}
     .detail-row, .detail-row.reverse{grid-template-columns:1fr;}
     .detail-row.reverse .detail-shot{order:0;}
     .footer-cta{padding:44px 24px;}
@@ -777,7 +777,7 @@
 
 <section id="features">
   <div class="prose" style="margin:0 auto 44px;text-align:center;max-width:760px;">
-    <h2 class="features-heading" style="font-size:30px;">なんでも残る。いつでも呼べる。どこでも届く。</h2>
+    <h2 class="features-heading" style="font-size:36px;">なんでも残る。いつでも呼べる。どこでも届く。</h2>
   </div>
   <div class="features">
     <a class="feature" href="#detail-store">
@@ -1206,7 +1206,7 @@
     </div>
 </div>
     <div class="detail-text">
-      <h3>「あれ、どっちの PC だっけ」がなくなる。</h3>
+      <h3>「あれ、どっちの PC だっけ？」<br>　が、なくなる。</h3>
       <p>書斎のPC、リビングのPC、会社のPC。<br>あの作業をやったのは、どれだっけ？<br>そんなときも、選ぶだけで出身がわかる。</p>
     </div>
   </div>
@@ -1626,7 +1626,7 @@
 
 <section id="faq">
   <div class="prose" style="margin-bottom:36px;">
-    <h2 style="font-size:28px;">よくある質問</h2>
+    <h2 style="font-size:32px;">よくある質問</h2>
   </div>
   <div class="faq">
     <details class="faq-item">
@@ -1674,7 +1674,7 @@
 
 <section id="getting-started">
   <div class="prose" style="margin:0 auto 44px;text-align:center;">
-    <h2 style="font-size:31px;">はじめかた</h2>
+    <h2 style="font-size:36px;">はじめかた</h2>
   </div>
   <div class="steps">
     <div class="step">
