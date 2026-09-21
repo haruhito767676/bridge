@@ -592,11 +592,21 @@
   .brd-static .file-item:hover,.brd-static .file-item:active{background:none;transform:none;}
   .detail-shot .brd{border-radius:14px;box-shadow:0 20px 50px -24px rgba(20,20,25,0.3),0 0 0 1px var(--line);}
 
+  /* ---- quick-paste: 「呼び出しはこのキーで一瞬」の一言をピル型のキャプションにして、
+     ポップアップの上に据える (Appleのキーボードショートカット訴求でよくある型)。
+     絶対配置で浮かせるとレイアウト崩れの元になるので、普通に縦積みにするだけにする ---- */
+  .qp-stage{display:flex;flex-direction:column;align-items:center;gap:22px;}
+  .qp-field-typing{
+    display:inline-flex;align-items:center;gap:10px;
+    font-family:var(--sans);font-size:14px;color:var(--ink-dim);
+    background:var(--panel);border-radius:999px;padding:9px 20px;
+  }
+
   /* ---- quick-paste 用モックアップ: popup.html / popup.css の該当ルールを縮小移植 ----
      カーソル付近に出る「その場ペースト」ポップアップの見た目を再現する (静止画像の代替) */
   .popup-mock-wrap{max-width:300px;margin:0 auto;}
-  .popup-mock-kbd{display:flex;gap:6px;justify-content:center;margin-bottom:16px;}
-  .popup-mock-kbd kbd{font-family:var(--mono);font-size:12px;font-weight:500;color:var(--ink);background:#fff;border-radius:6px;padding:5px 9px;box-shadow:0 1px 2px rgba(0,0,0,0.12),0 0 0 1px var(--line);}
+  .popup-mock-kbd{display:inline-flex;gap:4px;margin-left:10px;vertical-align:middle;}
+  .popup-mock-kbd kbd{font-family:var(--mono);font-size:11px;font-weight:500;color:var(--ink);background:#fff;border-radius:5px;padding:3px 6px;box-shadow:0 1px 2px rgba(0,0,0,0.12),0 0 0 1px var(--line);}
   .popup-mock{padding:10px;border-radius:14px;pointer-events:none;user-select:none;}
   .popup-mock-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:1px;}
   .popup-mock-item{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:var(--radius-s);}
@@ -1232,9 +1242,10 @@
       </ul>
     </div>
     <div class="detail-shot">
-      <div class="popup-mock-wrap">
-        <div class="popup-mock-kbd"><kbd>⌥</kbd><kbd>⌘</kbd><kbd>V</kbd></div>
-        <div class="brd popup-mock" role="img" aria-label="カーソルの近くに履歴のミニポップアップが表示され、1件が選択状態になっている">
+      <div class="qp-stage">
+        <div class="qp-field-typing" id="qp-hotkey-line">呼び出しは<span class="popup-mock-kbd" id="qp-hotkey-kbd"><kbd>⌥</kbd><kbd>⌘</kbd><kbd>V</kbd></span>で、一瞬。</div>
+        <div class="popup-mock-wrap">
+        <div class="brd popup-mock" role="img" aria-label="文書入力中のカーソルの近くに履歴のミニポップアップが表示され、1件が選択状態になっている">
           <div class="search-field" style="height:28px;margin-bottom:8px;"><input class="search-bar" type="text" placeholder="履歴を検索" readonly /></div>
           <ul class="popup-mock-list">
             <li class="popup-mock-item active">
@@ -1289,6 +1300,7 @@
             </li>
           </ul>
           <div class="popup-mock-footer">↑↓ 選択 · ⏎ ペースト · Esc 閉じる</div>
+        </div>
         </div>
       </div>
     </div>
@@ -2502,6 +2514,16 @@
     }
     sync();
     window.addEventListener('scroll', sync, { passive: true });
+  })();
+</script>
+<script>
+  // ---- quick-pasteの背景の一言: 訪問者がWindowsなら実機の既定キー (Ctrl+Win+V) に差し替える ----
+  (function () {
+    var kbd = document.getElementById('qp-hotkey-kbd');
+    if (!kbd) return;
+    if (/Win/i.test(navigator.userAgent || '')) {
+      kbd.innerHTML = '<kbd>Ctrl</kbd><kbd>Win</kbd><kbd>V</kbd>';
+    }
   })();
 </script>
 <script>
