@@ -120,6 +120,8 @@ contextBridge.exposeInMainWorld('bridge', {
   onSyncStatus: (callback) => ipcRenderer.on('sync-status', (_event, status) => callback(status)),
   // フッターのトグルから同期の一時停止を切り替える (メニューバーのチェックボックスと同じ状態を共有)
   setSyncPaused: (paused) => ipcRenderer.invoke('set-sync-paused', paused),
+  // 一時停止中に生まれた 1 件を、右クリックの「同期する」から手動で送る
+  syncEntryNow: (id) => ipcRenderer.invoke('sync-entry-now', id),
 
   // 設定シートの「いま探す」(マルチキャストで名乗り + サブネットスキャン) と「ログを表示」
   scanPeersNow: () => ipcRenderer.invoke('scan-peers-now'),

@@ -1799,19 +1799,22 @@ async function pollClipboard() {
     if (text !== lastClipText) {
       lastClipText = text;
       if (text && text.trim()) {
+        const ts = Date.now();
+        // 同期台帳へ登録し、オンラインの他拠点へ即時プッシュする (一時停止中は台帳に載せず、後から手動で送れるだけにする)
+        const syncResult = registerLocalSyncEntry({ type: 'text', text, timestamp: ts });
         const entry = {
           type: 'clipboard-text',
           text,
           path: null,
-          timestamp: Date.now(),
+          timestamp: ts,
           fromDevice: deviceName,
           fromPlatform: process.platform,
           sourceApp: await getFrontmostApp(),
+          syncEntryId: syncResult ? syncResult.id : null,
+          unsynced: Boolean(syncResult && syncResult.unsynced),
         };
         pushClipHistory(entry);
         sendClipboardItem(entry);
-        // 同期台帳へ登録し、オンラインの他拠点へ即時プッシュする
-        registerLocalSyncEntry({ type: 'text', text, timestamp: entry.timestamp });
       }
     }
 
@@ -1850,24 +1853,28 @@ async function pollClipboard() {
         if (key !== lastClipImageKey) {
           lastClipImageKey = key;
           const savedPath = await saveClipboardImage(image);
+          const ts = Date.now();
+          // 同期台帳へ登録し、オンラインの他拠点へ即時プッシュする (実体 PNG は /file で配信。
+          // 一時停止中は台帳に載せず、後から手動で送れるだけにする)
+          const syncResult = registerLocalSyncEntry({
+            type: 'image',
+            name: path.basename(savedPath),
+            path: savedPath,
+            timestamp: ts,
+          });
           const entry = {
             type: 'clipboard-image',
             text: null,
             path: savedPath,
-            timestamp: Date.now(),
+            timestamp: ts,
             fromDevice: deviceName,
             fromPlatform: process.platform,
             sourceApp: await getFrontmostApp(),
+            syncEntryId: syncResult ? syncResult.id : null,
+            unsynced: Boolean(syncResult && syncResult.unsynced),
           };
           pushClipHistory(entry);
           sendClipboardItem(entry);
-          // 同期台帳へ登録し、オンラインの他拠点へ即時プッシュする (実体 PNG は /file で配信)
-          registerLocalSyncEntry({
-            type: 'image',
-            name: path.basename(savedPath),
-            path: savedPath,
-            timestamp: entry.timestamp,
-          });
         }
       }
     } else {
@@ -2206,6 +2213,10 @@ const syncStore = [];
 const seenSyncIds = new Set(); // id による重複同期・循環中継の防止
 const registeredSyncPaths = new Set(); // 同じローカルファイルの二重登録防止
 
+// 同期が一時停止中に生まれたアイテム。台帳には載せず (自動では絶対に同期しない)、
+// 右クリックの「同期する」で明示的に選んだときだけここから取り出して送る
+const pendingManualSyncEntries = new Map();
+
 // seenSyncIds は常駐運用でコピーのたびに増え続けるため、古い id から追い出して上限を保つ (FIFO)。
 // 追い出された古いアイテムはピア側の syncStore からも溢れており (MAX_SYNC_STORE)、
 // 差分ポーリングも lastSyncedTs 比較で防いでいるため、再取り込みの実害はない
@@ -2293,7 +2304,6 @@ function isDirectorySafe(p) {
 
 // 自分のデバイスで生まれたアイテムを台帳へ登録し、オンラインのピアへ即時プッシュする
 function registerLocalSyncEntry({ type, name, text, path: filePath, timestamp, originKind, folderName }) {
-  if (syncPaused) return null; // 一時停止中に生まれたアイテムは、再開後も同期しない (意図的)
   // 同期トリガーの最終関門: フォルダは台帳登録もピアへのプッシュも行わず完全スキップする
   if (type !== 'text' && filePath && isDirectorySafe(filePath)) return null;
   const entry = {
@@ -2309,9 +2319,26 @@ function registerLocalSyncEntry({ type, name, text, path: filePath, timestamp, o
     folderName: folderName || null,
   };
   rememberSyncId(entry.id);
+  if (syncPaused) {
+    // 一時停止中に生まれたアイテムは自動では同期しない (再開しても、である)。
+    // ただし後から明示的に選べば送れるよう、台帳には載せずここに退避しておく
+    pendingManualSyncEntries.set(entry.id, entry);
+    return { ...entry, unsynced: true };
+  }
   pushSyncEntry(entry);
   pushEntriesToPeers([entry]);
   return entry;
+}
+
+// 「同期する」で 1 件だけ後から手動で送る。呼び直しても安全 (既に送信済み/存在しない id は無視)
+function syncPendingEntryNow(id) {
+  const entry = pendingManualSyncEntries.get(id);
+  if (!entry) return false;
+  pendingManualSyncEntries.delete(id);
+  pushSyncEntry(entry);
+  pushEntriesToPeers([entry]);
+  logEvent('sync', `手動同期: ${entry.name || (entry.text || '').slice(0, 30) || entry.id}`);
+  return true;
 }
 
 // ---- ピア管理 ----
@@ -3198,6 +3225,8 @@ ipcMain.handle('set-sync-paused', (_event, paused) => {
   setSyncPaused(paused);
   return syncStatusSnapshot();
 });
+// 一時停止中に生まれた 1 件だけを、右クリックの「同期する」から手動で送る
+ipcMain.handle('sync-entry-now', (_event, id) => ({ ok: syncPendingEntryNow(id) }));
 
 // ---- 設定の読み書き (sync-config.json を GUI から編集する) ----
 

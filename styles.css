@@ -806,6 +806,13 @@ body.platform-win32 .source-app-badge {
   flex-shrink: 0;
 }
 
+/* 一時停止中に生まれた未同期アイテムのチップ。他拠点に届いていないことが一目で分かるよう
+   pause-label / sync-dot.paused と同じアクセントで統一する */
+.chip-unsynced {
+  background: rgba(255, 159, 10, 0.16);
+  color: #ff9f0a;
+}
+
 /* ---- カスタムツールチップ (OS 標準 title 属性の代替、renderer.js が動的生成) ---- */
 .bridge-tooltip {
   position: absolute;

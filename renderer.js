@@ -59,6 +59,8 @@ const GLYPHS = {
     '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3.5" width="10" height="7" rx="1"/><path d="M1.5 12.5h13"/></svg>',
   desktop:
     '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="12" height="8" rx="1"/><path d="M6 13.5h4M8 11v2.5"/></svg>',
+  pause:
+    '<svg viewBox="0 0 16 16" fill="currentColor"><rect x="4" y="3" width="3" height="10" rx="0.8"/><rect x="9" y="3" width="3" height="10" rx="0.8"/></svg>',
 };
 
 function glyph(name) {
@@ -906,6 +908,8 @@ window.bridge.onClipboardItem((data) => {
     fromDevice: data.fromDevice || null,
     fromPlatform: data.fromPlatform || null,
     sourceApp: data.sourceApp || null,
+    syncEntryId: data.syncEntryId || null,
+    unsynced: Boolean(data.unsynced),
     entering: true,
   };
   items.unshift(item);
@@ -1490,6 +1494,21 @@ function openContextMenu(e, item) {
       run: () => setDeviceFilter(isLocalItem ? LOCAL_DEVICE_FILTER : item.fromDevice),
     });
   }
+  if (item.unsynced) {
+    entries.push({ type: 'separator' });
+    entries.push({
+      label: '同期する',
+      run: () => {
+        window.bridge.syncEntryNow(item.syncEntryId).then((result) => {
+          if (result && result.ok) {
+            item.unsynced = false;
+            render();
+            showToast({ icon: 'check', title: '同期しました', durationMs: 1800 });
+          }
+        });
+      },
+    });
+  }
   entries.push({ type: 'separator' });
   entries.push({
     label: item.pinned ? 'ピン留めを解除' : 'ピン留め',
@@ -1760,10 +1779,16 @@ function render() {
     lines.appendChild(metaLine);
 
     const deviceChip = createDeviceChip(item);
-    if (deviceChip) {
+    if (deviceChip || item.unsynced) {
       const badgeLine = document.createElement('div');
       badgeLine.className = 'item-badge-line';
-      badgeLine.appendChild(deviceChip);
+      if (deviceChip) badgeLine.appendChild(deviceChip);
+      if (item.unsynced) {
+        // 同期の一時停止中に生まれたアイテム。自動では他拠点に届かないことが分かるようにする
+        const unsyncedChip = createChip('未同期', glyph('pause'));
+        unsyncedChip.classList.add('chip-unsynced');
+        badgeLine.appendChild(unsyncedChip);
+      }
       lines.appendChild(badgeLine);
     }
 
