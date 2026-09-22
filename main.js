@@ -1267,8 +1267,12 @@ ipcMain.handle('get-file-icon', async (_event, filePath) => {
       // ディレクトリ判定・専用取得に失敗した場合は通常のアイコン取得へフォールバック
     }
   }
+  // macOS: app.getFileIcon の size:'large' はこの環境で確実に SIGTRAP を起こす
+  // (アプリのコードを介さない最小再現スクリプトでも発生。size:'normal' なら問題なし)。
+  // Windows 表示品質向上のために 'large' へ変更した経緯があるが、'large' 自体が
+  // 危険なので size は常に 'normal' を使う
   try {
-    const icon = await app.getFileIcon(filePath, { size: 'large' });
+    const icon = await app.getFileIcon(filePath, { size: 'normal' });
     return icon.toDataURL();
   } catch {
     return null;
@@ -2127,6 +2131,10 @@ ipcMain.on('delete-temp-file', (_event, filePath) => {
 // 現在もリストに保持されていない (= 明示的に残す意思のない) 残骸をまとめて削除する。
 // will-quit 内は非同期処理を待たずにプロセスが落ちうるため同期 API で確実に消す
 app.on('will-quit', () => {
+  // シングルインスタンスロック失敗時など、app.whenReady() より前に quit() が
+  // 呼ばれるケースがある。ready 前は globalShortcut 等の API が使えず例外になるため、
+  // その場合はここで早期リターンする (未登録なので unregisterAll 等はそもそも不要)
+  if (!app.isReady()) return;
   globalShortcut.unregisterAll();
   if (popupAlive()) popupWin.destroy();
   for (const tab of tabWindows.values()) {

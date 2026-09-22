@@ -348,6 +348,27 @@ function trimFileHistory() {
     selectedItems.delete(extra);
     if (extra.path) window.bridge.deleteTempFile(extra.path);
   }
+  trimTotalHistory();
+}
+
+// ---- 全種別合計での安全上限 (ピン留めも対象) ----
+// ピン留めは各カテゴリの上限を素通りするため、ピン留めを使い続けると際限なく増える。
+// 起動時に一括復元する件数が多いと (種別が混在した状態で) 環境依存でクラッシュする
+// ことを確認済みなので、ピン留めも含めた総数に安全側のハード上限を設ける
+const MAX_TOTAL_ITEMS = 120;
+
+function trimTotalHistory() {
+  if (items.length <= MAX_TOTAL_ITEMS) return;
+  // 種別・ピン留め問わず、古いものから間引く
+  const sorted = [...items].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+  const overflow = sorted.slice(0, items.length - MAX_TOTAL_ITEMS);
+  for (const extra of overflow) {
+    const idx = items.indexOf(extra);
+    if (idx === -1) continue;
+    items.splice(idx, 1);
+    selectedItems.delete(extra);
+    if (extra.path) window.bridge.deleteTempFile(extra.path);
+  }
 }
 
 // ---- 重複コピーのスタック化 (同一内容の再コピーはカードを増やさず最上位へ引き上げる) ----
@@ -364,7 +385,7 @@ function bumpExistingItem(match, timestamp) {
 
 // Finder 純正の「種類」ラベル (例: 「PDF書類」「フォルダ」) を非同期取得してアイテムへ反映する
 function attachFileKind(item, filePath) {
-  window.bridge
+  return window.bridge
     .getFileKind(filePath)
     .then((kindLabel) => {
       if (!kindLabel) return;
@@ -375,8 +396,8 @@ function attachFileKind(item, filePath) {
 }
 
 function attachFileIcon(item, filePath) {
-  if (item.isImage) return; // 画像はファイル自体をサムネイル表示するのでアイコン取得は不要
-  window.bridge
+  if (item.isImage) return Promise.resolve(); // 画像はファイル自体をサムネイル表示するのでアイコン取得は不要
+  return window.bridge
     .getFileIcon(filePath)
     .then((dataUrl) => {
       if (dataUrl) {
@@ -385,6 +406,39 @@ function attachFileIcon(item, filePath) {
       }
     })
     .catch(() => {}); // アイコン取得失敗はアイコンなし表示のまま続行
+}
+
+// 履歴復元時、多数のファイルアイテムのアイコン/種類取得 (OS のネイティブ API 呼び出し) が
+// 一斉に走ると環境によってはネイティブ側で競合してクラッシュすることがあるため、
+// 同時実行数を絞ったキューを通して順に処理する
+function createConcurrencyQueue(limit) {
+  let active = 0;
+  const pending = [];
+  const runNext = () => {
+    if (active >= limit || pending.length === 0) return;
+    active++;
+    const task = pending.shift();
+    task()
+      .catch(() => {})
+      .finally(() => {
+        active--;
+        runNext();
+      });
+  };
+  return (task) => {
+    pending.push(task);
+    runNext();
+  };
+}
+
+// ファイルアイコン/種類取得の同時実行数を1に絞り、常に直列で処理する
+// (OS のネイティブ API を同時多発で叩くとクラッシュしうるため、復元時に限らず全箇所で使う)
+const fileIconQueue = createConcurrencyQueue(1);
+function queueAttachFileIcon(item, filePath) {
+  fileIconQueue(() => attachFileIcon(item, filePath));
+}
+function queueAttachFileKind(item, filePath) {
+  fileIconQueue(() => attachFileKind(item, filePath));
 }
 
 // ローカルファイルをリストへ追加する共通処理。
@@ -401,8 +455,8 @@ function addLocalFile(filePath, fileName, origin, sourceApp) {
     placeholder.isImage = isImagePath(filePath);
     placeholder.syncing = false;
     placeholder.originKind = origin.originKind || null;
-    attachFileIcon(placeholder, filePath);
-    attachFileKind(placeholder, filePath);
+    queueAttachFileIcon(placeholder, filePath);
+    queueAttachFileKind(placeholder, filePath);
     render();
     return;
   }
@@ -436,8 +490,8 @@ function addLocalFile(filePath, fileName, origin, sourceApp) {
   // 自分のデバイスで生まれたファイルだけを同期台帳へ登録する (他拠点由来の再登録ループを防ぐ)
   if (!item.fromDevice) window.bridge.registerSyncFile(filePath, item.name, item.timestamp);
 
-  attachFileIcon(item, filePath);
-  attachFileKind(item, filePath);
+  queueAttachFileIcon(item, filePath);
+  queueAttachFileKind(item, filePath);
   render();
 }
 
@@ -482,8 +536,8 @@ function addPendingItem(name, work) {
       item.downloading = false;
       item.isImage = isImagePath(path);
       window.bridge.registerSyncFile(path, item.name); // 実体が確定した時点で同期台帳へ登録
-      attachFileIcon(item, path);
-      attachFileKind(item, path);
+      queueAttachFileIcon(item, path);
+      queueAttachFileKind(item, path);
       render();
     })
     .catch((err) => {
@@ -794,6 +848,7 @@ function trimClipHistory() {
     // 他拠点から同期された一時ファイルは、Main 側に依頼してディスクからも完全削除する
     if (extra.path) window.bridge.deleteTempFile(extra.path);
   }
+  trimTotalHistory();
 }
 
 window.bridge.onClipboardItem((data) => {
@@ -1400,8 +1455,8 @@ function openContextMenu(e, item) {
         item.isImage = false;
         item.icon = null;
         item.fileKind = undefined;
-        attachFileIcon(item, dest);
-        attachFileKind(item, dest);
+        queueAttachFileIcon(item, dest);
+        queueAttachFileKind(item, dest);
         render();
         showToast({ icon: 'check', title: 'フォルダに展開しました', durationMs: 2000 });
       },
@@ -1850,11 +1905,12 @@ window.bridge.onRestoreItems((saved) => {
     items.push(item);
     added++;
     if (item.kind === 'file' && item.path) {
-      attachFileIcon(item, item.path);
-      if (!item.fileKind) attachFileKind(item, item.path);
+      queueAttachFileIcon(item, item.path);
+      if (!item.fileKind) queueAttachFileKind(item, item.path);
     }
   }
   if (added > 0) {
+    trimTotalHistory(); // 過去に上限超過で保存された分もここで安全な総数まで間引く
     render();
     refreshMissingFiles();
   }

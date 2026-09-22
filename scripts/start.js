@@ -10,5 +10,10 @@ delete env.ELECTRON_RUN_AS_NODE;
 
 const child = spawn(electronPath, ['.'], { stdio: 'inherit', env });
 child.on('exit', (code, signal) => {
+  if (signal) {
+    console.error(`\n[bridge] Electron がシグナル ${signal} で終了しました (異常終了の可能性)`);
+  } else if (code !== 0) {
+    console.error(`\n[bridge] Electron が終了コード ${code} で終了しました`);
+  }
   process.exit(code ?? (signal ? 1 : 0));
 });
