@@ -36,9 +36,10 @@ contextBridge.exposeInMainWorld('bridge', {
   getDeviceInfo: () => ipcRenderer.invoke('get-device-info'),
 
   // ローカル生まれのファイルをマルチデバイス同期の台帳へ登録する (他拠点由来は登録しない)。
-  // timestamp はシェルフに置いた時刻。同期先でもこの時刻で並ぶ
+  // timestamp はシェルフに置いた時刻。同期先でもこの時刻で並ぶ。
+  // 戻り値は { id, unsynced } か null (フォルダの zip 化中に失敗、または既に登録済みで何もしなかった場合)
   registerSyncFile: (filePath, name, timestamp) =>
-    ipcRenderer.send('sync-register-file', { path: filePath, name, timestamp }),
+    ipcRenderer.invoke('sync-register-file', { path: filePath, name, timestamp }),
 
   // 他拠点からの実体ダウンロードが終わる前に届く「同期中」のプレースホルダと、その取り下げ
   onSyncPending: (callback) => ipcRenderer.on('sync-pending', (_event, info) => callback(info)),

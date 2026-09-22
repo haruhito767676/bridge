@@ -3402,44 +3402,46 @@ async function zipFolder(folderPath) {
 }
 
 // Renderer で追加されたローカル生まれのファイル (D&D・Web ダウンロード・テキスト保存等) を
-// 同期台帳へ登録する。他拠点由来のアイテムは Renderer 側で登録をスキップするため循環しない
-ipcMain.on('sync-register-file', (_event, payload) => {
+// 同期台帳へ登録する。他拠点由来のアイテムは Renderer 側で登録をスキップするため循環しない。
+// 戻り値は Renderer 側でバッジ表示・右クリックの「同期する」に使う { id, unsynced } (登録なしなら null)
+ipcMain.handle('sync-register-file', async (_event, payload) => {
   const filePath = payload && payload.path;
-  if (typeof filePath !== 'string' || registeredSyncPaths.has(filePath)) return;
+  if (typeof filePath !== 'string' || registeredSyncPaths.has(filePath)) return null;
   let stat;
   try {
     stat = fs.statSync(filePath);
   } catch {
-    return; // 消えた・読めないパスは登録しない
+    return null; // 消えた・読めないパスは登録しない
   }
   registeredSyncPaths.add(filePath);
   // フォルダはそのまま同期できないため、バックグラウンドで .zip 化してから台帳へ登録する。
   // ローカルのリストにはフォルダのカードがそのまま残り、同期相手には zip が届く
   if (stat.isDirectory()) {
     const registeredAt = Date.now(); // 時刻は zip 化の完了時ではなく「置いた時」に揃える
-    zipFolder(filePath)
-      .then((zipPath) => {
-        registerLocalSyncEntry({
-          type: 'file',
-          name: path.basename(zipPath),
-          path: zipPath,
-          timestamp: registeredAt,
-          originKind: 'folder',
-          folderName: path.basename(filePath),
-        });
-      })
-      .catch((err) => {
-        registeredSyncPaths.delete(filePath); // 失敗した場合は次回の登録 (再ドロップ) で再挑戦できるようにする
-        console.error('フォルダの zip 化に失敗 (同期をスキップ):', filePath, err.message);
+    try {
+      const zipPath = await zipFolder(filePath);
+      const entry = registerLocalSyncEntry({
+        type: 'file',
+        name: path.basename(zipPath),
+        path: zipPath,
+        timestamp: registeredAt,
+        originKind: 'folder',
+        folderName: path.basename(filePath),
       });
-    return;
+      return entry ? { id: entry.id, unsynced: Boolean(entry.unsynced) } : null;
+    } catch (err) {
+      registeredSyncPaths.delete(filePath); // 失敗した場合は次回の登録 (再ドロップ) で再挑戦できるようにする
+      console.error('フォルダの zip 化に失敗 (同期をスキップ):', filePath, err.message);
+      return null;
+    }
   }
-  registerLocalSyncEntry({
+  const entry = registerLocalSyncEntry({
     type: 'file',
     name: (payload && payload.name) || path.basename(filePath),
     path: filePath,
     timestamp: (payload && Number(payload.timestamp)) || Date.now(),
   });
+  return entry ? { id: entry.id, unsynced: Boolean(entry.unsynced) } : null;
 });
 
 // ---- フォルダ由来 zip の展開 (受信側) ----

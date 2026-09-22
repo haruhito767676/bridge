@@ -489,8 +489,16 @@ function addLocalFile(filePath, fileName, origin, sourceApp) {
   items.unshift(item); // タイムライン表示のため最新を先頭へ
   trimFileHistory(); // 上限あふれの最古アイテムを外し、同期由来の一時ファイル実体もお掃除する
 
-  // 自分のデバイスで生まれたファイルだけを同期台帳へ登録する (他拠点由来の再登録ループを防ぐ)
-  if (!item.fromDevice) window.bridge.registerSyncFile(filePath, item.name, item.timestamp);
+  // 自分のデバイスで生まれたファイルだけを同期台帳へ登録する (他拠点由来の再登録ループを防ぐ)。
+  // フォルダは zip 化を待つため一呼吸遅れて返る (その間このアイテムはまだ unsynced 判定が付かない)
+  if (!item.fromDevice) {
+    window.bridge.registerSyncFile(filePath, item.name, item.timestamp).then((result) => {
+      if (!result || item.removing) return;
+      item.syncEntryId = result.id;
+      item.unsynced = Boolean(result.unsynced);
+      if (item.unsynced) render();
+    });
+  }
 
   queueAttachFileIcon(item, filePath);
   queueAttachFileKind(item, filePath);
@@ -537,7 +545,13 @@ function addPendingItem(name, work) {
       item.name = resolvedName || path.split(/[\\/]/).pop();
       item.downloading = false;
       item.isImage = isImagePath(path);
-      window.bridge.registerSyncFile(path, item.name); // 実体が確定した時点で同期台帳へ登録
+      // 実体が確定した時点で同期台帳へ登録
+      window.bridge.registerSyncFile(path, item.name).then((result) => {
+        if (!result || item.removing) return;
+        item.syncEntryId = result.id;
+        item.unsynced = Boolean(result.unsynced);
+        if (item.unsynced) render();
+      });
       queueAttachFileIcon(item, path);
       queueAttachFileKind(item, path);
       render();
