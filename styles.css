@@ -965,6 +965,18 @@ body.platform-win32 .source-app-badge {
   display: none;
 }
 
+/* 同期の一時停止トグル。押している間だけでなく「オンになっている」ことが
+   分かるよう、有効時はアクセント色で塗って常時目立たせる (Control Center のタイル同様) */
+.footer-button.active {
+  background: #ff9f0a;
+  color: #fff;
+}
+
+.footer-button.active:hover {
+  background: #ff9f0a;
+  color: #fff;
+}
+
 /* ---- 短命な通知 (クリアの取り消しなど) ---- */
 
 #control-toast {
@@ -1620,6 +1632,14 @@ body.platform-win32 .toast-action:active {
 body.platform-win32 .push-button.primary:active {
   background: var(--accent);
   filter: brightness(0.88);
+}
+
+/* 同期の一時停止トグルは Fluent でもアクセント塗りで「オン」を示す */
+body.platform-win32 .footer-button.active,
+body.platform-win32 .footer-button.active:hover {
+  background: var(--accent);
+  border-color: transparent;
+  color: var(--accent-fg);
 }
 
 /* Fluent の Reveal フォーカスは角ばった 2px の輪郭 */

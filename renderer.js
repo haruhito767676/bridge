@@ -1952,6 +1952,17 @@ clearBtn.addEventListener('click', () => {
 let syncStatus = { peers: [], onlineCount: 0 };
 
 const pauseLabel = document.getElementById('pause-label');
+const syncPauseButton = document.getElementById('sync-pause-button');
+
+syncPauseButton.addEventListener('click', () => {
+  const next = !syncStatus.syncPaused;
+  window.bridge.setSyncPaused(next).then((status) => {
+    if (status) {
+      syncStatus = status;
+      renderSyncStatus();
+    }
+  });
+});
 
 function renderSyncStatus() {
   const { peers, onlineCount, clipboardPaused, syncPaused } = syncStatus;
@@ -1973,6 +1984,10 @@ function renderSyncStatus() {
         ? '同期を停止中'
         : '';
   pauseLabel.hidden = !paused;
+
+  syncPauseButton.classList.toggle('active', Boolean(syncPaused));
+  syncPauseButton.setAttribute('aria-pressed', String(Boolean(syncPaused)));
+  syncPauseButton.title = syncPaused ? '同期を再開' : 'ほかのデバイスとの同期を一時停止';
 
   // 最終同期時刻のサマリーは footer には出さない (今何を見ているかの状態表示に絞る)。
   // 個別の最終同期時刻はデバイスごとに設定シートのピア一覧で確認できる (renderPeerList 側)

@@ -84,12 +84,14 @@ function setClipboardPaused(paused) {
   clipboardPaused = Boolean(paused);
   lastSyncStatusKey = ''; // フッターの表示を即時更新させる
   broadcastSyncStatus();
+  updateTrayActivity(); // メニューバーアイコンにも反映する
 }
 
 function setSyncPaused(paused) {
   syncPaused = Boolean(paused);
   lastSyncStatusKey = '';
   broadcastSyncStatus();
+  updateTrayActivity();
 }
 
 // ---- Windows: 常駐 PowerShell ヘルパー ----
@@ -2449,8 +2451,15 @@ function updateTrayActivity() {
   if (!tray) return;
   const active = [...activeSyncDownloads.values()];
   if (active.length === 0) {
-    if (process.platform === 'darwin') tray.setTitle('');
-    tray.setToolTip('Bridge');
+    // 転送中でなければ、一時停止中かどうかをここに出す (開かなくても気づけるように)
+    if (clipboardPaused || syncPaused) {
+      const label = clipboardPaused && syncPaused ? '監視と同期を停止中' : clipboardPaused ? '監視を停止中' : '同期を停止中';
+      if (process.platform === 'darwin') tray.setTitle('⏸');
+      tray.setToolTip(`Bridge — ${label}`);
+    } else {
+      if (process.platform === 'darwin') tray.setTitle('');
+      tray.setToolTip('Bridge');
+    }
     return;
   }
   // 母数が分かっているものの中で一番進んでいない値を代表にする
@@ -3185,6 +3194,10 @@ function broadcastSyncStatus() {
 setInterval(broadcastSyncStatus, 2000);
 
 ipcMain.handle('get-sync-status', () => syncStatusSnapshot());
+ipcMain.handle('set-sync-paused', (_event, paused) => {
+  setSyncPaused(paused);
+  return syncStatusSnapshot();
+});
 
 // ---- 設定の読み書き (sync-config.json を GUI から編集する) ----
 
