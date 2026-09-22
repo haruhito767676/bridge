@@ -1339,6 +1339,14 @@ body.settings-open #shelf-footer {
   font-size: 11px;
 }
 
+.peer-list li.peer-disabled {
+  opacity: 0.55;
+}
+
+.peer-list li .peer-toggle {
+  flex: none;
+}
+
 /* ショートカットキーの編集行: ラベル + 「フィールドをクリックして押す」フィールド + 既定に戻すボタン */
 .hotkey-row {
   display: flex;

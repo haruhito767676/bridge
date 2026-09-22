@@ -123,6 +123,8 @@ contextBridge.exposeInMainWorld('bridge', {
   setSyncPaused: (paused) => ipcRenderer.invoke('set-sync-paused', paused),
   // 一時停止中に生まれた 1 件を、右クリックの「同期する」から手動で送る
   syncEntryNow: (id) => ipcRenderer.invoke('sync-entry-now', id),
+  // 設定シートのピア一覧から、デバイス単位で同期を止める / 再開する
+  setPeerEnabled: (host, port, enabled) => ipcRenderer.invoke('set-peer-enabled', host, port, enabled),
 
   // 設定シートの「いま探す」(マルチキャストで名乗り + サブネットスキャン) と「ログを表示」
   scanPeersNow: () => ipcRenderer.invoke('scan-peers-now'),

@@ -2211,22 +2211,38 @@ function renderPeerList() {
     return;
   }
   for (const peer of peers) {
+    const enabled = peer.enabled !== false;
     const li = document.createElement('li');
+    if (!enabled) li.classList.add('peer-disabled');
     const dot = document.createElement('span');
-    dot.className = 'sync-dot' + (peer.online ? ' online' : '');
+    dot.className = 'sync-dot' + (peer.online && enabled ? ' online' : '');
     const name = document.createElement('span');
     name.className = 'peer-name';
     name.textContent = peer.device || peer.host;
     const addr = document.createElement('span');
     addr.className = 'peer-addr';
     // 診断用: オンラインなら「アドレス · 最終同期 時刻」、オフラインなら最後の失敗理由
-    if (peer.online) {
+    if (!enabled) {
+      addr.textContent = '同期を止めています';
+      addr.title = peer.host;
+    } else if (peer.online) {
       addr.textContent = peer.lastSyncedAt ? `${peer.host} · ${formatTime(peer.lastSyncedAt)} 同期` : peer.host;
     } else {
       addr.textContent = peer.lastError || 'オフライン';
       addr.title = peer.host;
     }
-    li.append(dot, name, addr);
+    const toggle = document.createElement('input');
+    toggle.type = 'checkbox';
+    toggle.className = 'switch peer-toggle';
+    toggle.checked = enabled;
+    toggle.title = enabled ? 'このデバイスとの同期を止める' : 'このデバイスとの同期を再開する';
+    toggle.addEventListener('change', async () => {
+      toggle.disabled = true;
+      const status = await window.bridge.setPeerEnabled(peer.host, peer.port, toggle.checked);
+      syncStatus = status;
+      renderSyncStatus();
+    });
+    li.append(dot, name, addr, toggle);
     settingPeerList.appendChild(li);
   }
 }

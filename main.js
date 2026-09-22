@@ -2192,7 +2192,7 @@ const MAX_SYNC_STORE = 500;
 // 同期通信の認証トークンを載せる HTTP ヘッダー名 (サーバー・クライアント共通)
 const SYNC_TOKEN_HEADER = 'x-bridge-token';
 
-let syncConfig = { port: DEFAULT_SYNC_PORT, peers: [], autoScan: true, secretToken: null };
+let syncConfig = { port: DEFAULT_SYNC_PORT, peers: [], autoScan: true, secretToken: null, disabledPeers: [] };
 
 // secretToken から導出した暗号鍵。同期ごとに引き伸ばし直すと重いので、
 // トークンが変わったとき (設定画面からの変更を含む) だけ再計算してキャッシュする
@@ -2255,6 +2255,8 @@ function loadSyncConfig() {
         typeof parsed.secretToken === 'string' && parsed.secretToken.trim()
           ? parsed.secretToken.trim()
           : null,
+      // "host:port" 単位でこのデバイスとの同期を止めたいピアの一覧 (送受信とも止める)
+      disabledPeers: Array.isArray(parsed.disabledPeers) ? parsed.disabledPeers.filter((p) => typeof p === 'string') : [],
     };
     // myDeviceName が指定されていれば、設定画面なしに JSON 編集だけで表示名を短縮できるようにする
     if (typeof parsed.myDeviceName === 'string' && parsed.myDeviceName.trim()) {
@@ -2368,6 +2370,7 @@ function addPeer(host, port, device, iconType) {
       device: device || null,
       iconType: iconType || null,
       online: false,
+      enabled: !syncConfig.disabledPeers.includes(key), // このデバイスとの送受信を止めているか
       lastSyncedTs: 0,
       lastSyncedAt: 0, // 最後にポーリング / 受信が成功した時刻 (ローカル時計)
       lastError: null, // 最後の失敗理由 (設定シートの診断表示用)
@@ -2818,7 +2821,10 @@ async function pollPeer(peer) {
 
 function pollAllPeers() {
   if (syncPaused) return;
-  for (const peer of knownPeers.values()) pollPeer(peer);
+  for (const peer of knownPeers.values()) {
+    if (!peer.enabled) continue; // このデバイスとの同期を止めている相手はポーリングも行わない
+    pollPeer(peer);
+  }
 }
 
 // 新着アイテムが発生した瞬間、オンラインの全ピアへメタデータを即時プッシュする
@@ -2833,6 +2839,7 @@ function pushEntriesToPeers(entries) {
     items: entries.map(syncMetadata),
   };
   for (const peer of knownPeers.values()) {
+    if (!peer.enabled) continue; // このデバイスとの同期を止めている相手には送らない
     if (!peer.online) continue; // オフラインのピアへは再接続後の差分ポーリングで届く
     httpPostJson(peer.host, peer.port, '/push', payload).catch((err) => {
       if (peer.online) logEvent('peer', `プッシュ失敗: ${peer.device || peer.host} (${err && err.message})`);
@@ -2892,6 +2899,18 @@ function startSyncServer() {
       res.writeHead(400);
       res.end();
       return;
+    }
+
+    // このデバイス側でピアを無効化している場合、データ系エンドポイント (/items・/file・/push) は
+    // 拒否する。/ping だけは相手の発見・オンライン表示に使うだけなので通す
+    if (url.pathname !== '/ping') {
+      const remoteHost = (req.socket.remoteAddress || '').replace(/^::ffff:/, '');
+      const disabledPeer = [...knownPeers.values()].find((p) => p.host === remoteHost && !p.enabled);
+      if (disabledPeer) {
+        res.writeHead(403);
+        res.end();
+        return;
+      }
     }
 
     try {
@@ -3197,6 +3216,7 @@ function syncStatusSnapshot() {
     host: p.host,
     port: p.port,
     online: Boolean(p.online),
+    enabled: p.enabled !== false,
     iconType: p.iconType || null,
     lastSyncedAt: p.lastSyncedAt || 0,
     lastError: p.lastError || null,
@@ -3227,6 +3247,32 @@ ipcMain.handle('set-sync-paused', (_event, paused) => {
 });
 // 一時停止中に生まれた 1 件だけを、右クリックの「同期する」から手動で送る
 ipcMain.handle('sync-entry-now', (_event, id) => ({ ok: syncPendingEntryNow(id) }));
+
+// 設定シートのピア一覧からの、デバイス単位の同期 ON/OFF。key は "host:port"
+ipcMain.handle('set-peer-enabled', (_event, host, port, enabled) => {
+  const key = `${host}:${Number(port) || syncConfig.port}`;
+  const peer = knownPeers.get(key);
+  if (!peer) return syncStatusSnapshot();
+  peer.enabled = Boolean(enabled);
+  if (!peer.enabled) peer.online = false; // 無効化した瞬間にオンライン表示を消す (再度ポーリングするまで更新されないため)
+  syncConfig.disabledPeers = syncConfig.disabledPeers.filter((k) => k !== key);
+  if (!peer.enabled) syncConfig.disabledPeers.push(key);
+  let existing = {};
+  try {
+    existing = JSON.parse(fs.readFileSync(syncConfigPath(), 'utf8')) || {};
+  } catch {
+    existing = {};
+  }
+  try {
+    fs.writeFileSync(syncConfigPath(), JSON.stringify({ ...existing, disabledPeers: syncConfig.disabledPeers }, null, 2));
+  } catch (err) {
+    console.error('sync-config.json の書き込みに失敗:', err.message);
+  }
+  lastSyncStatusKey = '';
+  broadcastSyncStatus();
+  logEvent('peer', `${peer.enabled ? '同期を再開' : '同期を停止'}: ${peer.device || peer.host}`);
+  return syncStatusSnapshot();
+});
 
 // ---- 設定の読み書き (sync-config.json を GUI から編集する) ----
 
