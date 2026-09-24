@@ -128,6 +128,10 @@
        任せた方が上下対称になる)。パネルのオフスクリーン非表示はopacityで
        別途制御しているため、ここでhiddenにする必要はない */
     overflow:visible;
+    /* 縦は上記の理由でvisibleのまま、横だけclipする。画面右外に待機しているパネル(と
+       狭い画面ではfake-window)がページ幅を押し広げて横スクロールが出るのを防ぐ。
+       hiddenと違いclipはoverflow-yをvisibleのまま併用でき、stickyにも影響しない */
+    overflow-x:clip;
   }
   .laptop-crop{
     position:relative;width:min(980px,92vw);aspect-ratio:16/10;border-radius:22px;overflow:hidden;
@@ -481,7 +485,7 @@
   footer.site .fine{font-size:13px;color:var(--ink-faint);}
   footer.site .flinks{display:flex;gap:20px;font-size:13.5px;font-weight:500;}
 
-  @media (min-width:641px){
+  @media (min-width:861px){
     .features-heading{white-space:nowrap;}
   }
   br.sm-only{display:none;}
