@@ -293,17 +293,10 @@
   .privacy-text h2{font-size:36px;margin-bottom:12px;}
   .privacy-text p{font-size:15px;color:var(--ink-dim);}
   .privacy-points{
-    display:grid;grid-template-columns:1fr 1fr;gap:16px 32px;
+    display:grid;grid-template-columns:1fr 1fr;gap:20px 32px;
     margin:32px auto 0;max-width:560px;text-align:left;list-style:none;padding:0;
   }
-  .privacy-point{display:flex;align-items:flex-start;gap:11px;}
-  .privacy-point .pp-icon{
-    flex:0 0 auto;width:22px;height:22px;margin-top:1px;border-radius:50%;
-    background:#fff;display:flex;align-items:center;justify-content:center;
-    box-shadow:0 1px 2px rgba(0,0,0,0.08);
-  }
-  .privacy-point .pp-icon svg{width:11px;height:11px;stroke:var(--ok);stroke-width:3;}
-  .privacy-point p{margin:0;font-size:14px;line-height:1.55;color:var(--ink-dim);}
+  .privacy-point p{margin:0;font-size:14.5px;line-height:1.6;color:var(--ink-dim);}
   @media (max-width:640px){
     .privacy-points{grid-template-columns:1fr;}
   }
@@ -329,10 +322,9 @@
   .detail-solo h3{font-size:34px;margin-bottom:12px;}
   .detail-text h3{font-size:32px;margin-bottom:12px;}
   .detail-text p{font-size:15.5px;line-height:1.7;}
-  .checklist{margin:20px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:10px;text-align:left;}
-  .checklist li{font-size:14.5px;color:var(--ink-dim);padding-left:24px;position:relative;}
-  .checklist li::before{content:"✓";position:absolute;left:0;color:var(--ok);font-weight:700;}
-  .detail-solo .checklist{display:inline-flex;margin:20px auto 0;}
+  .checklist{margin:24px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:12px;text-align:left;}
+  .checklist li{font-size:15px;line-height:1.6;color:var(--ink-dim);}
+  .detail-solo .checklist{display:inline-flex;margin:24px auto 0;}
 
   /* ---- os-compare: 同じ内容のパネルを2枚重ね、ハンドルより左をmac/右をwinで
      clip-pathで出し分けるビフォーアフター比較スライダー。バー位置は初期表示だけ
@@ -1576,23 +1568,18 @@
       <p>コピーした内容や送ったファイルは、あなたの<span style="white-space:nowrap;">ネットワーク</span>の中だけを通る。それだけ。</p>
       <ul class="privacy-points">
         <li class="privacy-point">
-          <span class="pp-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg></span>
           <p>同期したい相手とだけ、同じ「合言葉」を共有する</p>
         </li>
         <li class="privacy-point">
-          <span class="pp-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg></span>
           <p>合言葉が違う端末には、そもそも見えない</p>
         </li>
         <li class="privacy-point">
-          <span class="pp-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg></span>
           <p>やり取りの中身も、合言葉から作った鍵で暗号化される</p>
         </li>
         <li class="privacy-point">
-          <span class="pp-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg></span>
           <p>コードも MIT ライセンスで公開。動作は自分の目で確認できる</p>
         </li>
         <li class="privacy-point">
-          <span class="pp-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg></span>
           <p>同期の一時停止も、デバイスごとのON/OFFも、いつでも自分で決められる</p>
         </li>
       </ul>
