@@ -11,8 +11,9 @@
 <meta property="og:image" content="hero.png">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="icon.png" type="image/png">
+<script>if(/Win/i.test(navigator.userAgent||''))document.documentElement.classList.add('os-win');</script>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
 
   :root{
     --paper:#fbfbfa;
@@ -29,16 +30,19 @@
     --ok-tint:rgba(52,199,89,0.14);
     --radius-m:16px;
     --radius-s:10px;
-    /* Windowsは既定のHiragino Sansが無く、素通りするとブラウザ任せの太さになって
-       薄く/見づらく出ることがあるため、Windows側の日本語フォントを明示で並べておく。
-       Yu Gothicは公称ウェイトの割に線が細く見えるとの指摘が多いフォントなので、
-       より視認性の高いMeiryoを先に置いて実質そちらを優先させる */
-    --display:'Sora','Hiragino Sans','Meiryo','Yu Gothic UI','Yu Gothic',sans-serif;
-    --sans:'IBM Plex Sans','Hiragino Sans','Meiryo','Yu Gothic UI','Yu Gothic',sans-serif;
+    /* Macは-apple-system (SF) + Hiragino Sansでそのままシステム書体になる。
+       Windowsにはどちらも無いので、SFに近いInter (欧文) と、ウェイトが安定して
+       線が細くならないNoto Sans JP (和文) をWebフォントで補う。Meiryo/Yu Gothicは
+       Webフォントの読込前・失敗時の保険 */
+    --display:-apple-system,BlinkMacSystemFont,'SF Pro Display','Inter','Hiragino Sans','Noto Sans JP','Meiryo','Yu Gothic UI',sans-serif;
+    --sans:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter','Hiragino Sans','Noto Sans JP','Meiryo','Yu Gothic UI',sans-serif;
     --mono:'IBM Plex Mono','SF Mono',Menlo,Consolas,monospace;
     --header-h:84px; /* nav実測: padding22px*2 + brandアイコン40px。stickyヘッダーに
        隠れる分だけ、アンカー着地位置とlaptop-stageの静止位置をずらすのに使う */
   }
+  /* WindowsのClearTypeは細い灰色文字が薄く沈みやすいので、二次テキストだけ濃くする
+     (os-winは<head>末尾の小さなスクリプトで付与) */
+  html.os-win{--ink-dim:rgba(38,38,44,0.84);--ink-faint:rgba(60,60,67,0.68);}
   *{box-sizing:border-box;}
   html{color-scheme:light;scroll-behavior:smooth;scroll-padding-top:var(--header-h);}
   @media (prefers-reduced-motion: reduce){ html{scroll-behavior:auto;} }
@@ -801,14 +805,14 @@
     <a class="feature" href="#detail-store">
       <div class="f-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 4V3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1"/></svg></div>
       <h3>なんでも格納。</h3>
-      <p>文字も、画像も、ファイルも。フォルダも。<br>消えずに、積もっていく。<br>「さっきのやつ」は、もう<span style="white-space:nowrap;">どこにもいかない。</span></p>
+      <p>文字も、画像も、ファイルも。フォルダも。<br>そのまま、積もっていく。<br>「さっきのやつ」は、もう<span style="white-space:nowrap;">どこにもいかない。</span></p>
       <svg class="feature-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
     </a>
     <div class="flow-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></div>
     <a class="feature" href="#detail-pick">
       <div class="f-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="13" height="10" rx="2.5"/><path d="M7 7h5M7 9.5h3"/><path d="M14 13l2 6 2-4 4-2z"/></svg></div>
       <h3>その場でペースト。</h3>
-      <p>呼べば、そこに浮かぶ。選べば、そこに貼りつく。</p>
+      <p>呼べば、そこに浮かぶ。選べば、そこに貼りつく。まるで魔法。</p>
       <svg class="feature-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
     </a>
     <div class="flow-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></div>
@@ -934,7 +938,7 @@
       </div>
     </div>
     <div class="persona-card">
-      <div class="persona-label">動画クリエイター</div>
+      <div class="persona-label">クリエイター</div>
       <div class="persona-frame">
         <div class="brd brd-static" style="width:320px;" role="img" aria-label="「ファイル」のみが絞り込まれ、動画編集の書き出しファイルが並び、リストの下端で見切れている">
           <div class="search-area">
@@ -1028,7 +1032,7 @@
       </div>
     </div>
     <div class="persona-card">
-      <div class="persona-label">個人開発エンジニア</div>
+      <div class="persona-label">エンジニア</div>
       <div class="persona-frame">
         <div class="brd brd-static" style="width:320px;" role="img" aria-label="「クリップ」のみが絞り込まれ、開発中のコマンドやリンクが並び、リストの下端で見切れている">
           <div class="search-area">
