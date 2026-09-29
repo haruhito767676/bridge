@@ -35,13 +35,26 @@ const evalJS = async (expr) => { const r = await send('Runtime.evaluate', { expr
 
 await send('Page.enable');
 await send('Emulation.setDeviceMetricsOverride', { width: 1920, height: 1080, deviceScaleFactor: 1, mobile: false });
-await send('Page.navigate', { url: 'file://' + path.join(DIR, FILM) + '?capture=1' });
-for (let i = 0; i < 200; i++) { try { if (await evalJS('!!window.__ready')) break; } catch { } await sleep(100); }
-await evalJS('window.__ready');
-await sleep(300);
+const load = async () => {
+  await send('Page.navigate', { url: 'file://' + path.join(DIR, FILM) + '?capture=1' });
+  for (let i = 0; i < 200; i++) { try { if (await evalJS('!!window.__ready')) break; } catch { } await sleep(100); }
+  await evalJS('window.__ready');
+  await sleep(300);
+};
+await load();
 
 const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('capture timeout')), ms))]);
-const shot = async (t) => withTimeout(shot0(t), 30000);
+// 稀に Chrome が 1 枚だけ応答しなくなる。まずそのまま撮り直し、それでも駄目ならページを読み込み直す
+const shot = async (t) => {
+  for (let a = 0; a < 5; a++) {
+    try { return await withTimeout(shot0(t), 8000); }
+    catch (e) {
+      console.log(`retry t=${t.toFixed(3)} (${a + 1}) ${e.message}`);
+      if (a >= 1) { try { await withTimeout(load(), 30000); } catch (e2) { console.log('reload failed', e2.message); } }
+    }
+  }
+  throw new Error('shot failed at t=' + t);
+};
 const shot0 = async (t) => {
   await evalJS(`renderAt(${t})`);
   const r = await send('Page.captureScreenshot', { format: 'png', optimizeForSpeed: true, clip: { x: 0, y: 0, width: 1920, height: 1080, scale: 1 } });
@@ -57,7 +70,7 @@ if (mode === 'stills') {
   // 180° シャッター: 1 フレーム (1/60s) の前半に samples 枚を等間隔に置いて平均する
   const samples = +(process.argv[3] || 4);
   const out = process.argv[4] || path.join(DIR, 'video_noaudio.mov');
-  const total = FPS * DUR;
+  const total = process.env.END ? +process.env.END : FPS * DUR;
   const ff = spawn('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'image2pipe', '-framerate', String(FPS * samples), '-i', '-',
     '-vf', samples > 1 ? `tmix=frames=${samples},select='eq(mod(n\\,${samples})\\,${samples - 1})',setpts=N/(${FPS}*TB)` : 'null',
     '-r', String(FPS), '-c:v', 'prores_ks', '-profile:v', '3', '-pix_fmt', 'yuv422p10le', out], { stdio: ['pipe', 'inherit', 'inherit'] });

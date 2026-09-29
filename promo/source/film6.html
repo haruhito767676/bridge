@@ -687,6 +687,7 @@ function s2(T) {
     $('s2gA').style.transform = `translate3d(${(-c.cx * .02 + 40 * Math.sin(T * .8)).toFixed(1)}px,${(20 * Math.sin(T * .6)).toFixed(1)}px,0)`;
     $('s2gB').style.transform = `translate3d(${(c.cx * -.015).toFixed(1)}px,${(30 * Math.sin(T * .7 + 1)).toFixed(1)}px,0)`;
   }
+  else { $('chipTop').style.opacity = 0; show($('hlA'), false); show($('popIm'), false); show($('cursorW'), false); }
   hero(T);
 }
 
