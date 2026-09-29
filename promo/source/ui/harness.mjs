@@ -31,10 +31,11 @@ await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-sch
 await send('Emulation.setDefaultBackgroundColorOverride', { color: { r: 0, g: 0, b: 0, a: 0 } });
 
 let _script = null;
-export async function open(platform, me) {
+export async function open(platform, me, page = 'index.html', vp = [320, 600]) {
+  await send('Emulation.setDeviceMetricsOverride', { width: vp[0], height: vp[1], deviceScaleFactor: DSF, mobile: false });
   if (_script) await send('Page.removeScriptToEvaluateOnNewDocument', { identifier: _script });
   _script = (await send('Page.addScriptToEvaluateOnNewDocument', { source: `window.__PLATFORM=${JSON.stringify(platform)};window.__ME=${JSON.stringify(me || null)};\n` + mock })).identifier;
-  await send('Page.navigate', { url: 'file://' + path.join(APP, 'index.html') });
+  await send('Page.navigate', { url: 'file://' + path.join(APP, page) });
   for (let i = 0; i < 100; i++) { try { if (await ev('!!window.__mockReady')) break; } catch { } await sleep(100); }
   await sleep(500);
 }
