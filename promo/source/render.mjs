@@ -1,6 +1,7 @@
 // 依存なしのレンダラー: Chrome DevTools Protocol で film.html を 1 フレームずつシークして撮影する
 //   node render.mjs stills 0.5 2.1 ...      → stills/*.png
-//   node render.mjs video [samples]          → frames を ffmpeg へパイプ (samples 枚のサブフレームを平均 = モーションブラー)
+//   node render.mjs video [samples] [out]    → frames を ffmpeg へパイプ (samples 枚のサブフレームを平均 = モーションブラー)
+// 環境変数 FILM (既定 film.html) / DUR (既定 30 秒) で対象を切り替えられる
 import { spawn } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -9,7 +10,7 @@ import path from 'node:path';
 const DIR = path.dirname(fileURLToPath(import.meta.url));
 const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const PORT = 9337;
-const FPS = 60, DUR = +(process.env.DUR || 15), FILM = process.env.FILM || 'film.html';
+const FPS = 60, DUR = +(process.env.DUR || 30), FILM = process.env.FILM || 'film.html';
 const mode = process.argv[2] || 'stills';
 
 const chrome = spawn(CHROME, [

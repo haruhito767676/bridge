@@ -1,3 +1,10 @@
 node_modules/
 dist/
 .DS_Store
+# PR 動画: 書き出し物は無視し、ソース (promo/source) だけを管理する
+promo/*.mp4
+promo/*.png
+promo/source/*.wav
+promo/source/*.mov
+promo/**/.chrome/
+promo/source/stills/
