@@ -8,6 +8,8 @@ import path from 'node:path';
 const D = (n) => path.join(APP, 'assets/demo', n);
 const icon = (n) => 'file://' + path.join(DIR, 'appicons', n + '.png');
 const MIN = 60000, HOUR = 3600000, DAY = 24 * HOUR;
+// 時刻表示は撮る時刻に依存させない: 動画内のメニューバー (13:26) に合わせて「今日の 13:26」を現在時刻とみなす
+const BASE = (() => { const d = new Date(); d.setHours(13, 26, 0, 0); return d.getTime(); })();
 const APPS = ['Excel', 'Notion', 'Figma', 'Pages', 'Numbers', 'Chrome', 'Slack', 'Terminal', 'Word', 'Outlook', 'Teams', 'PowerPoint'];
 const appMap = Object.fromEntries(APPS.map((n) => [n, { name: n, icon: icon(n) }]));
 
@@ -16,31 +18,47 @@ const DEVS = {
   imac: { me: '自宅iMac', platform: 'darwin', skin: 'darwin' },
   win: { me: '会社用PC', platform: 'win32', skin: 'win32' },
 };
-const NEW_TEXT = '明日14時、会議室Bでキックオフ';
+const NEW_TEXT = '次回定例は10/15(木) 14:00';
 const OWNER = { mac: '自分のMac', imac: '自宅iMac', win: '会社用PC' };
 const PLAT = { '自分のMac': 'darwin', '自宅iMac': 'darwin', '会社用PC': 'win32' };
 // id, kind, payload, origin device name, ago, app
 const DATA = [
+  // ---- 今日 ----
   { id: 'new', k: 'text', text: NEW_TEXT, o: '自分のMac', ago: 0.2 * MIN, app: 'Notion' },
   { id: 't1', k: 'text', text: 'https://github.com/example-team/ec-renewal/pull/42', o: '自分のMac', ago: 8 * MIN, app: 'Chrome' },
   { id: 't2', k: 'text', text: '本日17時までにデザイン差し戻しをお願いします🙏', o: '自宅iMac', ago: 35 * MIN, app: 'Slack' },
   { id: 'f1', k: 'file', name: '見積書_ECサイト改修_v2.pdf', o: '会社用PC', ago: 40 * MIN, app: 'Excel' },
   { id: 't3', k: 'text', text: '在庫アラートのしきい値を10→15に変更してもらえますか？', o: '会社用PC', ago: 80 * MIN, app: 'Slack' },
   { id: 'i1', k: 'image', name: 'clipboard_2026-09-14_15-40-00.png', o: '会社用PC', ago: 3 * HOUR, app: 'Excel' },
-  { id: 'f2', k: 'file', name: '検収書_9月分.pdf', o: '自宅iMac', ago: 5 * HOUR, app: 'Pages' },
-  { id: 'f3', k: 'file', name: 'ロゴ差分_v3.png', o: '会社用PC', ago: 7 * HOUR, app: 'Figma' },
-  { id: 't4', k: 'text', text: 'ssh deploy@192.168.1.42 -p 2222', o: '会社用PC', ago: 9 * HOUR, app: 'Terminal' },
+  { id: 'f2', k: 'file', name: '検収書_9月分.pdf', o: '自宅iMac', ago: 4 * HOUR, app: 'Pages' },
+  { id: 'f3', k: 'file', name: 'ロゴ差分_v3.png', o: '会社用PC', ago: 5 * HOUR, app: 'Figma' },
+  { id: 't4', k: 'text', text: 'ssh deploy@192.168.1.42 -p 2222', o: '会社用PC', ago: 6 * HOUR, app: 'Terminal' },
+  { id: 'f4', k: 'file', name: '議事録_1010_定例MTG.txt', o: '自分のMac', ago: 7 * HOUR, app: 'Notion' },
+  { id: 't5', k: 'text', text: '会議室Bを10:00〜11:00で予約しました。プロジェクターの予約も忘れずに。', o: '自分のMac', ago: 8 * HOUR, app: 'Notion' },
+  { id: 'f5', k: 'file', name: '契約書_業務委託.docx', o: '自宅iMac', ago: 9 * HOUR, app: 'Word' },
+  { id: 't6', k: 'text', text: 'npm run build && npm run deploy', o: '自分のMac', ago: 10 * HOUR, app: 'Terminal' },
+  // ---- 昨日 ----
+  { id: 'f6', k: 'file', name: '経費精算_9月.xlsx', o: '会社用PC', y: 2 * HOUR, app: 'Excel' },
+  { id: 'i2', k: 'image', name: 'clipboard_2026-09-13_11-05-00.png', o: '自宅iMac', y: 4 * HOUR, app: 'Chrome' },
+  { id: 't7', k: 'text', text: 'https://www.figma.com/file/abcd1234/EC-Renewal', o: '自分のMac', y: 6 * HOUR, app: 'Chrome' },
+  { id: 'f7', k: 'file', name: '納品リスト_10月.xlsx', o: '自宅iMac', y: 8 * HOUR, app: 'Excel' },
+  { id: 't8', k: 'text', text: '領収書の宛名は「株式会社Notoa」でお願いします', o: '会社用PC', y: 10 * HOUR, app: 'Outlook' },
+  { id: 'f8', k: 'file', name: '進行スケジュール.csv', o: '自分のMac', y: 12 * HOUR, app: 'Numbers' },
+  { id: 'f9', k: 'file', name: '見積比較_他社.xlsx', o: '会社用PC', y: 14 * HOUR, app: 'Excel' },
+  { id: 't9', k: 'text', text: '来週の定例は10/22(木) 14:00〜でお願いします', o: '自宅iMac', y: 16 * HOUR, app: 'Teams' },
 ];
 
 const OUT = path.join(DIR, 'plates'); mkdirSync(OUT, { recursive: true });
 const manifest = {};
 
 async function emitAll(devKey, upTo) {
-  const dev = DEVS[devKey], now = Date.now();
+  const dev = DEVS[devKey], now = BASE;
   const items = DATA.filter((d) => !upTo || upTo.includes(d.id));
+  const mid = new Date(); mid.setHours(0, 0, 0, 0);
+  const tsOf = (d) => d.y != null ? mid.getTime() - d.y : now - d.ago;
   const saved = items.filter((d) => d.id !== 'new').map((d) => {
     const remote = d.o !== dev.me;
-    const base = { timestamp: now - d.ago, sourceApp: { name: d.app, icon: icon(d.app) }, fromDevice: remote ? d.o : null, fromPlatform: remote ? PLAT[d.o] : null };
+    const base = { timestamp: tsOf(d), sourceApp: { name: d.app, icon: icon(d.app) }, fromDevice: remote ? d.o : null, fromPlatform: remote ? PLAT[d.o] : null };
     if (d.k === 'file') return { kind: 'file', path: D(d.name), name: d.name, ...base };
     if (d.k === 'image') return { kind: 'clip-image', path: D(d.name), name: d.name, isImage: true, ...base };
     return { kind: 'clip-text', text: d.text, name: d.text.replace(/\s+/g, ' '), ...base };
@@ -50,7 +68,7 @@ async function emitAll(devKey, upTo) {
   await sleep(1300);
   if (nw) {
     const remote = nw.o !== dev.me;
-    await ev(`window.__emit('clipboard-item', ${JSON.stringify({ type: 'clipboard-text', text: nw.text, timestamp: now - nw.ago, sourceApp: { name: nw.app, icon: icon(nw.app) }, ...(remote ? { fromDevice: nw.o, fromPlatform: PLAT[nw.o] } : {}) })})`);
+    await ev(`window.__emit('clipboard-item', ${JSON.stringify({ type: 'clipboard-text', text: nw.text, timestamp: tsOf(nw), sourceApp: { name: nw.app, icon: icon(nw.app) }, ...(remote ? { fromDevice: nw.o, fromPlatform: PLAT[nw.o] } : {}) })})`);
     await sleep(1300);
   }
 }
@@ -112,7 +130,7 @@ for (const [key, dev] of Object.entries(DEVS)) {
   await open('darwin', '自分のMac');
   await emitAll('mac', ['t1', 't2']);
   const dir = path.join(OUT, 'mac'); const P = [];
-  await ev(`window.__emit('sync-pending',{syncId:'s1',kind:'file',name:'見積書_ECサイト改修_v3.pdf',timestamp:Date.now(),fromDevice:'会社用PC',fromPlatform:'win32',originKind:null})`); await sleep(700);
+  await ev(`window.__emit('sync-pending',{syncId:'s1',kind:'file',name:'見積書_ECサイト改修_v3.pdf',timestamp:${BASE},fromDevice:'会社用PC',fromPlatform:'win32',originKind:null})`); await sleep(700);
   const total = 2.4 * 1024 * 1024;
   for (let i = 0; i <= 10; i++) {
     await ev(`window.__emit('sync-progress',{syncId:'s1',received:${total * i / 10},total:${total}})`); await sleep(500);
@@ -122,7 +140,7 @@ for (const [key, dev] of Object.entries(DEVS)) {
     await shotTo(path.join(dir, `sync${i}.png`), clipOf(g.rows[ri]));
   }
   // 完了 → 実体に置き換わる
-  await ev(`window.__emit('sync-pending-remove',{syncId:'s1'}); window.__emit('add-file',{path:${JSON.stringify(D('見積書_ECサイト改修_v2.pdf'))},name:'見積書_ECサイト改修_v3.pdf',timestamp:Date.now(),syncId:'s1',fromDevice:'会社用PC',fromPlatform:'win32',sourceApp:${JSON.stringify(appMap.Excel)}})`); await sleep(1300);
+  await ev(`window.__emit('sync-pending-remove',{syncId:'s1'}); window.__emit('add-file',{path:${JSON.stringify(D('見積書_ECサイト改修_v2.pdf'))},name:'見積書_ECサイト改修_v3.pdf',timestamp:${BASE},syncId:'s1',fromDevice:'会社用PC',fromPlatform:'win32',sourceApp:${JSON.stringify(appMap.Excel)}})`); await sleep(1300);
   const g = await listGeom(); DZB = g.dz.bottom; const ri = g.rows.findIndex((r) => /file-item/.test(r.cls));
   await shotTo(path.join(dir, 'sync-done.png'), clipOf(g.rows[ri]));
   manifest.mac.syncDone = { rows: g.rows.map((r) => ({ cls: r.cls, top: r.top, height: r.height, text: r.text })), idx: ri };
