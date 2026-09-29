@@ -1,0 +1,383 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bridge Film</title>
+<style>
+:root{
+  --bg:#000; --fg:#f5f5f7; --fg2:rgba(235,235,245,.6); --accent:#0a84ff;
+  --display:-apple-system,BlinkMacSystemFont,"SF Pro Display","Hiragino Sans","Noto Sans JP",sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:#000;overflow:hidden}
+body{font-family:var(--display);color:var(--fg);-webkit-font-smoothing:antialiased}
+#stage{position:absolute;left:0;top:0;width:1920px;height:1080px;overflow:hidden;transform-origin:0 0;background:var(--bg)}
+.L{position:absolute;left:0;top:0;width:1920px;height:1080px}
+.abs{position:absolute;left:0;top:0}
+img{display:block}
+
+/* 見出し: 大きく、1 画面 1 メッセージ */
+.W{position:absolute;font:700 150px/1.08 var(--display);letter-spacing:-.02em;color:var(--fg);white-space:nowrap}
+.W span{display:block}
+.gr{background:linear-gradient(95deg,#6fc8ff 0%,#0a84ff 55%,#5e5ce6 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+
+.glow{position:absolute;border-radius:50%;pointer-events:none}
+
+/* icon */
+.icon{position:absolute}
+.icon img{width:100%;height:100%}
+.sheen{position:absolute;inset:0;-webkit-mask:url(assets/appicon.png) center/100% 100% no-repeat;
+  background:linear-gradient(105deg,rgba(255,255,255,0) 38%,rgba(255,255,255,.3) 50%,rgba(255,255,255,0) 62%);background-size:300% 100%}
+
+/* S2 */
+#w2{position:absolute;left:0;top:0;width:4000px;height:1080px}
+.dev{position:absolute}
+.dev img{width:100%;height:100%}
+#card{position:absolute;width:440px;height:282px;border-radius:26px;overflow:hidden;background:#fff;
+  box-shadow:0 40px 90px rgba(0,0,0,.55),0 0 0 1px rgba(255,255,255,.12),0 0 80px rgba(10,132,255,.25)}
+#card img{width:100%;height:100%;object-fit:cover}
+
+/* S3 panel (アプリのダークモード配色) */
+#wall{position:absolute;left:1040px;top:-80px;width:1000px;height:1300px;
+  background:radial-gradient(40% 35% at 30% 30%,rgba(94,92,230,.55),transparent 70%),radial-gradient(45% 40% at 70% 70%,rgba(10,132,255,.45),transparent 70%),radial-gradient(35% 30% at 70% 20%,rgba(255,55,95,.28),transparent 70%)}
+#panel{position:absolute;left:0;top:0;width:440px;height:900px;border-radius:22px;overflow:hidden;transform-origin:0 0;
+  background:rgba(38,38,44,.72);backdrop-filter:blur(40px) saturate(1.8);
+  box-shadow:0 0 0 .5px rgba(255,255,255,.18),inset 0 .5px 0 rgba(255,255,255,.12),0 40px 120px rgba(0,0,0,.6)}
+#search{position:absolute;left:16px;top:16px;width:408px;height:40px;border-radius:10px;background:rgba(0,0,0,.25);display:flex;align-items:center;padding:0 13px}
+.row{position:absolute;left:8px;top:0;width:424px;height:72px;border-radius:12px}
+.row .rbg{position:absolute;inset:0;border-radius:12px;background:var(--accent);opacity:0}
+.tile{position:relative;flex:none;width:48px;height:48px;border-radius:11px;background:rgba(120,120,128,.24);display:grid;place-items:center}
+.tile .fi{width:34px;height:34px}
+.tile .bdg{position:absolute;right:-4px;bottom:-4px;width:22px;height:22px;border-radius:6px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.4)}
+.tile .bdg img{width:100%;height:100%}
+.tile.th{overflow:hidden;background:#fff}
+.tile.th>img{width:100%;height:100%;object-fit:cover}
+.row .tile{position:absolute;left:10px;top:12px}
+.row .tt{position:absolute;left:72px;top:0;height:72px;line-height:72px;width:300px;font:600 17px var(--display);color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .ok{position:absolute;right:16px;top:22px;width:28px;height:28px;border-radius:14px;background:#fff;display:grid;place-items:center;opacity:0}
+
+/* S4 */
+.key{position:absolute;width:210px;height:210px;border-radius:44px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  background:linear-gradient(180deg,#2c2c30,#1c1c1f);box-shadow:inset 0 1.5px 0 rgba(255,255,255,.14),inset 0 -8px 0 rgba(0,0,0,.35),0 30px 70px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.08);
+  font:500 104px var(--display);color:#fff}
+.key .ring{position:absolute;inset:-1px;border-radius:45px;box-shadow:0 0 0 3px rgba(10,132,255,.95),0 0 50px rgba(10,132,255,.55);opacity:0}
+#doc{position:absolute;left:260px;top:360px;width:1400px;height:420px;border-radius:26px;background:#1c1c1e;
+  box-shadow:0 0 0 1px rgba(255,255,255,.1),0 50px 120px rgba(0,0,0,.6)}
+#doc .tb{height:52px;display:flex;align-items:center;gap:10px;padding:0 22px}
+.tl{width:14px;height:14px;border-radius:7px;background:#ff5f57}.tl.y{background:#febc2e}.tl.g{background:#28c840}
+#line{position:absolute;left:80px;top:130px;font:600 58px var(--display);color:var(--fg);white-space:nowrap}
+#line .lab{color:var(--fg2)}
+#caret{display:inline-block;width:4px;height:64px;background:var(--accent);vertical-align:-10px;margin-left:2px;border-radius:2px}
+#pasted{border-radius:8px}
+.bar{position:absolute;left:80px;height:22px;border-radius:11px;background:rgba(255,255,255,.08)}
+#pop{position:absolute;width:520px;border-radius:20px;padding:10px;background:rgba(44,44,48,.82);backdrop-filter:blur(30px) saturate(1.8);
+  box-shadow:0 0 0 .5px rgba(255,255,255,.18),0 30px 80px rgba(0,0,0,.6);transform-origin:0 0}
+#pop .pr{position:relative;height:68px;border-radius:12px;display:flex;align-items:center;gap:16px;padding:0 12px;font:600 21px var(--display);color:var(--fg);z-index:1;white-space:nowrap}
+#pop .pr span{overflow:hidden;text-overflow:ellipsis}
+#popSel{position:absolute;left:0;top:0;height:68px;width:500px;border-radius:12px;background:var(--accent);z-index:0}
+
+#fade{background:#000;opacity:0;pointer-events:none}
+#controls{position:fixed;left:16px;right:16px;bottom:14px;display:flex;gap:12px;align-items:center;font:500 13px ui-monospace,monospace;color:#aaa;z-index:10}
+#controls button{background:#222;color:#eee;border:1px solid #444;border-radius:8px;padding:6px 14px;font:inherit;cursor:pointer}
+#controls input{flex:1}
+body.cap #controls{display:none}
+</style>
+</head>
+<body>
+<div id="stage">
+
+  <!-- S1: icon -->
+  <div id="s1" class="L">
+    <div class="glow" id="g1" style="left:560px;top:520px;width:800px;height:400px;background:radial-gradient(closest-side,rgba(10,132,255,.35),rgba(10,132,255,0))"></div>
+    <div class="icon" id="ic1" style="left:760px;top:340px;width:400px;height:400px"><img src="assets/appicon.png"><div class="sheen" id="sh1"></div></div>
+  </div>
+
+  <!-- S2: Mac → Windows -->
+  <div id="s2" class="L">
+    <div id="w2">
+      <div class="glow" style="left:160px;top:700px;width:800px;height:260px;background:radial-gradient(closest-side,rgba(120,140,255,.18),transparent)"></div>
+      <div class="glow" id="gWin" style="left:2260px;top:700px;width:800px;height:260px;background:radial-gradient(closest-side,rgba(10,132,255,.3),transparent)"></div>
+      <div class="dev" id="dMac" style="left:60px;top:100px;width:1000px;height:1000px"><img src="assets/macbook.png"></div>
+      <div class="dev" id="dWin" style="left:2160px;top:100px;width:1000px;height:1000px"><img src="assets/win_laptop.png"></div>
+      <div id="card"><img src="assets/shot1.png"></div>
+    </div>
+    <div class="W" id="t2a" style="left:1090px;top:330px"><span>Mac で</span><span>コピー。</span></div>
+    <div class="W" id="t2b" style="left:140px;top:330px"><span>Windows に、</span><span class="gr">すぐ届く。</span></div>
+  </div>
+
+  <!-- S3: history -->
+  <div id="s3" class="L">
+    <div id="wall"></div>
+    <div id="panel">
+      <div id="search"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(235,235,245,.5)" stroke-width="2.6" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></div>
+      <div id="rows"></div>
+    </div>
+    <div class="W" id="t3" style="left:150px;top:350px"><span>コピーは</span><span class="gr">全部、残る。</span></div>
+  </div>
+
+  <!-- S4: paste -->
+  <div id="s4" class="L">
+    <div id="keys">
+      <div class="key" id="k0" style="left:585px;top:435px"><div class="ring"></div>⌥</div>
+      <div class="key" id="k1" style="left:855px;top:435px"><div class="ring"></div>⌘</div>
+      <div class="key" id="k2" style="left:1125px;top:435px"><div class="ring"></div>V</div>
+    </div>
+    <div id="doc">
+      <div class="tb"><i class="tl"></i><i class="tl y"></i><i class="tl g"></i></div>
+      <div id="line"><span class="lab">決定事項：</span><span id="pasted"></span><span id="caret"></span></div>
+      <div class="bar" style="top:270px;width:900px"></div>
+      <div class="bar" style="top:320px;width:640px"></div>
+    </div>
+    <div id="pop"><div style="position:relative"><div id="popSel"></div><div id="popRows"></div></div></div>
+    <div class="W" id="t4" style="left:960px;top:120px;transform-origin:50% 0"><span style="text-align:center">カーソルの横に、<span class="gr" style="display:inline">すぐ。</span></span></div>
+  </div>
+
+  <!-- S5: network -->
+  <div id="s5" class="L">
+    <svg class="L" id="net" viewBox="0 0 1920 1080" width="1920" height="1080" style="overflow:visible">
+      <defs><linearGradient id="gl" x1="0" x2="1"><stop offset="0" stop-color="#6fc8ff"/><stop offset="1" stop-color="#0a84ff"/></linearGradient>
+      <filter id="blur6"><feGaussianBlur stdDeviation="6"/></filter></defs>
+    </svg>
+    <div class="dev" id="d5a" style="width:520px;height:520px"><img src="assets/win_laptop.png"></div>
+    <div class="dev" id="d5b" style="width:620px;height:620px"><img src="assets/macbook.png"></div>
+    <div class="dev" id="d5c" style="width:470px;height:470px"><img src="assets/win_desktop.png"></div>
+    <div class="W" id="t5a" style="left:960px;top:110px"><span>クラウドを、通さない。</span></div>
+    <div class="W" id="t5b" style="left:960px;top:110px"><span>同じ <span class="gr" style="display:inline">Wi-Fi</span> だけで。</span></div>
+  </div>
+
+  <!-- S6: end -->
+  <div id="s6" class="L">
+    <div class="glow" id="g6" style="left:560px;top:430px;width:800px;height:360px;background:radial-gradient(closest-side,rgba(10,132,255,.32),rgba(10,132,255,0))"></div>
+    <div class="icon" id="ic6" style="left:810px;top:230px;width:300px;height:300px"><img src="assets/appicon.png"><div class="sheen" id="sh6"></div></div>
+    <div class="W" id="t6a" style="left:960px;top:590px;font-size:170px;letter-spacing:-.03em"><span>Bridge</span></div>
+    <div class="W" id="t6b" style="left:960px;top:820px;font:600 54px var(--display);color:var(--fg2);letter-spacing:0"><span>Mac と Windows を、ひとつに。</span></div>
+  </div>
+
+  <div id="fade" class="L"></div>
+</div>
+<div id="controls"><button id="play">❚❚</button><input id="scrub" type="range" min="0" max="33" step="0.001" value="0"><span id="tlabel">0.000s</span></div>
+
+<script>
+'use strict';
+const W = 1920, H = 1080, DUR = 33;
+const CAP = new URLSearchParams(location.search).has('capture');
+const $ = id => document.getElementById(id);
+const clamp = (v, a = 0, b = 1) => v < a ? a : v > b ? b : v;
+const P = (t, a, b) => clamp((t - a) / (b - a));
+const lerp = (a, b, p) => a + (b - a) * p;
+const bez = (x1, y1, x2, y2) => x => {
+  if (x <= 0) return 0; if (x >= 1) return 1;
+  let lo = 0, hi = 1, u = x;
+  for (let i = 0; i < 22; i++) { u = (lo + hi) / 2; const bx = 3 * (1 - u) * (1 - u) * u * x1 + 3 * (1 - u) * u * u * x2 + u * u * u; if (bx < x) lo = u; else hi = u; }
+  return 3 * (1 - u) * (1 - u) * u * y1 + 3 * (1 - u) * u * u * y2 + u * u * u;
+};
+const E = { out: bez(.16, 1, .3, 1), inOut: bez(.65, 0, .35, 1), in: bez(.5, 0, .75, 0) };
+function spring(dt, k = 140, c = 22) {
+  if (dt <= 0) return 0;
+  const w0 = Math.sqrt(k), z = c / (2 * w0);
+  if (z < 1) { const wd = w0 * Math.sqrt(1 - z * z); return 1 - Math.exp(-z * w0 * dt) * (Math.cos(wd * dt) + (z * w0 / wd) * Math.sin(wd * dt)); }
+  return 1 - Math.exp(-w0 * dt) * (1 + w0 * dt);
+}
+function S(el, o) {
+  const x = o.x || 0, y = o.y || 0, s = o.s == null ? 1 : o.s;
+  el.style.transform = `${o.pre || ''}translate3d(${x.toFixed(2)}px,${y.toFixed(2)}px,0) scale(${s.toFixed(4)})`;
+  el.style.opacity = o.o == null ? 1 : clamp(o.o).toFixed(3);
+  const b = o.blur || 0; el.style.filter = b > .15 ? `blur(${b.toFixed(2)}px)` : '';
+}
+const _vis = new Map();
+function show(el, on) { if (_vis.get(el) !== on) { el.style.display = on ? '' : 'none'; _vis.set(el, on); } return on; }
+// 見出し: ぼかしが晴れながら少しだけ持ち上がる / 退場は逆に
+function word(el, t, tin, tout, { center = false, dur = 1.1 } = {}) {
+  const p = E.out(P(t, tin, tin + dur)), q = tout == null ? 0 : E.in(P(t, tout, tout + .6));
+  S(el, { pre: center ? 'translateX(-50%) ' : '', y: 36 * (1 - p) - 20 * q, s: 1.03 - .03 * p, o: P(t, tin, tin + dur * .55) * (1 - q), blur: 20 * (1 - p) + 14 * q });
+}
+
+// ---------- S3 rows ----------
+const CLIP = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="rgba(235,235,245,.6)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 4.5V3.5h6v1"/><path d="M9 10h6M9 13.5h6M9 17h3.5"/></svg>';
+const LINK = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="rgba(235,235,245,.6)" stroke-width="1.9" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>';
+const T = {
+  pdf: '<div class="tile"><img class="fi" src="assets/file-pdf.png"></div>',
+  slack: `<div class="tile">${CLIP}<span class="bdg"><img src="assets/slack.png"></span></div>`,
+  notion: `<div class="tile">${CLIP}<span class="bdg"><img src="assets/notion.png"></span></div>`,
+  docx: '<div class="tile"><img class="fi" src="assets/file-docx.png"></div>',
+  xlsx: '<div class="tile"><img class="fi" src="assets/file-xlsx.png"></div>',
+  folder: '<div class="tile"><img class="fi" src="assets/folder.png"></div>',
+  link: `<div class="tile">${LINK}<span class="bdg"><img src="assets/chrome.png"></span></div>`,
+  shot: '<div class="tile th"><img src="assets/shot1.png"></div>',
+};
+const ROWS = [
+  ['slack', '明日14時、会議室Bでキックオフ'], ['docx', '議事録_キックオフ.docx'], ['link', 'github.com/example-team/bridge'],
+  ['folder', '素材_インタビュー撮影分'], ['pdf', '見積書_ECサイト改修_v2.pdf'], ['notion', '16時からの定例、資料共有を'],
+  ['xlsx', '経費精算_9月.xlsx'], ['slack', '第2会議室に変更'], ['docx', '週次報告_テンプレート.docx'], ['folder', 'design-assets'],
+].map(([k, t]) => ({ k, t }));
+ROWS.push({ k: 'shot', t: 'screenshot_09-40.png', fresh: true });
+ROWS.forEach(r => {
+  const d = document.createElement('div'); d.className = 'row';
+  d.innerHTML = `<div class="rbg"></div>${T[r.k]}<div class="tt">${r.t}</div><div class="ok"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0a84ff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>`;
+  $('rows').appendChild(d); r.el = d; r.bg = d.querySelector('.rbg'); r.ok = d.querySelector('.ok');
+});
+// ---------- S4 popup ----------
+const POP = [['docx', '議事録_キックオフ.docx'], ['slack', '明日14時、会議室Bでキックオフ'], ['shot', 'screenshot_09-40.png'], ['link', 'github.com/example-team/bridge']];
+POP.forEach(([k, t]) => { const d = document.createElement('div'); d.className = 'pr'; d.innerHTML = `${T[k]}<span>${t}</span>`; $('popRows').appendChild(d); });
+const popRows = [...document.querySelectorAll('#pop .pr')];
+
+// ---------- S5 network ----------
+const NS = 'http://www.w3.org/2000/svg', net = $('net');
+function place(id, cx, cy) { const e = $(id), w = parseFloat(e.style.width); e.style.left = (cx - w / 2) + 'px'; e.style.top = (cy - w / 2) + 'px'; e._w = w; e._cx = cx; e._cy = cy; }
+place('d5a', 400, 700); place('d5b', 960, 660); place('d5c', 1530, 710);
+const scr = (id, fx, fy) => { const e = $(id); return [e._cx - e._w / 2 + fx * e._w, e._cy - e._w / 2 + fy * e._w]; };
+const N = [scr('d5a', .37, .39), scr('d5b', .37, .39), scr('d5c', .5, .28)];
+const cub = (c, p) => { const q = 1 - p; return [q * q * q * c[0][0] + 3 * q * q * p * c[1][0] + 3 * q * p * p * c[2][0] + p * p * p * c[3][0], q * q * q * c[0][1] + 3 * q * q * p * c[1][1] + 3 * q * p * p * c[2][1] + p * p * p * c[3][1]]; };
+const arc = (a, b, lift) => [a, [lerp(a[0], b[0], .25), Math.min(a[1], b[1]) - lift], [lerp(a[0], b[0], .75), Math.min(a[1], b[1]) - lift], b];
+const ARCS = [arc(N[0], N[1], 120), arc(N[1], N[2], 120), arc(N[0], N[2], 300)];
+function mk(tag, attrs) { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); net.appendChild(e); return e; }
+const dStr = c => `M${c[0]} C${c[1]} ${c[2]} ${c[3]}`;
+const LG = ARCS.map(c => mk('path', { d: dStr(c), fill: 'none', stroke: 'url(#gl)', 'stroke-width': 10, 'stroke-linecap': 'round', pathLength: 1, 'stroke-dasharray': '1 1', filter: 'url(#blur6)', opacity: .6 }));
+const LN = ARCS.map(c => mk('path', { d: dStr(c), fill: 'none', stroke: 'url(#gl)', 'stroke-width': 3.5, 'stroke-linecap': 'round', pathLength: 1, 'stroke-dasharray': '1 1' }));
+const DOTS = Array.from({ length: 6 }, () => mk('circle', { r: 8, fill: '#fff' }));
+
+// ================= scenes =================
+function s1(t) {
+  if (!show($('s1'), t < 4.4)) return;
+  const e = spring(t - .3, 70, 17), out = E.in(P(t, 3.5, 4.3));
+  S($('ic1'), { s: (.9 + .1 * e) * (1 - .04 * out), o: P(t, .3, 1.1) * (1 - out), blur: 24 * (1 - E.out(P(t, .3, 1.5))) + 12 * out });
+  $('g1').style.opacity = E.out(P(t, .8, 2.2)) * (1 - out);
+  $('sh1').style.backgroundPosition = `${lerp(100, 0, E.inOut(P(t, 1.5, 2.7)))}% 0`;
+}
+
+function s2(t) {
+  if (!show($('s2'), t > 4.0 && t < 12.2)) return;
+  const inn = E.out(P(t, 4.2, 5.6)), out = E.in(P(t, 11.3, 12.1));
+  const pan = 1300 * E.inOut(P(t, 7.2, 9.0));
+  S($('w2'), { x: -pan + 60 * (1 - inn), o: inn * (1 - out), blur: 10 * out });
+  // カード: Mac の画面から浮かぶ → 相手の画面へ
+  const MX = 430, WX = 2530, SY = 490;
+  const pop = spring(t - 6.0, 110, 20), trv = E.inOut(P(t, 7.2, 9.0)), sink = E.inOut(P(t, 9.4, 10.1));
+  const x = lerp(MX, WX, trv), y = SY - 190 * pop + 190 * sink - 30 * Math.sin(Math.PI * trv);
+  const card = $('card');
+  show(card, t > 5.95 && t < 10.2);
+  S(card, { x: x - 220, y: y - 141, s: (.35 + .65 * pop) * (1 - .6 * sink), o: P(t, 6.0, 6.3) * (1 - P(t, 9.8, 10.1)) });
+  card.style.transformOrigin = '50% 50%';
+  $('gWin').style.opacity = .35 + .65 * Math.exp(-Math.max(0, t - 10.0) * 2.5) * (t > 10 ? 1 : 0);
+  word($('t2a'), t, 5.2, 7.0);
+  word($('t2b'), t, 9.0, 11.2);
+}
+
+function s3(t) {
+  if (!show($('s3'), t > 11.8 && t < 19.0)) return;
+  const inn = E.out(P(t, 12.0, 13.2)), out = E.in(P(t, 18.2, 18.9));
+  $('wall').style.opacity = inn * (1 - out);
+  const ps = spring(t - 12.1, 90, 19);
+  const SC = 1.6;
+  S($('panel'), { x: 1110 + 500 * (1 - ps), y: 90 - 40 * out, s: SC, o: P(t, 12.1, 12.5) * (1 - out), blur: 10 * out });
+  const shift = spring(t - 15.2, 120, 20);
+  let n = 0;
+  ROWS.forEach(r => {
+    let y, st;
+    if (r.fresh) { y = 72; st = 15.2; }
+    else { st = 12.5 + n * .09; y = 72 + (n + (t > 15.2 ? shift : 0)) * 76; n++; }
+    const e = spring(t - st, 150, 22);
+    r.el.style.transform = `translate(${(r.fresh ? 50 * (1 - e) : 0).toFixed(2)}px,${(y + (r.fresh ? 0 : 24 * (1 - e))).toFixed(2)}px) scale(${(r.fresh ? .9 + .1 * e : 1).toFixed(4)})`;
+    r.el.style.opacity = P(t, st, st + .3);
+    if (r.fresh) {
+      const sel = t > 16.4;
+      r.bg.style.opacity = sel ? 1 : .22 * P(t, 15.2, 15.4) * (1 - P(t, 15.8, 16.3));
+      r.ok.style.opacity = sel ? 1 : 0; r.ok.style.transform = `scale(${spring(t - 16.45, 200, 18).toFixed(3)})`;
+    }
+  });
+  word($('t3'), t, 13.0, 18.1);
+}
+
+function s4(t) {
+  if (!show($('s4'), t > 18.6 && t < 25.0)) return;
+  // キー
+  const kOut = E.in(P(t, 21.0, 21.6));
+  ['k0', 'k1', 'k2'].forEach((id, i) => {
+    const k = $(id), st = 18.9 + i * .1;
+    const e = spring(t - st, 110, 18);
+    const tp = 20.0 + i * .12, pr = t > tp ? Math.exp(-(t - tp) * 5) : 0;
+    const held = t > tp && t < 20.8 ? 1 : 0;
+    S(k, { y: 60 * (1 - e) + 14 * held - 120 * kOut, s: (1 - .04 * held) * (1 - .15 * kOut), o: P(t, st, st + .3) * (1 - kOut), blur: 12 * kOut });
+    k.firstChild.style.opacity = held ? .6 + .4 * pr : 0;
+  });
+  // ドキュメント
+  const dIn = E.out(P(t, 21.2, 22.3)), out = E.in(P(t, 24.2, 24.9));
+  S($('doc'), { y: 50 * (1 - dIn) - 20 * out, o: P(t, 21.2, 21.8) * (1 - out), blur: 12 * (1 - dIn) + 12 * out });
+  const pasted = t > 23.25;
+  const txt = pasted ? '明日14時、会議室Bでキックオフ' : '';
+  if ($('pasted')._v !== txt) { $('pasted').textContent = txt; $('pasted')._v = txt; }
+  $('pasted').style.background = `rgba(10,132,255,${(.3 * (1 - P(t, 23.4, 24.2))).toFixed(3)})`;
+  $('caret').style.opacity = (t < 22.2 || (Math.floor(t * 2) % 2 === 0)) ? 1 : 0;
+  // ポップアップはキャレットの直下
+  const pop = $('pop');
+  if (!pasted) {
+    const cr = $('caret').getBoundingClientRect(), st = $('stage').getBoundingClientRect(), sc = st.width / W;
+    const dy = parseFloat(($('doc').style.transform.match(/,\s*(-?[\d.]+)px,\s*0/) || [0, 0])[1]) || 0;
+    pop._x = (cr.left - st.left) / sc - 16; pop._y = (cr.bottom - st.top) / sc + 14 - dy;
+  }
+  const pin = spring(t - 22.3, 150, 21), pout = E.in(P(t, 23.05, 23.3));
+  S(pop, { x: pop._x || 0, y: (pop._y || 0) + 16 * (1 - pin), s: 1.3 * (.94 + .06 * pin), o: P(t, 22.3, 22.45) * (1 - pout) * (1 - out) });
+  const sel = E.inOut(P(t, 22.75, 22.95));
+  $('popSel').style.transform = `translateY(${(sel * 68).toFixed(2)}px)`;
+  word($('t4'), t, 21.4, 24.1, { center: true });
+}
+
+function s5(t) {
+  if (!show($('s5'), t > 24.6 && t < 29.4)) return;
+  const out = E.in(P(t, 28.5, 29.3));
+  ['d5a', 'd5b', 'd5c'].forEach((id, i) => {
+    const e = E.out(P(t, 24.9 + i * .15, 26.2 + i * .15));
+    S($(id), { y: 60 * (1 - e) + 6 * Math.sin(t * 1.1 + i * 1.4) + 20 * out, o: e * (1 - out), blur: 10 * (1 - e) + 8 * out });
+  });
+  LN.forEach((p, i) => { const d = 1 - E.inOut(P(t, 25.9 + i * .18, 26.9 + i * .18)); p.style.strokeDashoffset = d; LG[i].style.strokeDashoffset = d; p.style.opacity = (i === 2 ? .55 : 1) * (1 - out); LG[i].style.opacity = .6 * (1 - out); });
+  DOTS.forEach((d, i) => {
+    const ph = (t - 26.9 - i * .35) / 1.4;
+    if (ph < 0) { d.style.opacity = 0; return; }
+    const f = ph % 1, [x, y] = cub(ARCS[i % 3], E.inOut(i >= 3 ? 1 - f : f));
+    d.setAttribute('cx', x.toFixed(1)); d.setAttribute('cy', y.toFixed(1));
+    d.style.opacity = (Math.sin(Math.PI * f) * (1 - out)).toFixed(3);
+  });
+  word($('t5a'), t, 25.0, 26.8, { center: true });
+  word($('t5b'), t, 27.0, 28.5, { center: true });
+}
+
+function s6(t) {
+  if (!show($('s6'), t > 29.0)) return;
+  const e = spring(t - 29.2, 70, 17);
+  S($('ic6'), { s: .9 + .1 * e, o: P(t, 29.2, 29.9), blur: 20 * (1 - E.out(P(t, 29.2, 30.2))) });
+  $('g6').style.opacity = E.out(P(t, 29.6, 31.0));
+  $('sh6').style.backgroundPosition = `${lerp(100, 0, E.inOut(P(t, 30.3, 31.4)))}% 0`;
+  word($('t6a'), t, 29.7, null, { center: true });
+  word($('t6b'), t, 30.3, null, { center: true });
+}
+
+function renderAt(t) {
+  t = clamp(t, 0, DUR - 1e-6);
+  s1(t); s2(t); s3(t); s4(t); s5(t); s6(t);
+  $('fade').style.opacity = Math.max(1 - P(t, 0, .3), E.in(P(t, 32.2, 33))).toFixed(3);
+}
+window.renderAt = renderAt;
+
+async function warm() {
+  await Promise.all([...document.images].map(i => i.complete ? 0 : new Promise(r => { i.onload = i.onerror = r; })));
+  await document.fonts.ready;
+  renderAt(0);
+}
+window.__ready = warm().then(() => true);
+
+if (CAP) document.body.classList.add('cap');
+else {
+  const stage = $('stage');
+  const fit = () => { const s = Math.min(innerWidth / W, (innerHeight - 50) / H); stage.style.transform = `translate(${(innerWidth - W * s) / 2}px,${(innerHeight - 50 - H * s) / 2}px) scale(${s})`; };
+  addEventListener('resize', fit); fit();
+  let playing = true, t0 = performance.now(), cur = 0;
+  const btn = $('play'), scrub = $('scrub'), lab = $('tlabel');
+  btn.onclick = () => { playing = !playing; btn.textContent = playing ? '❚❚' : '▶'; t0 = performance.now() - cur * 1000; };
+  scrub.oninput = () => { cur = +scrub.value; t0 = performance.now() - cur * 1000; renderAt(cur); lab.textContent = cur.toFixed(3) + 's'; };
+  addEventListener('keydown', e => { if (e.code === 'Space') { e.preventDefault(); btn.click(); } });
+  window.__ready.then(() => { t0 = performance.now(); const loop = () => { if (playing) { cur = ((performance.now() - t0) / 1000) % DUR; renderAt(cur); scrub.value = cur; lab.textContent = cur.toFixed(3) + 's'; } requestAnimationFrame(loop); }; loop(); });
+}
+</script>
+</body>
+</html>

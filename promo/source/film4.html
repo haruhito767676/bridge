@@ -1,0 +1,542 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bridge Showreel</title>
+<style>
+:root{
+  --bg:#000; --fg:#f5f5f7; --fg2:rgba(235,235,245,.6); --blue:#0a84ff;
+  --display:-apple-system,BlinkMacSystemFont,"SF Pro Display","Hiragino Sans","Noto Sans JP",sans-serif;
+  --mono:ui-monospace,"SF Mono",Menlo,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:#000;overflow:hidden}
+body{font-family:var(--display);color:var(--fg);-webkit-font-smoothing:antialiased}
+#stage{position:absolute;left:0;top:0;width:1920px;height:1080px;overflow:hidden;transform-origin:0 0;background:#000}
+#world{transform-origin:50% 50%}
+.L{position:absolute;left:0;top:0;width:1920px;height:1080px}
+.abs{position:absolute;left:0;top:0}
+img{display:block}
+
+/* ---------- kinetic type ---------- */
+.tw{position:absolute;left:960px;top:540px;white-space:nowrap;font:800 360px/1 var(--display);letter-spacing:-.03em;color:var(--fg)}
+.mk{display:inline-block;overflow:hidden;vertical-align:top;padding:.1em .03em .2em;margin:-.1em -.03em -.2em}
+.c{display:inline-block;will-change:transform}
+.ph{display:inline-block;width:.24em;height:1px}
+#flood{position:absolute;left:0;top:0;width:61px;height:61px;margin:-30.5px 0 0 -30.5px;border-radius:50%;background:#fff;
+  box-shadow:0 0 40px 10px rgba(10,132,255,.55)}
+.streak{position:absolute;height:3px;border-radius:2px;background:linear-gradient(90deg,rgba(255,255,255,0),rgba(255,255,255,.75))}
+.glow{position:absolute;border-radius:50%;pointer-events:none}
+
+/* ---------- world 2 : devices ---------- */
+#s2{overflow:hidden;transform-origin:0 0;background:#0a84ff}
+#s2bg{background:linear-gradient(150deg,#0a84ff 0%,#0a84ff 36%,#3f6cf5 70%,#6a55ee 100%)}
+#w2world{position:absolute;left:0;top:0;width:4400px;height:1080px;transform-origin:960px 540px}
+.dev{position:absolute}
+.dev img{width:100%;height:100%}
+#card{position:absolute;left:0;top:0;width:440px;height:282px;border-radius:26px;overflow:hidden;background:#fff;
+  box-shadow:0 40px 90px rgba(0,20,120,.5),0 0 0 1px rgba(255,255,255,.3),0 0 90px rgba(255,255,255,.35)}
+#card img{width:100%;height:100%;object-fit:cover}
+.comet{position:absolute;left:0;top:0;width:24px;height:24px;margin:-12px 0 0 -12px;border-radius:50%;background:#fff;box-shadow:0 0 24px 6px rgba(255,255,255,.7)}
+.chip{position:absolute;height:60px;padding:0 30px 0 22px;border-radius:30px;display:flex;align-items:center;gap:12px;font:600 30px var(--display);color:#fff;
+  background:rgba(255,255,255,.2);box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.35);white-space:nowrap;transform:translate(-50%,0)}
+.chip i{width:14px;height:14px;border-radius:7px;background:#fff}
+#head2{position:absolute;left:960px;top:150px;font:800 130px/1 var(--display);letter-spacing:-.03em;color:#fff;white-space:nowrap;transform:translate(-50%,-50%)}
+#winFlash{position:absolute;width:900px;height:700px;border-radius:50%;background:radial-gradient(closest-side,rgba(255,255,255,.9),rgba(255,255,255,0));opacity:0;margin:-350px 0 0 -450px}
+
+/* ---------- bento ---------- */
+#bento{transform-origin:0 0}
+.tile{position:absolute;border-radius:36px;overflow:hidden;background:linear-gradient(180deg,#232326,#1a1a1d);
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.07),inset 0 1px 0 rgba(255,255,255,.1),0 30px 60px rgba(0,0,0,.5)}
+.tile .lab{position:absolute;left:32px;top:26px;font:600 26px var(--display);color:#98989f;letter-spacing:.01em}
+.tile .lab b{font-weight:600;color:#fff;margin-right:10px}
+#tl6{background:transparent;box-shadow:none;overflow:visible}
+#tl6bg{position:absolute;inset:0;border-radius:36px;background:#0a84ff;box-shadow:inset 0 1px 0 rgba(255,255,255,.4)}
+#zero{position:absolute;left:130px;top:-4px;width:240px;height:227.5px;line-height:227.5px;text-align:center;font:800 220px/227.5px var(--display);color:#fff;letter-spacing:-.02em}
+#t6l1{position:absolute;left:428px;top:52px;font:700 52px/1.15 var(--display);color:#fff;white-space:nowrap}
+#t6strike{position:absolute;left:-6px;top:50%;height:6px;margin-top:-3px;background:#fff;border-radius:3px;width:0;box-shadow:0 0 14px rgba(255,255,255,.8)}
+#t6l2{position:absolute;left:430px;top:128px;font:600 31px/1.3 var(--display);color:rgba(255,255,255,.82);white-space:nowrap}
+#s3blue{background:#0a84ff;opacity:0}
+.file{position:absolute;top:70px;width:96px}
+.file svg{width:96px;height:115px;display:block}
+.file span{display:block;text-align:center;font:500 19px var(--display);color:#98989f;margin-top:4px;white-space:nowrap}
+#txtline{position:absolute;left:32px;top:78px;width:360px;font:600 30px/1.3 var(--display);color:#fff}
+#txtline i{display:inline-block;width:3px;height:32px;background:var(--blue);vertical-align:-6px;margin-left:2px;border-radius:2px}
+#hist{position:absolute;inset:0;-webkit-mask-image:linear-gradient(#000 68%,transparent 97%)}
+.hrow{position:absolute;left:32px;height:40px;width:350px;border-radius:12px;background:rgba(120,120,128,.24);display:flex;align-items:center;gap:12px;padding:0 12px}
+.hrow i{width:20px;height:20px;border-radius:6px;background:#0a84ff;flex:none}
+.hrow b{height:10px;border-radius:5px;background:rgba(255,255,255,.35)}
+
+/* ---------- finale ---------- */
+.icon{position:absolute}
+.icon>img{position:absolute;inset:0;width:100%;height:100%}
+.sheen{position:absolute;inset:0;-webkit-mask:url(assets/appicon.png) center/100% 100% no-repeat;
+  background:linear-gradient(105deg,rgba(255,255,255,0) 38%,rgba(255,255,255,.34) 50%,rgba(255,255,255,0) 62%);background-size:300% 100%}
+#pen{position:absolute;left:0;top:0;width:28px;height:28px;margin:-14px 0 0 -14px;border-radius:50%;background:#fff;box-shadow:0 0 30px 8px rgba(10,132,255,.9),0 0 90px 24px rgba(10,132,255,.5)}
+#brand{position:absolute;left:960px;top:590px;font:700 190px/1 var(--display);letter-spacing:-.04em;color:#fff;white-space:nowrap;transform:translate(-50%,-50%)}
+#tag{position:absolute;left:960px;top:752px;font:600 56px/1 var(--display);color:var(--fg2);white-space:nowrap;transform:translate(-50%,-50%)}
+#flash{background:radial-gradient(closest-side,rgba(255,255,255,.95),rgba(190,220,255,.4) 45%,rgba(255,255,255,0));opacity:0}
+#rings{position:absolute;left:0;top:0;width:1920px;height:1080px;overflow:visible}
+#grain{position:absolute;left:-60px;top:-60px;width:2040px;height:1200px;opacity:.022;pointer-events:none}
+#fade{background:#000;opacity:0;pointer-events:none}
+#controls{position:fixed;left:16px;right:16px;bottom:14px;display:flex;gap:12px;align-items:center;font:500 13px ui-monospace,monospace;color:#aaa;z-index:10}
+#controls button{background:#222;color:#eee;border:1px solid #444;border-radius:8px;padding:6px 14px;font:inherit;cursor:pointer}
+#controls input{flex:1}
+body.cap #controls{display:none}
+</style>
+</head>
+<body>
+<div id="stage">
+ <div id="world" class="L">
+
+  <!-- S1 : Copy / Paste -->
+  <div id="s1" class="L">
+    <div class="glow" id="g1" style="left:460px;top:290px;width:1000px;height:500px;background:radial-gradient(closest-side,rgba(10,132,255,.22),rgba(10,132,255,0))"></div>
+    <div id="streaks"></div>
+    <div class="tw" id="w1"></div>
+    <div class="tw" id="w2"></div>
+  </div>
+  <div id="flood"></div>
+
+  <!-- S3b : blue field that becomes “0” -->
+  <div id="s3blue" class="L"></div>
+
+  <!-- bento group (contains hero = S2) -->
+  <div id="bento" class="L">
+    <div id="s2" class="L">
+      <div id="s2bg" class="L"></div>
+      <div class="glow" id="s2gA" style="left:-300px;top:-200px;width:1400px;height:1000px;background:radial-gradient(closest-side,rgba(255,255,255,.32),rgba(255,255,255,0))"></div>
+      <div class="glow" id="s2gB" style="left:1100px;top:400px;width:1300px;height:900px;background:radial-gradient(closest-side,rgba(150,110,255,.5),rgba(150,110,255,0))"></div>
+      <div id="w2world">
+        <div class="dev" id="dMac" style="left:430px;top:170px;width:1100px;height:1100px"><img src="assets/macbook.png"></div>
+        <div class="dev" id="dWin" style="left:2330px;top:170px;width:1100px;height:1100px"><img src="assets/win_laptop.png"></div>
+        <div id="winFlash" style="left:2737px;top:599px"></div>
+        <div class="chip" id="chipA" style="left:980px;top:84px"><i></i>Mac</div>
+        <div class="chip" id="chipB" style="left:2880px;top:84px"><i></i>Windows</div>
+        <div id="comets"></div>
+        <div id="card"><img src="assets/shot1.png"></div>
+      </div>
+      <div id="head2"></div>
+    </div>
+
+    <div class="tile" id="tl1" style="left:972px;top:175px;width:414px;height:227.5px"><div class="lab">テキスト</div><div id="txtline"></div></div>
+    <div class="tile" id="tl2" style="left:1410px;top:175px;width:414px;height:227.5px"><div class="lab">画像</div>
+      <div style="position:absolute;left:32px;top:76px;width:214px;height:137px;border-radius:16px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.5)"><img src="assets/shot1.png" style="width:100%;height:100%;object-fit:cover"></div>
+      <div style="position:absolute;left:266px;top:84px;font:500 20px var(--mono);color:#98989f;line-height:1.5">PNG<br>2.4 MB</div></div>
+    <div class="tile" id="tl3" style="left:972px;top:426.5px;width:852px;height:227.5px"><div class="lab">ファイル</div><div id="files"></div></div>
+    <div class="tile" id="tl4" style="left:96px;top:678px;width:414px;height:227.5px"><div class="lab">リンク</div>
+      <svg style="position:absolute;left:32px;top:88px" width="76" height="76" viewBox="0 0 24 24" fill="none" stroke="#0a84ff" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="9.5"/><path d="M2.5 12h19M12 2.5a14.5 14.5 0 0 1 0 19M12 2.5a14.5 14.5 0 0 0 0 19"/></svg>
+      <div style="position:absolute;left:126px;top:92px;font:500 24px/1.45 var(--mono);color:#fff">github.com/<br><span style="color:#98989f">team/bridge</span></div></div>
+    <div class="tile" id="tl5" style="left:534px;top:678px;width:414px;height:227.5px"><div class="lab">履歴</div><div id="hist"></div></div>
+    <div class="tile" id="tl6" style="left:972px;top:678px;width:852px;height:227.5px">
+      <div id="tl6bg"></div>
+      <div id="zero">0</div>
+      <div id="t6l1">クラウド経由<span id="t6strike"></span></div>
+      <div id="t6l2">LAN の中だけで、直接同期。</div>
+    </div>
+  </div>
+
+  <!-- S4 : bridge -->
+  <div id="s4" class="L">
+    <div class="glow" id="g4" style="left:410px;top:120px;width:1100px;height:800px;background:radial-gradient(closest-side,rgba(10,132,255,.34),rgba(10,132,255,0))"></div>
+    <div class="icon" id="ic4" style="left:790px;top:160px;width:340px;height:340px">
+      <img id="icPng" src="assets/appicon.png" style="opacity:0">
+      <div class="sheen" id="sh4"></div>
+      <svg id="gl" viewBox="0 0 1024 1024" width="340" height="340" style="position:absolute;left:0;top:0;overflow:visible">
+        <defs><filter id="gb" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="16"/></filter></defs>
+        <g id="glowG" filter="url(#gb)" stroke="#0a84ff" fill="none" stroke-width="46" stroke-linecap="round" opacity=".85">
+          <path id="archGlow" d="M217 542 C340 540 390 401 512 401 C634 401 684 540 807 542"/>
+        </g>
+        <mask id="archMask" maskUnits="userSpaceOnUse" x="0" y="0" width="1024" height="1024">
+          <path id="archM" d="M217 542 C340 540 390 401 512 401 C634 401 684 540 807 542" stroke="#fff" fill="none" stroke-width="90"/>
+        </mask>
+        <g id="glyph" stroke="#e9ebf0" fill="none" stroke-linecap="round" stroke-width="24">
+          <path id="arch" d="M217 542 C340 540 390 401 512 401 C634 401 684 540 807 542" stroke="none"/>
+          <g mask="url(#archMask)"><path id="archFill" fill="#e9ebf0" stroke="none" d=""/>
+            <path d="M338 492 C330 520 322 545 321 572" stroke-width="27" stroke-linecap="butt"/>
+            <path transform="translate(1024,0) scale(-1,1)" d="M338 492 C330 520 322 545 321 572" stroke-width="27" stroke-linecap="butt"/></g>
+          <path id="deckLm" d="M512 561 L300 561"/>
+          <path id="deckRm" d="M512 561 L724 561"/>
+          <path id="deckLo" d="M300 575 L224 575" stroke-width="20"/>
+          <path id="deckRo" d="M724 575 L800 575" stroke-width="20"/>
+          <path class="hang" d="M400.5 432 L400.5 566" stroke-width="26" stroke-linecap="butt"/>
+          <path class="hang" d="M511.5 398 L511.5 566" stroke-width="26" stroke-linecap="butt"/>
+          <path class="hang" d="M622.5 432 L622.5 566" stroke-width="26" stroke-linecap="butt"/>
+          <g id="piers" fill="#e9ebf0" stroke="none">
+            <g id="pierL"><path d="M258 575 C262 610 274 630 280 648 L310 648 C312 628 318 605 328 575 Z"/><rect x="252" y="646" width="89" height="25" rx="7"/></g>
+            <g transform="translate(1024,0) scale(-1,1)"><path d="M258 575 C262 610 274 630 280 648 L310 648 C312 628 318 605 328 575 Z"/><rect x="252" y="646" width="89" height="25" rx="7"/></g>
+          </g>
+        </g>
+      </svg>
+    </div>
+    <div id="pen"></div>
+    <div id="brand"></div>
+    <div id="tag"></div>
+  </div>
+
+  <svg id="rings" viewBox="0 0 1920 1080"></svg>
+  <div id="flash" class="L"></div>
+ </div>
+ <canvas id="grain" width="680" height="400"></canvas>
+ <div id="fade" class="L"></div>
+</div>
+<div id="controls"><button id="play">❚❚</button><input id="scrub" type="range" min="0" max="15" step="0.001" value="0"><span id="tlabel">0.000s</span></div>
+
+<script>
+'use strict';
+const W = 1920, H = 1080, DUR = 15;
+const CAP = location.search.includes('capture');
+const ALIGN = location.search.includes('align');
+const $ = id => document.getElementById(id);
+const clamp = (v, a = 0, b = 1) => v < a ? a : v > b ? b : v;
+const P = (t, a, b) => clamp((t - a) / (b - a));
+const lerp = (a, b, p) => a + (b - a) * p;
+const bez = (x1, y1, x2, y2) => x => {
+  if (x <= 0) return 0; if (x >= 1) return 1;
+  let lo = 0, hi = 1, u = x;
+  for (let i = 0; i < 22; i++) { u = (lo + hi) / 2; const bx = 3 * (1 - u) * (1 - u) * u * x1 + 3 * (1 - u) * u * u * x2 + u * u * u; if (bx < x) lo = u; else hi = u; }
+  return 3 * (1 - u) * (1 - u) * u * y1 + 3 * (1 - u) * u * u * y2 + u * u * u;
+};
+const E = { out: bez(.16, 1, .3, 1), inOut: bez(.65, 0, .35, 1), in: bez(.5, 0, .75, 0), push: bez(.72, 0, .84, 0), expo: x => x <= 0 ? 0 : Math.pow(2, 10 * x - 10), back: bez(.34, 1.56, .64, 1) };
+function spring(dt, k = 140, c = 22) {
+  if (dt <= 0) return 0;
+  const w0 = Math.sqrt(k), z = c / (2 * w0);
+  if (z < 1) { const wd = w0 * Math.sqrt(1 - z * z); return 1 - Math.exp(-z * w0 * dt) * (Math.cos(wd * dt) + (z * w0 / wd) * Math.sin(wd * dt)); }
+  return 1 - Math.exp(-w0 * dt) * (1 + w0 * dt);
+}
+function S(el, o) {
+  const x = o.x || 0, y = o.y || 0, s = o.s == null ? 1 : o.s;
+  el.style.transform = `${o.pre || ''}translate3d(${x.toFixed(2)}px,${y.toFixed(2)}px,0) scale(${s.toFixed(4)})${o.post || ''}`;
+  el.style.opacity = o.o == null ? 1 : clamp(o.o).toFixed(3);
+  const b = o.blur || 0; el.style.filter = b > .15 ? `blur(${b.toFixed(2)}px)` : '';
+}
+const _vis = new Map();
+function show(el, on) { if (_vis.get(el) !== on) { el.style.display = on ? '' : 'none'; _vis.set(el, on); } return on; }
+const hash = n => { const s = Math.sin(n * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); };
+function chars(el, text) { el.innerHTML = [...text].map(ch => `<span class="mk"><span class="c">${ch}</span></span>`).join(''); return { mk: [...el.querySelectorAll('.mk')], c: [...el.querySelectorAll('.c')] }; }
+
+// ---------- kinetic type setup ----------
+const W1 = chars($('w1'), 'コピー'); $('w1').insertAdjacentHTML('beforeend', '<span class="ph" id="ph1"></span>');
+const W2 = chars($('w2'), 'ペースト'); $('w2').insertAdjacentHTML('beforeend', '<span class="ph" id="ph2"></span>');
+const BR = chars($('brand'), 'Bridge');
+const H2 = chars($('head2'), 'そのまま、届く。');
+const TG = chars($('tag'), 'コピーは、デバイスを越えていく。');
+let PD1 = [0, 0], PD2 = [0, 0];
+function measure() {
+  const st = $('stage').getBoundingClientRect(), sc = st.width / W;
+  ['w1', 'w2'].forEach(id => { $(id).style.transform = 'translate(-50%,-50%)'; });
+  const f = id => { const r = $(id).getBoundingClientRect(); return [(r.left + r.width / 2 - st.left) / sc, (r.bottom - st.top) / sc - 30.5]; };
+  PD1 = f('ph1'); PD2 = f('ph2');
+}
+
+// ---------- streak lines (push transition) ----------
+const STREAKS = Array.from({ length: 16 }, (_, i) => { const d = document.createElement('div'); d.className = 'streak'; d.style.top = (120 + hash(i) * 840).toFixed(0) + 'px'; d.style.width = (500 + hash(i + 9) * 900).toFixed(0) + 'px'; $('streaks').appendChild(d); return { d, y: hash(i + 3), sp: .8 + hash(i + 5) }; });
+
+// ---------- comets ----------
+const COMETS = Array.from({ length: 10 }, () => { const d = document.createElement('div'); d.className = 'comet'; $('comets').appendChild(d); return d; });
+
+// ---------- bento contents ----------
+const FILES = [['PDF', '#ff453a', '見積書'], ['DOCX', '#0a84ff', '議事録'], ['XLSX', '#30d158', '経費精算'], ['フォルダ', '', '素材']];
+$('files').innerHTML = FILES.map(([ext, col, nm], i) => {
+  const svg = col ? `<svg viewBox="0 0 100 120"><path d="M14 4h50l26 26v82a8 8 0 0 1-8 8H14a8 8 0 0 1-8-8V12a8 8 0 0 1 8-8z" fill="#f2f2f7"/><path d="M64 4l26 26H72a8 8 0 0 1-8-8z" fill="#c7c7cc"/><rect x="6" y="64" width="${ext.length > 3 ? 70 : 60}" height="32" rx="7" fill="${col}"/><text x="${ext.length > 3 ? 41 : 36}" y="87" font-size="19" font-weight="800" fill="#fff" text-anchor="middle" font-family="-apple-system,Helvetica,sans-serif">${ext}</text></svg>`
+    : `<svg viewBox="0 0 100 120"><path d="M6 30a8 8 0 0 1 8-8h24l10 12h38a8 8 0 0 1 8 8v58a8 8 0 0 1-8 8H14a8 8 0 0 1-8-8z" fill="#3aa0ff"/><path d="M6 46a8 8 0 0 1 8-8h72a8 8 0 0 1 8 8v52a8 8 0 0 1-8 8H14a8 8 0 0 1-8-8z" fill="#0a84ff"/></svg>`;
+  return `<div class="file" id="fl${i}" style="left:${44 + i * 190}px">${svg}<span>${nm}</span></div>`;
+}).join('');
+const FL = FILES.map((_, i) => $('fl' + i));
+const HROWS = [.9, .62, .78, .5].map((w, i) => { const d = document.createElement('div'); d.className = 'hrow'; d.innerHTML = `<i style="background:${['#0a84ff', '#bf5af2', '#30d158', '#ff9f0a'][i]}"></i><b style="width:${w * 250}px"></b>`; $('hist').appendChild(d); return d; });
+const TXT = '明日14時、\n会議室Bでキックオフ';
+
+// ---------- rings & shake ----------
+const SVGNS = 'http://www.w3.org/2000/svg';
+const RINGS = [[.5, 960, 540, 520], [1.95, 0, 0, 640], [3.32, 837, 599, 520], [4.92, 837, 599, 760], [9.3, 573, 540, 900], [12.3, 960, 552, 1300]].map(([t0, x, y, R]) => {
+  const c = document.createElementNS(SVGNS, 'circle'); c.setAttribute('fill', 'none'); c.setAttribute('stroke', '#fff'); $('rings').appendChild(c); return { t0, x, y, R, c };
+});
+const SHAKES = [[.5, .35], [1.5, .5], [3.0, 1], [4.9, .6], [9.3, .8], [12.3, 1.1]];
+function shake(t) {
+  let a = 0, ang = 0;
+  for (const [t0, amp] of SHAKES) { const d = t - t0; if (d > 0 && d < 1.2) { const env = Math.exp(-d * 9) * amp; a += env; ang += env * Math.sin(d * 55 + t0); } }
+  return { a, x: a * 11 * Math.sin(t * 83) , y: a * 9 * Math.sin(t * 97 + 1.3), r: ang * .25, s: 1 + .012 * Math.min(1, a * 1.4) };
+}
+
+// ================== scenes ==================
+const FLOOD_MAX = 74;
+function s1(t) {
+  const vis = show($('s1'), t < 3.2); if (!vis) return;
+  $('g1').style.opacity = (E.out(P(t, .3, 1.4)) * (1 - E.in(P(t, 2.5, 3.0)))).toFixed(3);
+  // “コピー”
+  const gap = .07;
+  W1.c.forEach((c, i) => {
+    const e = spring(t - .55 - i * gap, 130, 19), d = E.in(P(t, 2.45, 2.7));
+    c.style.transform = `translate3d(0,${(115 * (1 - e)).toFixed(2)}%,0)`; c.style.opacity = P(t, .55 + i * gap, .62 + i * gap);
+  });
+  W1.mk.forEach((m, i) => {
+    const p = E.push(P(t, 1.5 + i * .035, 1.5 + i * .035 + .42));
+    m.style.transform = `translate3d(${(-1500 * p).toFixed(1)}px,0,0) skewX(${(-16 * p).toFixed(2)}deg)`;
+  });
+  show($('w1'), t < 2.05);
+  // “ペースト”
+  W2.mk.forEach((m, i) => {
+    const p = E.out(P(t, 1.52 + i * .045, 1.52 + i * .045 + .48));
+    m.style.transform = `translate3d(${(1700 * (1 - p)).toFixed(1)}px,0,0) skewX(${(16 * (1 - p)).toFixed(2)}deg)`;
+    m.style.opacity = t < 1.5 ? 0 : 1;
+  });
+  W2.c.forEach((c, i) => {
+    const d = E.in(P(t, 2.42 + i * .04, 2.42 + i * .04 + .3));
+    c.style.transform = `translate3d(0,${(135 * d).toFixed(2)}%,0)`;
+  });
+  // speed streaks
+  const sp = P(t, 1.42, 2.05), on = t > 1.42 && t < 2.05;
+  show($('streaks'), on);
+  if (on) STREAKS.forEach(s => { const x = lerp(2100, -1400, E.inOut(clamp(sp * s.sp))); s.d.style.transform = `translate3d(${x.toFixed(0)}px,0,0)`; s.d.style.opacity = Math.sin(Math.PI * sp) * .8; });
+}
+
+function flood(t) {
+  const el = $('flood');
+  if (!show(el, t > .14 && t < 3.25)) return;
+  let x = 960, y = 540, sx = 1, sy = 1, mix = 0, glow = 1;
+  if (t < .5) { const e = spring(t - .14, 200, 15); x = 960; y = 540; sx = sy = .5 * e; }
+  else if (t < 1.5) {
+    const p = E.out(P(t, .5, .95)), sp = Math.sin(Math.PI * P(t, .5, .95));
+    x = lerp(960, PD1[0], p); y = lerp(540, PD1[1], p) - 90 * sp;
+    const k = lerp(.5, 1, p); sx = k * (1 + .5 * sp); sy = k * (1 - .25 * sp); mix = p;
+    if (t > .95) { const b = spring(t - .95, 300, 14); sx = 1 + .0 * b; }
+    x = t < .95 ? x : PD1[0]; y = t < .95 ? y : PD1[1];
+  } else if (t < 2.75) {
+    const p = E.inOut(P(t, 1.5, 1.98)), sp = Math.sin(Math.PI * p);
+    x = lerp(PD1[0], PD2[0], p); y = lerp(PD1[1], PD2[1], p) - 150 * sp; mix = 1;
+    sx = 1 + .6 * sp; sy = 1 - .3 * sp;
+    if (t > 1.98) { const b = spring(t - 1.98, 260, 11); sx = 1 - .0; sy = 1; const sq = Math.exp(-(t - 1.98) * 14) * Math.sin((t - 1.98) * 48); sx = 1 + .28 * sq; sy = 1 - .28 * sq; }
+    if (t > 2.5) { const a = E.out(P(t, 2.5, 2.72)); sx *= 1 - .18 * a; sy *= 1 - .18 * a; }
+  } else {
+    x = PD2[0]; y = PD2[1]; mix = 1;
+    const s = 1 + (FLOOD_MAX - 1) * E.expo(P(t, 2.72, 3.12)); sx = sy = .82 * s;
+    glow = 1 - P(t, 2.75, 3.0);
+  }
+  const c = Math.round(lerp(255, 10, mix)), c2 = Math.round(lerp(255, 132, mix));
+  el.style.background = `rgb(${c},${c2},255)`;
+  el.style.boxShadow = glow > .01 ? `0 0 ${40 * glow}px ${10 * glow}px rgba(10,132,255,.55)` : 'none';
+  el.style.transform = `translate3d(${x}px,${y}px,0) scale(${sx.toFixed(4)},${sy.toFixed(4)})`;
+}
+
+// card path (world coords of #w2world)
+const MAC_SC = [837, 599], WIN_SC = [2737, 599];
+function cardXY(t) {
+  const pop = spring(t - 3.32, 120, 16), p = E.inOut(P(t, 3.9, 4.85)), sink = E.inOut(P(t, 4.85, 5.2));
+  const bob = 7 * Math.sin(t * 5) * (1 - p) * (1 - sink);
+  const yr = MAC_SC[1] - 250 * pop + bob;
+  const x = lerp(MAC_SC[0], WIN_SC[0], p);
+  const y = yr - 170 * Math.sin(Math.PI * p) + (WIN_SC[1] - (MAC_SC[1] - 250)) * sink * (p >= 1 ? 1 : 0);
+  return { x, y, pop, p, sink };
+}
+function s2(t) {
+  const el = $('s2');
+  if (!show(el, t > 2.9 && t < 9.7)) return;
+  // hero → tile
+  const q = E.inOut(P(t, 5.95, 6.7)), k = lerp(1, 852 / 1920, q);
+  const fade = 1 - E.in(P(t, 8.45, 8.95));
+  el.style.transform = `translate3d(${lerp(0, 96, q).toFixed(2)}px,${lerp(0, 175, q).toFixed(2)}px,0) scale(${k.toFixed(5)})`;
+  el.style.borderRadius = lerp(0, 81, q).toFixed(1) + 'px';
+  el.style.opacity = (P(t, 2.95, 3.25) * fade).toFixed(3);
+  el.style.filter = fade < .98 ? `blur(${(20 * (1 - fade)).toFixed(1)}px)` : '';
+  if (t > 9 || fade <= 0) return;
+  // devices
+  const rise = spring(t - 3.02, 90, 15), riseW = E.out(P(t, 4.2, 5.0));
+  const pan = 1900 * E.inOut(P(t, 3.9, 4.85)), z = 1 - .1 * Math.sin(Math.PI * E.inOut(P(t, 3.9, 4.85)));
+  const wrap = $('w2world');
+  wrap.style.transform = `translate3d(${(-pan).toFixed(2)}px,0,0) scale(${z.toFixed(4)})`;
+  S($('dMac'), { y: 260 * (1 - rise), s: .9 + .1 * rise, o: P(t, 3.02, 3.25) });
+  S($('dWin'), { y: 60 * (1 - riseW), s: .96 + .04 * riseW, o: 1 });
+  // chips
+  S($('chipA'), { pre: 'translate(-50%,0) ', y: 30 * (1 - E.out(P(t, 3.45, 3.95))) - 20 * E.in(P(t, 4.9, 5.2)), o: E.out(P(t, 3.45, 3.8)) * (1 - E.in(P(t, 4.85, 5.1))) });
+  S($('chipB'), { pre: 'translate(-50%,0) ', y: 30 * (1 - E.out(P(t, 4.4, 4.9))) - 20 * E.in(P(t, 4.9, 5.2)), o: E.out(P(t, 4.4, 4.75)) * (1 - E.in(P(t, 4.9, 5.15))) });
+  // card
+  const c = cardXY(t), card = $('card');
+  const show_ = t > 3.3 && t < 5.25;
+  show(card, show_);
+  if (show_) {
+    const ry = 26 * Math.sin(2 * Math.PI * c.p) * (c.p < 1 ? 1 : 0), rz = -5 + 9 * c.p;
+    const s = (.3 + .7 * c.pop) * (1 - .62 * c.sink);
+    card.style.transform = `translate3d(${(c.x - 220).toFixed(1)}px,${(c.y - 141).toFixed(1)}px,0) perspective(1400px) rotateY(${ry.toFixed(2)}deg) rotateZ(${rz.toFixed(2)}deg) scale(${s.toFixed(4)})`;
+    card.style.opacity = (P(t, 3.32, 3.5) * (1 - E.in(P(t, 5.02, 5.22)))).toFixed(3);
+  }
+  COMETS.forEach((d, i) => {
+    const tt = t - (i + 1) * .026, on = t > 3.92 && t < 5.0;
+    if (!on) { d.style.opacity = 0; return; }
+    const cc = cardXY(tt), a = (1 - i / COMETS.length);
+    d.style.transform = `translate3d(${cc.x.toFixed(1)}px,${(cc.y + 20).toFixed(1)}px,0) scale(${(a * .9).toFixed(3)})`;
+    d.style.opacity = (a * .8 * Math.sin(Math.PI * P(t, 3.9, 4.95))).toFixed(3);
+  });
+  $('winFlash').style.opacity = (t > 4.9 ? Math.exp(-(t - 4.9) * 4.5) * .85 : 0).toFixed(3);
+  // idle glows
+  $('s2gA').style.transform = `translate3d(${(pan * .15 + 40 * Math.sin(t * .8)).toFixed(1)}px,${(20 * Math.sin(t * .6)).toFixed(1)}px,0)`;
+  $('s2gB').style.transform = `translate3d(${(-pan * .1).toFixed(1)}px,${(30 * Math.sin(t * .7 + 1)).toFixed(1)}px,0)`;
+  // headline
+  H2.c.forEach((ch, i) => { const e = spring(t - 5.15 - i * .04, 130, 19); ch.style.transform = `translate3d(0,${(115 * (1 - e)).toFixed(2)}%,0)`; ch.style.opacity = P(t, 5.15 + i * .04, 5.22 + i * .04); });
+}
+
+// bento tiles
+const TILES = [['tl1', 6.30], ['tl2', 6.42], ['tl3', 6.54], ['tl4', 6.66], ['tl5', 6.78], ['tl6', 6.90]];
+const T6C = [1398, 791.75];
+function s3(t) {
+  const vis = show($('bento'), t > 2.9 && t < 10.2);
+  // camera
+  const e = E.inOut(P(t, 8.45, 9.35)), sc = lerp(1, 2.2, e);
+  const cxs = lerp(T6C[0], 960, e), cys = lerp(T6C[1], 540, e);
+  $('bento').style.transform = `translate3d(${cxs.toFixed(2)}px,${cys.toFixed(2)}px,0) scale(${sc.toFixed(4)}) translate3d(${-T6C[0]}px,${-T6C[1]}px,0)`;
+  const others = 1 - E.in(P(t, 8.5, 9.0));
+  if (vis) TILES.forEach(([id, at], i) => {
+    const el = $(id), p = spring(t - at, 170, 19), idle = (t > at + .8 && i < 5) ? 5 * Math.sin(t * 1.3 + i * 1.7) : 0;
+    const base = P(t, at, at + .18);
+    const o = base * (i < 5 ? others : 1);
+    S(el, { y: 36 * (1 - p) + idle * (1 - e), s: .7 + .3 * p, o, blur: 14 * (1 - E.out(P(t, at, at + .5))) + (i < 5 ? 16 * (1 - others) : 0) });
+    if (!show(el, t > at - .01 && (i === 5 || others > .01))) return;
+  });
+  if (vis) { show($('tl1'), t > 6.29 && others > 0); show($('tl2'), t > 6.41 && others > 0); show($('tl3'), t > 6.53 && others > 0); show($('tl4'), t > 6.65 && others > 0); show($('tl5'), t > 6.77 && others > 0); }
+  // tile contents
+  const n = Math.floor(clamp((t - 6.85) * 20, 0, TXT.length));
+  const cursor = (Math.floor(t * 2.4) % 2 === 0 || n < TXT.length) ? '<i></i>' : '';
+  const html = TXT.slice(0, n).replace('\n', '<br>') + cursor;
+  if ($('txtline')._v !== html) { $('txtline').innerHTML = html; $('txtline')._v = html; }
+  FL.forEach((f, i) => { const p = spring(t - 6.7 - i * .09, 150, 16); S(f, { y: 40 * (1 - p), s: .6 + .4 * p, o: P(t, 6.7 + i * .09, 6.85 + i * .09) }); });
+  const step = t * 2, fr = step - Math.floor(step), sh = Math.floor(step) + E.out(fr);
+  HROWS.forEach((r, k) => {
+    const pos = ((k + sh) % 4 + 4) % 4, y = 74 + pos * 48;
+    r.style.transform = `translate3d(0,${y.toFixed(2)}px,0)`;
+    r.style.opacity = (pos < 1 ? pos : pos > 3 ? 4 - pos : 1).toFixed(3);
+  });
+  // T6 content + blue field
+  const t6 = $('tl6');
+  const conT = P(t, 6.9, 7.2);
+  $('zero').style.opacity = conT; $('t6l1').style.opacity = P(t, 7.0, 7.3); $('t6l2').style.opacity = P(t, 7.2, 7.5) * (1 - E.in(P(t, 10.0, 10.2)));
+  const pulse = 1 + .07 * Math.exp(-Math.max(0, t - 9.3) * 6) * (t > 9.3 ? 1 : 0);
+  $('zero').style.transform = `scale(${pulse.toFixed(4)})`;
+  $('t6strike').style.width = (E.out(P(t, 9.4, 9.72)) * 108).toFixed(1) + '%';
+  const rx = cxs + (972 - T6C[0]) * sc, rx1 = cxs + (1824 - T6C[0]) * sc, ry0 = cys + (678 - T6C[1]) * sc, ry1 = cys + (905.5 - T6C[1]) * sc;
+  const qx = E.inOut(P(t, 9.15, 9.68));
+  const L_ = lerp(rx, 0, qx), R_ = lerp(rx1, W, qx), T_ = lerp(ry0, 0, qx), B_ = lerp(ry1, H, qx), rad = lerp(36 * sc, 0, qx);
+  const b = $('s3blue');
+  if (t >= 8.4 && t < 10.5) {
+    b.style.opacity = 1;
+    if (t < 10.05) b.style.clipPath = `inset(${T_.toFixed(1)}px ${(W - R_).toFixed(1)}px ${(H - B_).toFixed(1)}px ${L_.toFixed(1)}px round ${rad.toFixed(1)}px)`;
+    else { const r = lerp(1600, 14, E.inOut(P(t, 10.05, 10.48))); b.style.clipPath = `circle(${r.toFixed(1)}px at 573px 540px)`; }
+  } else b.style.opacity = 0;
+  show(b, t >= 8.4 && t < 10.5);
+  // once the field covers the screen, the tile’s own blue is redundant
+  $('tl6bg').style.opacity = t >= 8.42 ? 0 : 1;
+  t6.style.opacity = t < 10.2 ? 1 : 0;
+}
+
+// -------- S4 : draw the bridge --------
+const archLen = $('arch').getTotalLength();
+const dLen = 286, hLen = [134, 168, 134];
+(function buildArch() {
+  const N = 90, up = [], dn = [], L = archLen, arch = $('arch');
+  for (let i = 0; i <= N; i++) {
+    const l = L * i / N, p = arch.getPointAtLength(l), a = arch.getPointAtLength(Math.max(0, l - .5)), b = arch.getPointAtLength(Math.min(L, l + .5));
+    let tx = b.x - a.x, ty = b.y - a.y; const m = Math.hypot(tx, ty) || 1; tx /= m; ty /= m;
+    const hw = (17 + 19 * Math.pow(Math.sin(Math.PI * i / N), .7)) / 2;
+    up.push([p.x - ty * hw, p.y + tx * hw]); dn.push([p.x + ty * hw, p.y - tx * hw]);
+  }
+  const pts = up.concat(dn.reverse());
+  const c0 = arch.getPointAtLength(0), c1 = arch.getPointAtLength(L);
+  $('archFill').setAttribute('d', 'M' + pts.map(q => q[0].toFixed(1) + ' ' + q[1].toFixed(1)).join(' L') + ` Z M${c0.x - 8.5} ${c0.y} a8.5 8.5 0 1 0 17 0 a8.5 8.5 0 1 0 -17 0 M${c1.x - 8.5} ${c1.y} a8.5 8.5 0 1 0 17 0 a8.5 8.5 0 1 0 -17 0`);
+})();
+const IC = { ox: 960, oy: 330, s: 3, ty: 210, bx: 790, by: 160, k: 340 / 1024 };
+function iconToScreen(ux, uy) { return [IC.ox + IC.s * (IC.bx - IC.ox + ux * IC.k), IC.oy + IC.ty + IC.s * (IC.by - IC.oy + uy * IC.k)]; }
+function s4(t) {
+  if (!show($('s4'), t > 10.35)) return;
+  const arch = $('arch'), ag = $('archGlow');
+  // pen
+  const approach = E.inOut(P(t, 10.42, 10.88));
+  const draw = E.inOut(P(t, 10.88, 11.75));
+  const st = iconToScreen(217, 542);
+  let px, py;
+  if (t < 10.88) { px = lerp(573, st[0], approach); py = lerp(540, st[1], approach) - 60 * Math.sin(Math.PI * approach); }
+  else { const pt = arch.getPointAtLength(draw * archLen); [px, py] = iconToScreen(pt.x, pt.y); }
+  const pen = $('pen');
+  const penO = P(t, 10.38, 10.5) * (1 - E.in(P(t, 11.72, 11.95)));
+  pen.style.transform = `translate3d(${px.toFixed(1)}px,${py.toFixed(1)}px,0) scale(${(0.9 + .5 * Math.sin(Math.PI * draw)).toFixed(3)})`;
+  pen.style.opacity = penO.toFixed(3);
+  show(pen, penO > .01);
+  // glyph strokes
+  const dash = (el, len, p) => { el.style.strokeDasharray = len; el.style.strokeDashoffset = (len * (1 - p)).toFixed(2); el.style.opacity = p > 0 ? 1 : 0; };
+  dash($('archM'), archLen, draw); dash(ag, archLen, draw); $('archM').style.opacity = 1;
+  const dk = E.out(P(t, 11.45, 11.95));
+  const dm = clamp(dk / .72), dO = clamp((dk - .72) / .28);
+  dash($('deckLm'), 212, dm); dash($('deckRm'), 212, dm); dash($('deckLo'), 76, dO); dash($('deckRo'), 76, dO);
+  document.querySelectorAll('.hang').forEach((h, i) => dash(h, hLen[i], E.out(P(t, 11.7 + i * .07, 12.05 + i * .07))));
+  const pr = E.out(P(t, 11.95, 12.3));
+  $('piers').style.opacity = pr; $('piers').style.transform = `translate3d(0,${(20 * (1 - pr)).toFixed(1)}px,0)`;
+  $('glowG').style.opacity = (.85 * (1 - E.in(P(t, 12.3, 12.7)))).toFixed(3);
+  // reveal real icon
+  const rev = P(t, 12.28, 12.42);
+  $('icPng').style.opacity = rev;
+  $('glyph').style.opacity = 1 - P(t, 12.3, 12.4);
+  // icon transform
+  const settle = E.inOut(P(t, 12.32, 13.1));
+  const ic = $('ic4');
+  const ty = lerp(IC.ty, 0, settle), s = lerp(IC.s, 1, settle);
+  const kick = t > 12.3 ? 1 + .04 * Math.exp(-(t - 12.3) * 8) * Math.cos((t - 12.3) * 40) : 1;
+  ic.style.transform = `translate3d(0,${ty.toFixed(2)}px,0) scale(${(s * kick).toFixed(4)})`;
+  ic.style.opacity = P(t, 10.4, 10.5) > 0 ? 1 : 0;
+  $('sh4').style.backgroundPosition = `${lerp(100, 0, E.inOut(P(t, 13.15, 14.15)))}% 0`;
+  $('sh4').style.opacity = t > 13.1 ? 1 : 0;
+  // background glow + flash
+  $('g4').style.opacity = (E.out(P(t, 11.2, 12.4)) * (1 - .0)).toFixed(3);
+  $('flash').style.opacity = (t > 12.28 ? Math.exp(-(t - 12.28) * 7) * 1 : 0).toFixed(3);
+  // wordmark
+  BR.c.forEach((ch, i) => { const e = spring(t - 12.78 - i * .045, 120, 18); ch.style.transform = `translate3d(0,${(118 * (1 - e)).toFixed(2)}%,0)`; ch.style.opacity = P(t, 12.78 + i * .045, 12.85 + i * .045); });
+  const tg = $('tag');
+  TG.c.forEach((ch, i) => { const e = E.out(P(t, 13.3 + i * .022, 13.85 + i * .022)); ch.style.transform = `translate3d(0,${(40 * (1 - e)).toFixed(2)}px,0)`; ch.style.opacity = e; ch.style.filter = e < .98 ? `blur(${(8 * (1 - e)).toFixed(1)}px)` : ''; });
+}
+
+function rings(t) {
+  RINGS.forEach((r, i) => {
+    const d = t - r.t0, on = d > 0 && d < 1.1;
+    if (!on) { r.c.style.display = 'none'; return; }
+    r.c.style.display = '';
+    let x = r.x, y = r.y; if (i === 1) { x = PD2[0]; y = PD2[1]; }
+    const p = E.out(P(d, 0, 1.0));
+    r.c.setAttribute('cx', x); r.c.setAttribute('cy', y); r.c.setAttribute('r', (r.R * p).toFixed(1));
+    r.c.setAttribute('stroke-width', (6 * (1 - p) + 1).toFixed(2)); r.c.setAttribute('stroke-opacity', (.75 * (1 - p) ** 1.5).toFixed(3));
+  });
+}
+
+const gctx = $('grain').getContext('2d');
+{ const id = gctx.createImageData(680, 400); for (let i = 0; i < id.data.length; i += 4) { const v = Math.random() * 255; id.data[i] = id.data[i + 1] = id.data[i + 2] = v; id.data[i + 3] = 255; } gctx.putImageData(id, 0, 0); }
+
+function renderAt(t) {
+  t = clamp(t, 0, DUR - 1e-6);
+  s1(t); flood(t); s2(t); s3(t); s4(t); rings(t);
+  const sk = shake(t), w = $('world');
+  w.style.transform = `translate3d(${sk.x.toFixed(2)}px,${sk.y.toFixed(2)}px,0) rotate(${sk.r.toFixed(3)}deg) scale(${sk.s.toFixed(4)})`;
+  const f = Math.floor(t * 60);
+  $('grain').style.transform = `translate3d(${(hash(f) * 60).toFixed(0)}px,${(hash(f + 77) * 60).toFixed(0)}px,0)`;
+  $('fade').style.opacity = Math.max(1 - P(t, 0, .12), E.in(P(t, 14.55, 15))).toFixed(3);
+  if (ALIGN) { $('icPng').style.opacity = .55; $('glyph').style.opacity = 1; $('glowG').style.opacity = 0; $('ic4').style.transform = 'translate3d(0,210px,0) scale(3)'; $('flash').style.opacity = 0; }
+}
+window.renderAt = renderAt;
+
+async function warm() {
+  await Promise.all([...document.images].map(i => i.complete ? 0 : new Promise(r => { i.onload = i.onerror = r; })));
+  await document.fonts.ready;
+  measure(); renderAt(0);
+}
+window.__ready = warm().then(() => true);
+
+if (CAP) document.body.classList.add('cap');
+else {
+  const stage = $('stage');
+  const fit = () => { const s = Math.min(innerWidth / W, (innerHeight - 50) / H); stage.style.transform = `translate(${(innerWidth - W * s) / 2}px,${(innerHeight - 50 - H * s) / 2}px) scale(${s})`; };
+  addEventListener('resize', fit); fit();
+  let playing = true, t0 = performance.now(), cur = 0;
+  const btn = $('play'), scrub = $('scrub'), lab = $('tlabel');
+  btn.onclick = () => { playing = !playing; btn.textContent = playing ? '❚❚' : '▶'; t0 = performance.now() - cur * 1000; };
+  scrub.oninput = () => { cur = +scrub.value; t0 = performance.now() - cur * 1000; renderAt(cur); lab.textContent = cur.toFixed(3) + 's'; };
+  addEventListener('keydown', e => { if (e.code === 'Space') { e.preventDefault(); btn.click(); } });
+  window.__ready.then(() => { t0 = performance.now(); const loop = () => { if (playing) { cur = ((performance.now() - t0) / 1000) % DUR; renderAt(cur); scrub.value = cur; lab.textContent = cur.toFixed(3) + 's'; } requestAnimationFrame(loop); }; loop(); });
+}
+</script>
+</body>
+</html>
