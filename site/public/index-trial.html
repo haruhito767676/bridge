@@ -300,38 +300,33 @@
   }
   .feature p{font-size:14px;line-height:1.6;}
 
-  /* ---- privacy: no-cloudの説明を図解つきで (軽めのアーキテクチャ図として大きめに見せる)。
-     以前は背景・テキストとも緑一色に染めていたが、サイト全体のニュートラルな配色から
-     浮いて見えていたため、他セクションと同じpanel背景+ink系テキストに揃え、
-     アクセントカラーはチェックアイコンだけに絞った ---- */
-  .privacy{
-    background:var(--panel);border-radius:var(--radius-m);padding:56px 44px;
-  }
+  /* ---- privacy: 「あなたの手元で完結する」。図解ではなく、南京錠の動画 (本物の UI) で見せる ---- */
+  .privacy{background:var(--panel);border-radius:var(--radius-m);padding:56px 44px 48px;}
   .privacy-text{max-width:640px;margin:0 auto;text-align:center;}
   .privacy-text h2{font-size:36px;margin-bottom:12px;}
   .privacy-text p{font-size:15px;color:var(--ink-dim);}
+  .clip.privacy-clip{max-width:860px;margin:36px auto 0;}
+  .clip-video.privacy-video{aspect-ratio:16/9;background:#e6eefb;}
   .privacy-points{
-    display:grid;grid-template-columns:1fr 1fr;gap:20px 32px;
-    margin:32px auto 0;max-width:560px;text-align:left;list-style:none;padding:0;
+    display:grid;grid-template-columns:repeat(4,1fr);gap:24px 28px;
+    margin:36px auto 0;max-width:860px;text-align:left;list-style:none;padding:0;
   }
-  .privacy-point p{margin:0;font-size:14.5px;line-height:1.6;color:var(--ink-dim);}
-  @media (max-width:640px){
+  .privacy-point b{display:block;font-size:14.5px;font-weight:600;color:var(--ink);margin-bottom:4px;line-height:1.4;}
+  .privacy-point p{margin:0;font-size:13.5px;line-height:1.6;color:var(--ink-dim);}
+  @media (max-width:860px){
+    .privacy-points{grid-template-columns:1fr 1fr;}
+  }
+  @media (max-width:520px){
+    .privacy{padding:40px 22px 36px;}
     .privacy-points{grid-template-columns:1fr;}
   }
   .privacy-policy-link{
-    display:flex;justify-content:center;align-items:center;gap:6px;margin-top:28px;
+    display:flex;justify-content:center;align-items:center;gap:6px;margin-top:32px;
     font-size:13.5px;font-weight:600;color:var(--ink-dim);transition:color 0.15s;
   }
   .privacy-policy-link:hover{color:var(--ink);}
   .privacy-policy-link svg{width:13px;height:13px;transition:transform 0.15s;}
   .privacy-policy-link:hover svg{transform:translateX(3px);}
-  .privacy-diagram{display:flex;justify-content:center;margin-top:44px;}
-  .privacy-diagram svg{width:100%;max-width:700px;}
-  /* 個別の「パケット」を動かすと、静止画で捉えたときに端末の脇に染みのような点が
-     残って見えてしまうため、経路の破線そのものを流すだけのシンプルな表現にする
-     (どの瞬間で止めても、同じ破線パターンにしか見えず破綻しない) */
-  .privacy-diagram.in-view .privacy-line{animation:privacy-flow 0.9s linear infinite;}
-  @keyframes privacy-flow{to{stroke-dashoffset:-22;}}
 
   /* ---- detail row (screenshot + text) ---- */
   .detail-row{display:grid;grid-template-columns:1fr 1fr;gap:52px;align-items:center;}
@@ -1153,91 +1148,24 @@
 <section id="privacy">
   <div class="privacy">
     <div class="privacy-text">
-      <h2>クラウドを、経由しない。</h2>
-      <p>コピーした内容や送ったファイルは、あなたの<span style="white-space:nowrap;">ネットワーク</span>の中だけを通る。それだけ。</p>
-      <ul class="privacy-points">
-        <li class="privacy-point">
-          <p>同じ合言葉を持つ端末としか、つながらない。</p>
-        </li>
-        <li class="privacy-point">
-          <p>やり取りは、その合言葉から生まれた鍵で暗号化される。</p>
-        </li>
-        <li class="privacy-point">
-          <p>コードはすべて公開。動きは、自分の目で確かめられる。</p>
-        </li>
-        <li class="privacy-point">
-          <p>止めるのも、選ぶのも。いつでも、あなた次第。</p>
-        </li>
-      </ul>
-      <a class="privacy-policy-link" href="privacy.html">
-        <span>プライバシーポリシーを読む</span>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-      </a>
+      <h2>あなたの手元で、完結する。</h2>
+      <p>コピーしたものは、鍵をかけて、あなたの端末だけに届く。<br class="sm-only">クラウドには、預けない。</p>
     </div>
-    <div class="privacy-diagram" id="privacy-diagram">
-      <svg viewBox="0 0 700 380" role="img" aria-label="同じネットワークの中で、3台の端末が自宅のルーターだけを経由して暗号化されたやり取りをしていて、外部サーバーへの経路は途中で遮断されている図">
-        <defs>
-          <filter id="privacy-card-shadow" x="-20%" y="-20%" width="140%" height="140%">
-            <feDropShadow dx="0" dy="10" stdDeviation="10" flood-color="rgba(20,20,25,0.14)"/>
-          </filter>
-        </defs>
-
-        <!-- カード類を先に描き、経路・アイコンは後から上に重ねる (経路がカードの縁で隠れて
-             途切れて見えないようにするため) -->
-        <rect x="55" y="70" width="420" height="270" rx="32" fill="rgba(255,255,255,0.6)" stroke="rgba(60,60,67,0.14)" stroke-width="1" filter="url(#privacy-card-shadow)"/>
-        <rect x="79" y="52" width="176" height="34" rx="17" fill="#fbfbfa" stroke="rgba(60,60,67,0.16)" stroke-width="1"/>
-        <text x="167" y="74" text-anchor="middle" font-family="var(--sans)" font-size="13.5" font-weight="600" fill="#2f5138">同じネットワークの中</text>
-
-        <rect x="505" y="70" width="140" height="140" rx="28" fill="rgba(255,255,255,0.6)" stroke="rgba(60,60,67,0.14)" stroke-width="1" filter="url(#privacy-card-shadow)"/>
-        <rect x="510" y="54" width="130" height="34" rx="17" fill="#fbfbfa" stroke="rgba(60,60,67,0.16)" stroke-width="1"/>
-        <text x="575" y="76" text-anchor="middle" font-family="var(--sans)" font-size="13.5" font-weight="600" fill="#5c3c3c">外部サーバー</text>
-
-        <!-- ブロックされた経路: ルーターの中心からクラウドの中心まで、一本の点線でそのまま
-             繋ぐ (境界の×印はこの線の上に重ねるだけで、線自体は途切れさせない)。
-             ここだけは動かさず赤いまま止めておく (端末への3本は実際に流れるアニメーション、
-             こちらは動かないこと自体で「繋がらない」を示す) -->
-        <line x1="265" y1="141" x2="575" y2="140" stroke="#ff3b30" stroke-width="2.4" stroke-dasharray="5 6" opacity="0.75"/>
-        <circle cx="490" cy="140" r="11" fill="#ff3b30"/>
-        <path d="M485 135l10 10M495 135l-10 10" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
-
-        <line class="privacy-line" x1="265" y1="163" x2="155" y2="221" stroke="var(--ok)" stroke-width="2.4" stroke-dasharray="5 6" opacity="0.6"/>
-        <line class="privacy-line" x1="265" y1="163" x2="265" y2="221" stroke="var(--ok)" stroke-width="2.4" stroke-dasharray="5 6" opacity="0.6"/>
-        <line class="privacy-line" x1="265" y1="163" x2="375" y2="221" stroke="var(--ok)" stroke-width="2.4" stroke-dasharray="5 6" opacity="0.6"/>
-
-        <!-- ルーター: Wi-Fiの弧は無くし、箱と小さいライトだけにする (ネットワーク全般の
-             ハブであることが伝わればよく、Wi-Fi固有の絵にする必要はないため) -->
-        <g transform="translate(265,141)" stroke="var(--ok)" stroke-linecap="round" stroke-linejoin="round" fill="none" stroke-width="3">
-          <circle cx="0" cy="0" r="2.6" fill="var(--ok)" stroke="none"/>
-          <rect x="-18" y="6" width="36" height="16" rx="5"/>
-        </g>
-
-        <!-- 暗号化バッジ: 3本の経路が集まるルーターの真上に小さな鍵アイコンを置き、
-             「ここでやり取りされる中身は暗号化されている」ことを一目で添える -->
-        <g transform="translate(265,101)" stroke="var(--ok)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none">
-          <rect x="-7" y="1" width="14" height="11" rx="2.5" fill="#fbfbfa"/>
-          <path d="M-4 1v-3a4 4 0 0 1 8 0v3"/>
-        </g>
-
-        <!-- 端末: ノートPC・iMac風・ノートPC の3台 (2台だと1対1に見えるため) -->
-        <g transform="translate(127,221)" stroke="var(--ink)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none">
-          <rect x="0" y="0" width="56" height="38" rx="4"/>
-          <path d="M-8 43h72"/>
-        </g>
-        <g transform="translate(237,221)" stroke="var(--ink)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none">
-          <rect x="0" y="0" width="56" height="38" rx="4"/>
-          <path d="M28 38v12"/>
-          <path d="M13 50h30"/>
-        </g>
-        <g transform="translate(347,221)" stroke="var(--ink)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none">
-          <rect x="0" y="0" width="56" height="38" rx="4"/>
-          <path d="M-8 43h72"/>
-        </g>
-
-        <g transform="translate(541,106) scale(2.8)" stroke="rgba(60,60,67,0.55)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none">
-          <path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/>
-        </g>
-      </svg>
-    </div>
+    <figure class="clip privacy-clip">
+      <video class="clip-video privacy-video" muted loop playsinline preload="metadata" poster="media/clip-lock.jpg" aria-label="パネルが南京錠になって鍵がかかり、運ばれ、相手の端末の画面で開く">
+        <source src="media/clip-lock.mp4" type="video/mp4">
+      </video>
+    </figure>
+    <ul class="privacy-points">
+      <li class="privacy-point"><b>合言葉が同じ端末だけ</b><p>同じ合言葉を持つ端末としか、つながらない。</p></li>
+      <li class="privacy-point"><b>鍵をかけて運ぶ</b><p>やり取りは、合言葉から生まれた鍵で暗号化される。</p></li>
+      <li class="privacy-point"><b>コードは、すべて公開</b><p>動きは、自分の目で確かめられる。</p></li>
+      <li class="privacy-point"><b>止めるのも、選ぶのも</b><p>いつでも、あなた次第。</p></li>
+    </ul>
+    <a class="privacy-policy-link" href="privacy.html">
+      <span>プライバシーポリシーを読む</span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    </a>
   </div>
 </section>
 
@@ -2088,19 +2016,6 @@
       var pct = pctFromEvent(e);
       animateTo(pct <= 10 ? -15 : pct >= 90 ? 115 : pct);
     });
-  })();
-</script>
-<script>
-  // ---- privacyセクションの図解: スクロールで画面に入ったときだけパケットのアニメーションを流す ----
-  (function () {
-    var diagram = document.getElementById('privacy-diagram');
-    if (!diagram || !('IntersectionObserver' in window)) return;
-    var observer = new IntersectionObserver(function (entries) {
-      entries.forEach(function (entry) {
-        diagram.classList.toggle('in-view', entry.isIntersecting);
-      });
-    }, { threshold: 0.4 });
-    observer.observe(diagram);
   })();
 </script>
 <script>
