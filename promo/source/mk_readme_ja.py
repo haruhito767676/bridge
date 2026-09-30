@@ -37,10 +37,9 @@ Mac と Windows をまたいで、ファイルとクリップボードの履歴�
 
 <br>
 
-<p align="center">
-  <a href="docs/media/bridge-demo.mp4"><img src="docs/media/bridge-demo.png" width="860" alt="Bridge のデモ動画 (46 秒)"></a>
-  <br><sub>▶ クリックでデモ動画 (46 秒) を再生</sub>
-</p>
+https://github.com/user-attachments/assets/4f4bfa27-27af-47ce-b0db-c9b4410e2dde
+
+<p align="center"><sub>デモ動画（46 秒）</sub></p>
 
 ---
 

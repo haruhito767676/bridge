@@ -18,10 +18,9 @@ and clipboard history across Macs and Windows PCs on the same LAN.
 
 <br>
 
-<p align="center">
-  <a href="docs/media/bridge-demo.mp4"><img src="docs/media/bridge-demo.png" width="860" alt="Bridge demo video (46 seconds)"></a>
-  <br><sub>▶ Click to play the demo video (46 seconds)</sub>
-</p>
+https://github.com/user-attachments/assets/4f4bfa27-27af-47ce-b0db-c9b4410e2dde
+
+<p align="center"><sub>Demo video (46 seconds)</sub></p>
 
 > **Note:** The app UI and the demo videos are currently in Japanese. An English UI is planned.
 
