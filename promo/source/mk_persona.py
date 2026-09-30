@@ -72,12 +72,12 @@ html,body{width:1920px;height:1080px;overflow:hidden;background:#f4f5f8;font-fam
 .fg .props{position:absolute;right:0;top:40px;bottom:0;width:120px;background:#f7f7f9;box-shadow:inset 1px 0 0 rgba(0,0,0,.07)}
 .fg .props i{display:block;height:8px;border-radius:4px;background:rgba(0,0,0,.1);margin:16px 12px 0}
 .fg .cv{position:absolute;left:130px;right:120px;top:40px;bottom:0;background:#e9ebf0}
-.fg .ab{position:absolute;left:26px;top:82px;width:344px;height:216px;background:#fff;box-shadow:0 8px 24px rgba(0,0,0,.14)}
+.fg .ab{position:absolute;left:26px;top:150px;width:344px;height:129px;background:#fff;box-shadow:0 8px 24px rgba(0,0,0,.14)}
 .fg .ab img{width:100%;height:100%;object-fit:cover;display:block}
-.fg .abl{position:absolute;left:26px;top:62px;font:600 12px var(--display);color:#6b6f7a}
-#fgsel{position:absolute;left:26px;top:82px;width:344px;height:216px;box-shadow:0 0 0 2px #0a84ff;pointer-events:none}
+.fg .abl{position:absolute;left:26px;top:130px;font:600 12px var(--display);color:#6b6f7a}
+#fgsel{position:absolute;left:26px;top:150px;width:344px;height:129px;box-shadow:0 0 0 2px #0a84ff;pointer-events:none}
 #fgsel i{position:absolute;width:9px;height:9px;background:#fff;box-shadow:0 0 0 1.5px #0a84ff}
-#fgflash{position:absolute;left:26px;top:82px;width:344px;height:216px;background:#fff;opacity:0;pointer-events:none}
+#fgflash{position:absolute;left:26px;top:150px;width:344px;height:129px;background:#fff;opacity:0;pointer-events:none}
 /* Slack / Chrome (背後) */
 .sk .bd{position:absolute;left:0;right:0;top:40px;bottom:0;background:#fff}
 .sk .m{position:absolute;left:24px;display:flex;gap:12px}
@@ -226,7 +226,7 @@ function scene1(u) {
 // ---------- 章 2: デスクトップ → パネル / Figma → コピー (入れる) ----------
 const DI1 = [554, 214];
 const KF2 = [[1.5, 1040, 700], [2.4, DI1[0] + 6, DI1[1] + 4, 900, 700, 700, 300], [2.6, DI1[0] + 6, DI1[1] + 4], [4.0, 1420, 300, 800, 90, 1200, 150], [4.3, 1420, 300],
-  [5.4, 930, 372, 1300, 420, 1100, 330], [7.5, 930, 372], [8.2, 1010, 520]];
+  [5.4, 938, 414, 1300, 460, 1100, 370], [7.5, 938, 414], [8.2, 1010, 520]];
 function scene2(u) {
   slide('slot2', 1); $('pill2').style.opacity = 0;
   const drag = u >= 2.6 && u < 4.28;
@@ -343,7 +343,7 @@ ic1 = dicons([('svg:pptx', 'プロジェクト計画書.pptx', False), ('svg:pdf
 # ===== 章 2: Figma (アクティブ) + Slack (背後) + デスクトップの画像 =====
 back2 = ('<div class="win back sk" style="left:700px;top:112px;width:600px;height:420px"><div class="bar">' + tls() + '<span style="margin-left:14px"># デザイン</span></div><div class="bd">'
          + ''.join(f'<div class="m" style="top:{20 + i * 62}px"><u style="background:{c}"></u><div><s style="width:{w}px"></s><s style="width:{w2}px;opacity:.6"></s></div></div>' for i, (c, w, w2) in enumerate([('#ff8f4a', 90, 300), ('#3ccf5e', 120, 220), ('#0a84ff', 70, 340), ('#a66cff', 100, 260), ('#0a84ff', 80, 180)])) + '</div></div>')
-fig = ('<div class="win fg" style="left:610px;top:160px;width:640px;height:470px"><div class="bar">' + tls() + '<span style="margin-left:14px">春キャンペーン_バナー</span></div>'
+fig = ('<div class="win fg" style="left:610px;top:160px;width:640px;height:470px"><div class="bar">' + tls() + '<span style="margin-left:14px">秋のセール_バナー</span></div>'
        '<div class="side"><i style="width:70px"></i><i style="width:88px"></i><i style="width:56px"></i><i style="width:80px"></i><i style="width:64px"></i></div>'
        '<div class="props"><i style="width:60px"></i><i style="width:80px"></i><i style="width:48px"></i><i style="width:72px"></i></div>'
        '<div class="cv"><div class="abl">バナー</div><div class="ab"><img src="../../assets/demo/バナー案_A案.png"></div>'
