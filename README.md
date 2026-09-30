@@ -1,129 +1,159 @@
+<div align="center">
+
+<img src="icon.png" width="112" alt="Bridge">
+
 # Bridge
 
-**Mac と Windows の間で、ファイルとクリップボードの履歴を同じ LAN 内で自動同期するデスクトップアプリ**
+**Copy on one device. Paste on all of them.**
 
-Bridge は画面の右端に常駐するアプリです。右端の細いタブ（以下「つまみ」）にマウスを近づけるか、ホットキーを押すと、ファイルとクリップボード履歴の一覧パネルが開きます。できることは次の 3 つです。
+A small desktop app that lives at the edge of your screen and syncs your files<br>
+and clipboard history across Macs and Windows PCs on the same LAN.
 
-- ファイルを一時的に置いておき、あとでドラッグやコピーで取り出す
-- コピーしたテキスト・画像・ファイルを履歴として残す
-- 上記を同じ LAN 内のほかのデバイス（Mac / Windows）と自動で同期する
+[![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows-0a84ff)](#requirements)
+[![License](https://img.shields.io/badge/license-MIT-lightgrey)](#license)
 
-同期はクラウドを使わず、デバイス同士が LAN 内で直接通信します。Electron 以外の外部パッケージには依存していません。
+[**Download**](https://github.com/haruhito767676/bridge/releases) · [日本語](README.ja.md)
 
-## 主な機能
+</div>
 
-### 1. ファイルの一時置き場
-- Finder / エクスプローラーからファイルをドラッグ & ドロップして一時的に置いておける
-- ブラウザから画像やリンクをドロップすると、ダウンロードしてファイルとして保存する
-- 選択したテキストをドロップすると、`snippet_*.txt` として保存する
-- 一覧からドラッグすると、ほかのアプリへファイルとしてドロップできる（複数選択可。矩形選択・Shift / ⌘ クリックに対応）
-- クリックするとファイルそのものをクリップボードにコピーする（macOS: `public.file-url` / Windows: `CF_HDROP`）。Finder / エクスプローラー / チャットアプリに ⌘V / Ctrl+V で貼り付けられる
-- スペースキーで macOS のクイックルックを開く
+<br>
 
-### 2. クリップボード履歴
-- テキスト・画像・ファイルのコピーを 500ms 間隔で監視して履歴に追加する
-- テキストは元の文字列と、自動生成した `.txt` ファイルの両方を保持する。クリックすると文字列としてコピー、ドラッグすると `.txt` ファイルとして取り出せる
-- 画像のコピーは PNG に変換して保存し、サムネイルを表示する
-- Finder / エクスプローラーでファイルをコピーした場合も検知して履歴に追加する
-- 同じ内容をもう一度コピーすると、新しい項目は増やさず既存の項目を先頭に移動する。一覧の項目をクリックしてコピーした場合も同じ扱いで、先頭に移動して時刻が更新される
-- 保存件数の上限は種類ごとに決まっている（テキスト 100 件 / 画像 30 件 / ファイル 100 件）。上限を超えた古い項目は削除され、Bridge が自動生成したファイルはディスクからも消える。現在の件数は設定シートに「テキスト 82/100 · 画像 12/30 · ファイル 40/100」の形式で表示する（ピン留めした項目は件数に含めない）
-- パスワードマネージャーなどが「履歴に残さない」指定（Concealed / Transient 形式）を付けたコピーは、記録も同期もしない
-- 履歴は `history.json` に保存され、再起動後も残る。よく使う項目はピン留め（右クリック / ⌘P）すると、一覧の先頭に固定され、上限による削除や「すべて消去」の対象外になる
-- **⌥⌘V**（Windows: Ctrl+Alt+Shift+V。設定シートで変更可）を押すと、マウスカーソルの近くに履歴のポップアップが開き、選んだ項目をその場に貼り付けられる。自動貼り付けは設定でオフにできる。macOS ではアクセシビリティの許可が必要
+<p align="center">
+  <a href="docs/media/bridge-demo.mp4"><img src="docs/media/bridge-demo.png" width="860" alt="Bridge demo video (46 seconds)"></a>
+  <br><sub>▶ Click to play the demo video (46 seconds)</sub>
+</p>
 
-### 3. デバイス間の自動同期
-- 各デバイスがポート `9095` で HTTP サーバー（`node:http`）を起動し、デバイス同士が直接通信する
-- 同じ同期キーを持つデバイスを UDP マルチキャストで自動的に見つける。見つからない場合は、設定シートの「いま探す」（同じ /24 サブネットをスキャン）か、`sync-config.json` に相手の IP アドレスを書いて接続する
-- 新しい項目は追加した時点で相手に送信する。送信に失敗したものは、20 秒ごとの差分チェック（タイムスタンプ比較）で後から受け取る
-- 3 台以上の場合、直接つながっていないデバイスにも、間のデバイスが中継して届ける
-- 共有の同期キーで認証する。キーが一致しないリクエストはすべて 401 で拒否する（比較には `timingSafeEqual` を使用）
-- メニューバーから「クリップボードの監視」と「ほかのデバイスとの同期」をそれぞれ一時停止できる。接続状況・最終同期時刻・失敗理由は設定シートに、動作ログは `bridge.log` に出力する
-- フォルダは `.zip` に圧縮して送信する。受信側では 1GB 以内なら自動で展開してフォルダに戻す。1GB を超える場合は zip のまま届き、右クリックの「フォルダとして展開」で展開できる
-- ほかのデバイスから受信中の項目は、ファイル本体が届く前に「同期中」として一覧に表示され、受信が終わると通常の項目に置き換わる。一覧の並び順と時刻は、送信側で追加した時刻に合わせる
-- 大きいファイルの受信中は、進捗（%・受信量・速度）を表示する。一定時間進まない場合は「止まっている可能性があります」と表示し、再試行ボタンを出す。× でいつでも中止できる
-- 転送の進捗はメニューバーにも表示する（macOS: アイコン横に `↓42%`、Windows: アイコンのツールチップに「転送中 42%」。複数同時の場合は「N 件転送中」）
-- ほかのデバイスから届いた項目には、送信元のデバイス名とデバイス種別（ノート / デスクトップ）のアイコンを表示する
-- 右クリックの「このデバイスのアイテムだけ表示」/「"◯◯" のアイテムだけ表示」で、デバイスごとに絞り込める。絞り込み中は種類の切り替えボタンの下にラベルが出て、✕ か Esc で解除できる
+> **Note:** The app UI and the demo videos are currently in Japanese. An English UI is planned.
 
-### 4. 検索
-- パネルを開くと検索欄にフォーカスが入り、すぐに入力できる
-- 検索欄の下の「すべて / ファイル / クリップ」ボタンで種類を絞り込める。キーワード検索と組み合わせて使える
-- 検索欄にフォーカスがあるまま ↑↓ で結果を選び、Enter でコピーできる（Spotlight と同じ操作）
-- キーワード検索中は、フッターにヒット件数を表示する（種類の絞り込みだけのときは表示しない）
+---
 
-### 5. キーボード操作とメニュー
-- ↑↓ = 行の移動、Enter = コピー、⌘Enter = Finder で表示、Space = クイックルック、⌫ = 一覧から削除、Esc = 閉じる
-- 右クリックメニュー: コピー / リンクを開く / クイックルック / Finder で表示 / 開く / パスをコピー / ピン留め / 一覧から削除。URL のテキストは ⌘Enter でブラウザで開く
-- 元のファイルが移動・削除された項目には「見つかりません」と表示する。ファイルをドラッグで取り出しても一覧には残るので、同じファイルを続けて別の場所へ出せる。「すべて消去」した直後は「元に戻す」で一覧に戻せる
-- メニューバーアイコン: クリックでパネルの表示 / 非表示。右クリックで「監視を一時停止」「同期を一時停止」「ログイン時に起動」「設定…」「アップデートを確認…」「Bridge を終了」。アップデートの確認は設定シートのボタンからも実行できる
-- ショートカットキー（パネルの表示 / 非表示、貼り付けポップアップ）は設定シートで変更できる。入力欄をクリックして、割り当てたいキーを押す（Ctrl / Alt / ⌘ のいずれかを含む必要がある）。ほかのアプリのショートカットと重なる場合に使う
-- Windows では、動画やゲームなどの全画面表示中はつまみを表示しない
+## What Bridge does
 
-## 動作環境
+### Copy once, and it's everywhere
 
-| 項目 | 内容 |
+<p align="center"><img src="docs/media/clip-sync.webp" width="760" alt="Text copied on a Mac arrives in the history of an iMac and a Windows PC, then gets pasted with one click"></p>
+
+Text, images and files you copy on your Mac show up in the history of your iMac and Windows PC on the same LAN. Click an item to paste it. Devices talk to each other directly, so nothing is uploaded to a cloud. A badge on each item tells you which device it came from.
+
+### Paste from your history, right where you are — ⌥⌘V
+
+<p align="center"><img src="docs/media/clip-search.webp" width="760" alt="Search the history in a popup and paste it straight into Slack"></p>
+
+A history popup opens next to your cursor. Type to filter, press Enter, and the item is pasted on the spot (**Ctrl+Alt+Shift+V** on Windows).
+
+### Files, just as they are
+
+<p align="center"><img src="docs/media/clip-shelf.webp" width="760" alt="Drop files from Finder onto the edge handle, then drag them out into a Mail message"></p>
+
+Drop files from Finder or Explorer onto the handle at the screen edge and they wait on the shelf. Drag them out into any other app later. Folders are sent as a zip and unpacked automatically on the receiving device.
+
+### Delivered to you, and only you
+
+<p align="center"><img src="docs/media/clip-lock.webp" width="760" alt="The panel becomes a padlock, locks, travels, and opens on the receiving device"></p>
+
+Sync traffic is encrypted with **AES-256-GCM**, using a key derived from your sync key (both metadata and file contents). Requests from anyone without the matching key are rejected. Bridge does not authenticate peers with certificates, so it is meant for use on a LAN you trust.
+
+---
+
+## Getting started
+
+1. Download the macOS DMG or the Windows installer from **[Releases](https://github.com/haruhito767676/bridge/releases)** and launch it. A thin handle appears at the right edge of your screen.
+2. **To sync**, open the settings sheet from the gear icon at the bottom right of the panel, copy the "sync key", and paste it into the settings sheet on your other devices. Devices that share the key find each other automatically on the same LAN.
+3. Just copy things as usual. Hover over the handle, or press **⌥Space** (**Ctrl+Shift+Space** on Windows), to open the history panel.
+
+> The current builds are not notarized by Apple. If macOS shows a warning on first launch, right-click the app in Finder and choose "Open".
+
+---
+
+## Feature details
+
+<details>
+<summary>File shelf / Clipboard history / Automatic device sync / Search / Keyboard</summary>
+
+#### 1. File shelf
+- Drag and drop files from Finder / Explorer to keep them temporarily
+- Drop an image or link from a browser and Bridge downloads it and saves it as a file
+- Drop selected text and it is saved as `snippet_*.txt`
+- Drag items out of the list to drop them into other apps as files (multiple selection, rectangle selection, Shift / ⌘ click supported)
+- Click an item to copy the file itself to the clipboard (macOS: `public.file-url` / Windows: `CF_HDROP`), then paste it into Finder / Explorer / chat apps with ⌘V / Ctrl+V
+- Press Space to open macOS Quick Look
+
+#### 2. Clipboard history
+- Watches the clipboard every 500 ms and adds text, images and files to the history
+- For text, both the original string and an auto-generated `.txt` file are kept. Click to copy the string, or drag to take it out as a `.txt` file
+- Copied images are converted to PNG and shown as thumbnails
+- Files copied in Finder / Explorer are detected and added too
+- Copying the same content again moves the existing item to the top instead of adding a new one. Clicking an item in the list to copy it does the same, and updates its time
+- History limits are per kind (100 text / 30 images / 100 files). Older items beyond the limit are deleted, and files Bridge generated are also removed from disk. The current counts appear in the settings sheet, for example "Text 82/100 · Images 12/30 · Files 40/100" (pinned items are not counted)
+- Copies flagged as "do not keep in history" (Concealed / Transient) by password managers and similar tools are neither recorded nor synced
+- The history is saved in `history.json` and survives restarts. Pin frequently used items (right-click / ⌘P) to keep them at the top, exempt from limit-based deletion and "Clear all"
+- Press **⌥⌘V** (Windows: Ctrl+Alt+Shift+V; configurable in the settings sheet) to open a history popup near the mouse cursor and paste the chosen item on the spot. Auto-paste can be turned off in settings. On macOS this needs the Accessibility permission
+
+#### 3. Automatic sync between devices
+- Each device runs an HTTP server (`node:http`) on port `9095`, and devices talk to each other directly
+- Devices that share the same sync key are discovered automatically over UDP multicast. If that fails, use "Scan now" in the settings sheet (scans the same /24 subnet) or write the peer's IP address into `sync-config.json`
+- New items are sent to peers as soon as they are added. Anything that fails to send is picked up later by a 20-second differential check (timestamp comparison)
+- With three or more devices, items are relayed through intermediate devices to reach ones that are not directly connected
+- Authentication uses the shared sync key. Any request with a mismatched key is rejected with 401 (compared with `timingSafeEqual`)
+- "Clipboard watching" and "Sync with other devices" can each be paused from the menu bar. Connection status, last sync time and failure reasons are shown in the settings sheet, and the activity log is written to `bridge.log`
+- Folders are compressed to `.zip` for sending. The receiving side unpacks them back into folders automatically if they are 1 GB or smaller. Larger ones arrive as a zip and can be unpacked from the right-click menu ("Extract as folder")
+- Items being received from another device appear in the list as "Syncing" before the file body arrives, and are replaced with normal items when done. Order and time follow the time the item was added on the sending side
+- While a large file is being received, progress (%, size received, speed) is shown. If nothing moves for a while, "May be stalled" appears with a retry button. You can cancel anytime with ×
+- Transfer progress also appears in the menu bar (macOS: `↓42%` next to the icon; Windows: "Transferring 42%" in the tray tooltip; "N transfers" when several run at once)
+- Items that arrive from other devices show the sender's device name and device type (laptop / desktop) icon
+- Right-click "Show only this device's items" / "Show only items from …" to filter by device. While filtering, a label appears under the kind switcher; clear it with ✕ or Esc
+
+#### 4. Search
+- The search field is focused as soon as the panel opens
+- The "All / Files / Clips" buttons under the search field filter by kind and combine with keyword search
+- With focus in the search field, use ↑↓ to choose a result and Enter to copy (the same as Spotlight)
+- During keyword search, the footer shows the hit count (not shown when only filtering by kind)
+
+#### 5. Keyboard and menus
+- ↑↓ = move between rows, Enter = copy, ⌘Enter = reveal in Finder, Space = Quick Look, ⌫ = remove from the list, Esc = close
+- Right-click menu: Copy / Open link / Quick Look / Reveal in Finder / Open / Copy path / Pin / Remove from list. For a URL text, ⌘Enter opens it in the browser
+- Items whose original file was moved or deleted show "Not found". Right after dragging something out, "Undo" puts it back in the list
+- Menu bar icon: click to show / hide the panel. Right-click for "Pause watching", "Pause sync", "Launch at login", "Settings…", "Check for updates…", "Quit Bridge". Update checks can also be run from the settings sheet
+- Shortcuts (show / hide the panel, paste popup) can be changed in the settings sheet: click the field and press the keys you want (must include Ctrl / Alt / ⌘). Use this if they clash with another app's shortcuts
+- On Windows, the handle is not shown while a video or game is in full screen
+
+</details>
+
+## Requirements
+
+| Item | Details |
 |---|---|
-| プラットフォーム | macOS / Windows（Linux は動作保証なし）。見た目は各 OS の標準に合わせている（macOS: 半透明のぼかし背景 / Windows: Fluent デザインのフライアウト） |
-| ランタイム | Electron 43.x / Node.js（Electron 同梱） |
-| 外部依存 | なし（devDependencies は electron / electron-builder のみ） |
+| Platforms | macOS / Windows (no guarantees on Linux). The look follows each OS: macOS uses a translucent blurred background; Windows uses a Fluent-style flyout |
+| Runtime | Electron 43.x / Node.js (bundled with Electron) |
+| Dependencies | None (devDependencies are only electron / electron-builder) |
 
-## セットアップ
+## Usage
 
-```bash
-npm install
-npm start          # 開発起動
-```
+1. On launch, a 15 px handle appears at the middle of the right edge of the display where the mouse cursor is. An icon also appears in the menu bar (not in the Dock).
+2. The 320 px panel opens from the right edge in any of these ways. With multiple displays, the right edge of any display responds.
+   - Hover over the handle for about 0.25 seconds
+   - Drag a file near the handle
+   - Press **⌥Space** (Windows: Ctrl+Shift+Space)
+3. Drop a file / image / text to add it to the list. Click an item to copy it; a checkmark appears and the panel closes automatically, so you can paste right away with ⌘V. Drag an item to take it out into another app.
+4. The panel closes automatically when the mouse leaves it. When opened with the mouse, Bridge does not steal keyboard focus from the app you are working in (only opening with the hotkey focuses the search field).
 
-開発起動時だけ使える、見た目確認用の環境変数があります（パッケージ版では無効）。
+### `bridge://` URL scheme
 
-```bash
-BRIDGE_DEV_SEED=1 npm start          # ダミーの項目を入れてパネルを開いたままにし、ウインドウ座標を標準出力に出す
-BRIDGE_DEV_SEED=settings npm start   # 上記に加えて設定シートを開く
-BRIDGE_DEV_SHOT=/tmp/page.png ...    # Renderer の表示内容を PNG に保存する
-BRIDGE_DEV_EVAL='...' ...            # パネルを開いた後に Renderer で JS を実行する
-```
-
-> **Windows で起動するときの注意**: 環境変数 `ELECTRON_RUN_AS_NODE` が設定されているシェルからは GUI が起動しません。設定されている場合は解除してから `npm start` してください。また、Bridge は 1 つしか起動できず、2 つ目はすぐに終了します。
-
-### ビルド
-
-```bash
-npm test             # 純粋関数のテスト (node --test、依存なし)
-npm run build        # 現在の OS 向け (Windows: NSIS / Linux: AppImage)
-npm run build:mac    # macOS 向け DMG
-```
-
-macOS 向けビルドは Hardened Runtime と公証 (`notarize: true`) を有効にしています。環境変数 `APPLE_ID` / `APPLE_APP_SPECIFIC_PASSWORD` / `APPLE_TEAM_ID` を設定すると公証まで行います。設定しない場合、署名と公証はスキップされます。
-
-成果物は `dist/` に出力されます。
-
-## 使い方
-
-1. 起動すると、マウスカーソルがあるディスプレイの右端中央に、幅 15px のつまみが表示されます。メニューバーにもアイコンが出ます（Dock には出ません）
-2. 次のいずれかで、幅 320px のパネルが右端から開きます。複数ディスプレイの場合は、どのディスプレイの右端でも反応します
-   - つまみにマウスを約 0.25 秒重ねる
-   - ファイルをドラッグしてつまみに近づける
-   - **⌥Space**（Windows: Ctrl+Shift+Space）を押す
-3. ファイル / 画像 / テキストをドロップすると一覧に追加されます。項目をクリックするとコピーされ、チェックマークが出た後にパネルが自動で閉じるので、そのまま ⌘V で貼り付けられます。ドラッグすればほかのアプリに取り出せます
-4. マウスがパネルから離れると自動で閉じます。マウスで開いたときは、作業中のアプリからキーボードフォーカスを奪いません（ホットキーで開いたときだけ検索欄にフォーカスします）
-
-### bridge:// URL スキーム
-
-ほかのアプリ（macOS のクイックアクションなど）から項目を追加できます。
+Other apps (such as macOS Quick Actions) can add items.
 
 ```
-bridge://add?path=/absolute/path/to/file    # ローカルファイルを追加 (パネルに確認が出て「追加」を押すと追加される)
-bridge://add?text=https://example.com/x.png # URL → ダウンロードして追加
-bridge://add?text=任意のテキスト              # テキスト → .txt にして追加
+bridge://add?path=/absolute/path/to/file    # Add a local file (the panel asks for confirmation; press "Add")
+bridge://add?text=https://example.com/x.png # URL → download and add
+bridge://add?text=any text                  # Text → saved as .txt and added
 ```
 
-## デバイス間同期の設定
+## Sync settings
 
-パネル右下の歯車アイコンから**設定シート**を開き、デバイス名・同期キー・自動スキャン・手動ピア・ログイン時起動を変更できます。
+Open the **settings sheet** from the gear icon at the bottom right of the panel to change the device name, sync key, auto scan, manual peers and launch at login.
 
-同期するには、全デバイスで同期キーを同じ値にします。1 台目の設定シートで同期キーの「コピー」ボタンを押し、ほかのデバイスの設定シートに貼り付けてください。接続中のデバイスは、設定シートとフッターの緑のドットで確認できます。
+To sync, use the same sync key on every device. Press "Copy" for the sync key in the settings sheet on the first device, then paste it into the settings sheet on the others. Connected devices are shown in the settings sheet and by the green dot in the footer.
 
-設定は初回起動時に `userData` ディレクトリに作られる `sync-config.json` に保存されます。`port` を変更する場合はこのファイルを直接編集し、アプリを再起動してください。
+Settings are stored in `sync-config.json`, created in the `userData` directory on first launch. To change `port`, edit this file directly and restart the app.
 
 - macOS: `~/Library/Application Support/bridge/sync-config.json`
 - Windows: `%APPDATA%\bridge\sync-config.json`
@@ -135,56 +165,91 @@ bridge://add?text=任意のテキスト              # テキスト → .txt に
   "autoScan": true,
   "myDeviceName": "Win-Desk",
   "iconType": "win_desktop",
-  "secretToken": "全デバイスで同じ値に揃える共有キー"
+  "secretToken": "a shared key, the same on every device"
 }
 ```
 
-| キー | 説明 |
+| Key | Description |
 |---|---|
-| `port` | 同期サーバーの待ち受けポート（既定 `9095`） |
-| `peers` | 接続先を手動で指定する（`host` または `host:port`）。自動発見で見つからない、別のネットワークセグメントにあるデバイス用 |
-| `autoScan` | UDP マルチキャストによる自動発見（既定 `true`）。起動から 15 秒経っても相手が見つからなければ、/24 サブネットのスキャンを 1 回だけ行う |
-| `autoPaste` | 貼り付けポップアップで項目を選んだ後、自動で貼り付ける（既定 `true`） |
-| `showSourceApp` | コピー元アプリのアイコンを項目に表示する（macOS 既定 `true` / Windows 既定 `false`。Windows ではコピーのたびに PowerShell を起動するため） |
-| `myDeviceName` | ほかのデバイスに表示される自分のデバイス名（省略時は `os.hostname()`） |
-| `iconType` | 旧マウス共有機能で使っていたデバイス種別（`win_laptop` / `macbook` / `win_desktop`）。互換性のために送受信は残しているが、現在の UI では使っていない |
-| `secretToken` | **同期キー。同期するデバイスすべてで同じ値にしてください（設定シートの「同期キー」と同じもの）。** 未設定の場合は初回起動時に乱数で自動生成されます |
+| `port` | Port the sync server listens on (default `9095`) |
+| `peers` | Peers to connect to manually (`host` or `host:port`). For devices that auto-discovery cannot find, or that are on another network segment |
+| `autoScan` | Automatic discovery over UDP multicast (default `true`). If no peer is found 15 seconds after launch, a /24 subnet scan runs once |
+| `autoPaste` | Paste automatically after choosing an item in the paste popup (default `true`) |
+| `showSourceApp` | Show the source app's icon on items (macOS default `true` / Windows default `false`, because Windows launches PowerShell on every copy) |
+| `myDeviceName` | Your device name as shown on other devices (defaults to `os.hostname()`) |
+| `iconType` | Device type used by the former mouse-sharing feature (`win_laptop` / `macbook` / `win_desktop`). Still sent and received for compatibility, but not used in the current UI |
+| `secretToken` | **The sync key. Use the same value on every device that syncs (the same as "Sync key" in the settings sheet).** If unset, a random one is generated on first launch |
 
-同期キーが一致しない相手からのリクエストはすべて 401 で拒否されます。そのため、同じ LAN にほかの人の Bridge があっても、履歴が混ざったり相手に見られたりすることはありません。
+Requests from peers with a mismatched sync key are always rejected with 401. So even if someone else's Bridge is on the same LAN, your histories are never mixed or visible to them.
 
-## プロジェクト構成
+## Development
+
+<details>
+<summary>Setup / Build / Environment variables for development</summary>
+
+```bash
+npm install
+npm start          # run in development
+```
+
+These environment variables help with visual checks and work only in development (disabled in packaged builds).
+
+```bash
+BRIDGE_DEV_SEED=1 npm start          # Fill in dummy items, keep the panel open, and print the window bounds to stdout
+BRIDGE_DEV_SEED=settings npm start   # Same as above, and also open the settings sheet
+BRIDGE_DEV_SHOT=/tmp/page.png ...    # Save the Renderer's content as a PNG
+BRIDGE_DEV_EVAL='...' ...            # Run JS in the Renderer after the panel opens
+```
+
+> **Note on launching on Windows**: The GUI does not start from a shell where the environment variable `ELECTRON_RUN_AS_NODE` is set. Unset it before `npm start`. Also, only one Bridge can run at a time; a second one exits immediately.
+
+#### Build
+
+```bash
+npm test             # Tests for pure functions (node --test, no dependencies)
+npm run build        # For the current OS (Windows: NSIS / Linux: AppImage)
+npm run build:mac    # DMG for macOS
+```
+
+The macOS build enables the Hardened Runtime. With the current settings (`mac.notarize` in `package.json`), Apple notarization is not performed.
+
+Artifacts are written to `dist/`.
+
+</details>
+
+## Project structure
 
 ```
 bridge/
-├── main.js               # Main プロセス: ウインドウ管理・クリップボード監視・同期サーバー
-├── preload.js            # contextBridge で Renderer に公開する IPC API (window.bridge.*)
-├── renderer.js           # Renderer: 一覧 UI・検索・選択・ドラッグ & ドロップ・履歴管理
-├── index.html            # パネルの HTML (CSP 付き)
-├── styles.css            # デザイントークンとパネルのスタイル (ライト/ダーク対応)
-├── popup.html / popup.js / popup.css  # 貼り付けポップアップ
-├── tab.html / tab.js / tab.css        # Windows: ディスプレイごとのつまみのウインドウ
-├── lib/format.js         # 表示用の純粋関数 (Renderer とテストで共用)
-├── lib/sync-utils.js     # 同期・検知用の純粋関数 (Main とテストで共用)
-├── test/                 # node --test のテスト
-├── scripts/start.js      # 開発起動用スクリプト (ELECTRON_RUN_AS_NODE を外して electron を起動)
-└── package.json          # electron-builder の設定 (bridge:// スキームの登録を含む)
+├── main.js               # Main process: window management, clipboard watching, sync server
+├── preload.js            # IPC API exposed to the Renderer through contextBridge (window.bridge.*)
+├── renderer.js           # Renderer: list UI, search, selection, drag & drop, history
+├── index.html            # Panel HTML (with CSP)
+├── styles.css            # Design tokens and panel styles (light / dark)
+├── popup.html / popup.js / popup.css  # Paste popup
+├── tab.html / tab.js / tab.css        # Windows: per-display handle windows
+├── lib/format.js         # Pure functions for display (shared by Renderer and tests)
+├── lib/sync-utils.js     # Pure functions for sync / detection (shared by Main and tests)
+├── test/                 # node --test tests
+├── scripts/start.js      # Dev launcher (removes ELECTRON_RUN_AS_NODE and starts electron)
+└── package.json          # electron-builder config (including bridge:// scheme registration)
 ```
 
-アーキテクチャ・通信プロトコル・IPC API の詳細は **[SPEC.md](SPEC.md)** を参照してください。
+For architecture, the communication protocol and the IPC API, see **[SPEC.md](SPEC.md)** (Japanese).
 
-## 設計方針
+## Design notes
 
-- **セキュリティ**: `contextIsolation: true` / `nodeIntegration: false`。Renderer は `preload.js` が公開する最小限の API だけを使う。CSP で外部リソースの読み込みを禁止している
-- **ディスクの後片付け**: Bridge が自動生成したファイル（`clipboard_*.png` / `snippet_*.txt` / `text_*.txt` / 同期で受信したファイル / 自動作成した zip）は `sessionTempFiles` で管理し、履歴の上限を超えたときと終了時に削除する。**ユーザーがドロップした元のファイルは削除しない**。ファイル名の `*` 部分は `2026-09-15_14-30-05` の形式の日時（Windows ではコロンが使えないためハイフン区切り）
-- **障害からの復帰**: Renderer がクラッシュした場合は自動でリロードする。Renderer の準備が終わる前に届いた項目はキューに保持する。同期でファイル転送に失敗した場合はタイムスタンプを進めず、次回の差分チェックで再試行する
-- **メモリ使用量**: 同期のファイル転送は送信・受信ともストリーミングで処理するため、数 GB のファイルでもメモリを大きく消費しない
+- **Security**: `contextIsolation: true` / `nodeIntegration: false`. The Renderer uses only the minimal API exposed by `preload.js`. CSP forbids loading external resources.
+- **Disk cleanup**: Files Bridge generates (`clipboard_*.png` / `snippet_*.txt` / `text_*.txt` / files received through sync / zips it creates) are tracked in `sessionTempFiles` and deleted when history limits are exceeded and on exit. **Original files the user dropped are never deleted.** The `*` in file names is a timestamp such as `2026-09-15_14-30-05` (hyphen-separated, because colons are not allowed on Windows).
+- **Recovery from failures**: If the Renderer crashes it reloads automatically. Items that arrive before the Renderer is ready are queued. If a file transfer fails during sync, the timestamp is not advanced, so the next differential check retries.
+- **Memory use**: File transfers in sync are streamed in both directions, so even multi-GB files don't use much memory.
 
-## 既知の制約
+## Known limitations
 
-- Windows では、ファイルのコピー検知・クリップボードへのファイル書き込み・自動貼り付けに、起動時に立ち上げる PowerShell プロセスを使っています。PowerShell を実行できない環境では、コピー検知は先頭の 1 件のみになり、自動貼り付けは使えません
-- Finder の「種類」表示（`mdls`）とクイックルックは macOS のみです。ほかの OS では拡張子から種類を表示します
-- 同期の通信は、同期キーによる認証に加えて、`secretToken` から作った鍵で AES-256-GCM 暗号化しています（メタデータとファイル本体の両方）。ただし証明書による相手の認証は行っていません。目的は LAN 内での盗聴・改ざんを防ぐことで、信頼できる LAN での利用を前提としています
+- On Windows, a PowerShell process started at launch is used to detect copied files, write files to the clipboard, and auto-paste. Where PowerShell cannot run, copy detection is limited to the first file only and auto-paste is unavailable.
+- Finder's "Kind" display (`mdls`) and Quick Look are macOS only. On other OSes the kind is shown from the file extension.
+- Sync traffic is authenticated with the sync key and also encrypted with AES-256-GCM, using a key derived from `secretToken` (both metadata and file contents). Peers are not authenticated with certificates, though. The goal is to prevent eavesdropping and tampering on a LAN, and Bridge assumes use on a LAN you trust.
 
-## ライセンス
+## License
 
 MIT © haruhito767676
