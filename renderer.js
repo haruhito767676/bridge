@@ -1005,28 +1005,9 @@ function onItemDragStart(e, item) {
   );
   if (draggedItems.length === 0) return;
   draggingOut = true;
+  // クリックコピー・クリップ履歴のドラッグと同じく、リストには残す (同じファイルを複数の場所へ出せる)。
+  // startDrag は成否を返さないため、中止したドラッグで消えてしまう問題も避けられる
   window.bridge.startDrag(draggedItems.map((it) => it.path));
-
-  // ドラッグ開始と同時にフェードアウトしてリストから削除。誤ドラッグ用に「元に戻す」を出す
-  for (const it of draggedItems) {
-    setTimeout(() => fadeOutAndRemove(it), 0);
-  }
-  setTimeout(() => {
-    showToast({
-      icon: 'info',
-      title: draggedItems.length > 1 ? `${draggedItems.length} 個を取り出しました` : '取り出しました',
-      actionLabel: '元に戻す',
-      onAction: () => {
-        for (const it of draggedItems) {
-          it.removing = false;
-          if (!items.includes(it)) items.unshift(it);
-        }
-        render();
-        refreshMissingFiles(); // 移動されていれば「見つかりません」になる
-      },
-      durationMs: 5000,
-    });
-  }, 250);
 }
 
 // ---- 4. 選択（複数選択対応）・コピー・クイックルック ----
