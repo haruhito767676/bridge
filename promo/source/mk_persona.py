@@ -295,8 +295,8 @@ COLS = {'pdf': ('#ff453a', 'PDF'), 'docx': ('#2b7cff', 'DOC'), 'xlsx': ('#30b45a
 
 def fsvg(ext, cls=''):
     c, t = COLS[ext]
-    return (f'<svg class="{cls}" viewBox="0 0 64 64"><defs><linearGradient id="fg_g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#dcdce2"/></linearGradient></defs>'
-            f'<path d="M12 4h28l14 14v38a4 4 0 0 1-4 4H12a4 4 0 0 1-4-4V8a4 4 0 0 1 4-4z" fill="url(#fg_g)"/><path d="M40 4l14 14H44a4 4 0 0 1-4-4z" fill="#b9b9c2"/>'
+    return (f'<svg class="{cls}" viewBox="0 0 64 64"><defs><linearGradient id="fg_g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#f2f3f7"/></linearGradient></defs>'
+            f'<path d="M12 4h28l14 14v38a4 4 0 0 1-4 4H12a4 4 0 0 1-4-4V8a4 4 0 0 1 4-4z" fill="url(#fg_g)" stroke="#b4b8c4" stroke-width="1.6"/><path d="M40 4l14 14H44a4 4 0 0 1-4-4z" fill="#dfe2ea" stroke="#b4b8c4" stroke-width="1.6" stroke-linejoin="round"/>'
             f'<rect x="8" y="34" width="34" height="16" rx="3" fill="{c}"/><text x="25" y="46.2" font-family="-apple-system,Helvetica,sans-serif" font-size="11" font-weight="800" fill="#fff" text-anchor="middle">{t}</text></svg>')
 
 

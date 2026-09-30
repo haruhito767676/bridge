@@ -1227,7 +1227,7 @@ document.addEventListener('keydown', (e) => {
   // 設定シートやテキスト入力中はリスト操作のショートカットを奪わない
   if (e.target === searchBar) return;
   if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
-    if (e.key === 'Escape') closeSettings();
+    if (e.key === 'Escape') settingsBack();
     return;
   }
 
@@ -1238,7 +1238,7 @@ document.addEventListener('keydown', (e) => {
   }
 
   if (!settingsSheet.hidden) {
-    if (e.key === 'Escape') closeSettings();
+    if (e.key === 'Escape') settingsBack();
     return;
   }
 
@@ -2139,6 +2139,7 @@ function startHotkeyCapture(button) {
       button._hotkeyCleanup = null;
     }
     if (typeof label === 'string') button.textContent = label;
+    if (committed) button.dispatchEvent(new CustomEvent('hotkeychange'));
   }
 }
 
@@ -2152,6 +2153,7 @@ function setupHotkeyField(button, resetButton, initialAccelerator, initialLabel)
     if (def) {
       button.dataset.accelerator = def;
       button.textContent = defLabel || def;
+      button.dispatchEvent(new CustomEvent('hotkeychange'));
     }
   });
 }
@@ -2167,7 +2169,14 @@ const settingAutoScan = document.getElementById('setting-autoscan');
 const settingPeers = document.getElementById('setting-peers');
 const settingPeerList = document.getElementById('setting-peer-list');
 const settingLogin = document.getElementById('setting-login');
-const settingHotkeyHelp = document.getElementById('setting-hotkey-help');
+const settingTokenPaste = document.getElementById('setting-token-paste');
+const settingStatus = document.getElementById('setting-status');
+const settingStatusTitle = document.getElementById('setting-status-title');
+const settingStatusSub = document.getElementById('setting-status-sub');
+const settingsPageMain = document.getElementById('settings-page-main');
+const settingsPageAdvanced = document.getElementById('settings-page-advanced');
+const settingsTitle = document.getElementById('settings-title');
+const settingsBackLabel = document.getElementById('settings-back-label');
 const settingAutoPaste = document.getElementById('setting-autopaste');
 const settingSourceApp = document.getElementById('setting-sourceapp');
 const settingSourceAppHelp = document.getElementById('setting-sourceapp-help');
@@ -2181,7 +2190,25 @@ const settingCheckUpdate = document.getElementById('setting-check-update');
 setupHotkeyField(settingHotkeyToggle, settingHotkeyToggleReset, '', '');
 setupHotkeyField(settingHotkeyPaste, settingHotkeyPasteReset, '', '');
 
+// 設定の先頭に出す「つながっているか」の状態 (同期状態の更新のたびに描き直す)
+function renderSettingsStatus() {
+  const peers = syncStatus.peers || [];
+  const online = peers.filter((p) => p.online && p.enabled !== false);
+  settingStatus.classList.toggle('online', online.length > 0);
+  if (online.length > 0) {
+    settingStatusTitle.textContent = `${online.length} 台とつながっています`;
+    settingStatusSub.textContent = online.map((p) => p.device || p.host).join(' · ');
+  } else if (peers.length > 0) {
+    settingStatusTitle.textContent = 'つながっているデバイスはありません';
+    settingStatusSub.textContent = peers.map((p) => p.device || p.host).join(' · ');
+  } else {
+    settingStatusTitle.textContent = 'ほかのデバイスを探しています';
+    settingStatusSub.textContent = '同じ Wi-Fi / LAN に Bridge があれば、自動で見つかります';
+  }
+}
+
 function renderPeerList() {
+  renderSettingsStatus();
   settingPeerList.textContent = '';
   const peers = syncStatus.peers || [];
   if (peers.length === 0) {
@@ -2253,9 +2280,9 @@ async function openSettings() {
     settingLogin.checked = Boolean(s.openAtLogin);
     settingAutoPaste.checked = Boolean(s.autoPaste);
     settingSourceApp.checked = Boolean(s.showSourceApp);
-    settingSourceAppHelp.textContent = IS_MAC
-      ? 'テキストや画像の行に、コピーしたときに使っていたアプリのアイコンを小さく重ねます。'
-      : 'コピーのたびに PowerShell を起動するため、Windows では少し重くなります。';
+    // 補足は、必要なときだけ 1 行で出す (Mac は不要、Windows は動作が重くなることだけ)
+    settingSourceAppHelp.textContent = IS_MAC ? '' : 'コピーのたびに PowerShell を使うため、少し重くなります。';
+    settingSourceAppHelp.hidden = !settingSourceAppHelp.textContent;
     settingHotkeyToggle.dataset.accelerator = s.toggleShortcut || '';
     settingHotkeyToggle.dataset.default = s.defaultToggleShortcut || '';
     settingHotkeyToggle.dataset.defaultLabel = s.defaultToggleShortcutLabel || '';
@@ -2264,30 +2291,55 @@ async function openSettings() {
     settingHotkeyPaste.dataset.default = s.defaultPasteShortcut || '';
     settingHotkeyPaste.dataset.defaultLabel = s.defaultPasteShortcutLabel || '';
     settingHotkeyPaste.textContent = s.pasteHotkeyLabel || '';
-    settingHotkeyHelp.textContent = 'フィールドをクリックして押したいキーの組み合わせを押してください。Ctrl / Alt / ⌘ のいずれかを含める必要があります。';
-    settingVersion.textContent = s.version ? `Bridge ${s.version}` : '';
+    settingVersion.textContent = s.version ? `バージョン ${s.version}` : '';
     settingPasteHelp.textContent = IS_MAC
-      ? '自動ペーストには「システム設定 > プライバシーとセキュリティ > アクセシビリティ」で Bridge の許可が必要です。'
+      ? '「すぐ貼る」には、アクセシビリティの許可が必要です (システム設定 > プライバシーとセキュリティ)。'
       : '';
+    settingPasteHelp.hidden = !settingPasteHelp.textContent;
   } catch (err) {
     console.error('設定の読み込みに失敗:', err);
   }
   renderPeerList();
+  showSettingsPage('main');
   settingsSheet.hidden = false;
   document.body.classList.add('settings-open');
-  settingDeviceName.focus();
+  settingsSheet.scrollTop = 0;
 }
 
 function closeSettings() {
   if (settingsSheet.hidden) return;
+  if (document.activeElement && typeof document.activeElement.blur === 'function') {
+    document.activeElement.blur(); // 入力途中の変更を確定 (change → 自動保存) させる
+  }
   settingsSheet.hidden = true;
   document.body.classList.remove('settings-open');
-  if (document.activeElement && typeof document.activeElement.blur === 'function') {
-    document.activeElement.blur();
-  }
 }
 
-async function saveSettings() {
+// 設定のページ: 'main' (つなぐ / 使いかた / このアプリ) と 'advanced' (詳細設定)
+let settingsPage = 'main';
+function showSettingsPage(name) {
+  settingsPage = name;
+  const adv = name === 'advanced';
+  settingsPageMain.hidden = adv;
+  settingsPageAdvanced.hidden = !adv;
+  settingsTitle.textContent = adv ? '詳細設定' : '設定';
+  settingsBackLabel.textContent = adv ? '設定' : '戻る';
+  settingsSheet.scrollTop = 0;
+  if (adv) updateHistoryUsage();
+}
+function settingsBack() {
+  if (settingsPage === 'advanced') showSettingsPage('main');
+  else closeSettings();
+}
+
+// 入力を確定するたびに保存する (保存ボタンはない)。連続した変更は 1 つずつ順に反映する
+let saveChain = Promise.resolve();
+function saveSettings() {
+  saveChain = saveChain.then(doSaveSettings).catch(() => {});
+  return saveChain;
+}
+
+async function doSaveSettings() {
   const payload = {
     deviceName: settingDeviceName.value,
     secretToken: settingToken.value,
@@ -2322,10 +2374,8 @@ async function saveSettings() {
           accent: 'amber',
           durationMs: 5000,
         });
-        return; // シートは開いたまま、もう一度試せるようにする
+        return;
       }
-      closeSettings();
-      showToast({ icon: 'check', title: '設定を保存しました', durationMs: 2000 });
       window.bridge.getDeviceInfo().then((info) => {
         if (info && info.device) {
           localDeviceName = info.device;
@@ -2340,6 +2390,17 @@ async function saveSettings() {
     showToast({ icon: 'warning', title: '設定を保存できませんでした', accent: 'red' });
   }
 }
+
+// 入力の確定 (フォーカスが外れる / Enter / スイッチの切り替え / ショートカットの決定) で自動保存
+[settingDeviceName, settingToken, settingPeers, settingAutoScan, settingLogin, settingAutoPaste, settingSourceApp].forEach((el) => {
+  el.addEventListener('change', saveSettings);
+});
+[settingHotkeyToggle, settingHotkeyPaste].forEach((el) => el.addEventListener('hotkeychange', saveSettings));
+[settingDeviceName, settingToken].forEach((el) => {
+  el.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') el.blur();
+  });
+});
 
 settingsBtn.addEventListener('click', openSettings);
 const settingScan = document.getElementById('setting-scan');
@@ -2360,11 +2421,29 @@ settingScan.addEventListener('click', async () => {
   }
 });
 document.getElementById('setting-log').addEventListener('click', () => window.bridge.revealLog());
-document.getElementById('settings-back').addEventListener('click', closeSettings);
-document.getElementById('settings-save').addEventListener('click', saveSettings);
+document.getElementById('settings-back').addEventListener('click', settingsBack);
+document.getElementById('setting-open-advanced').addEventListener('click', () => showSettingsPage('advanced'));
 settingTokenCopy.addEventListener('click', () => {
   window.bridge.copyPlainText(settingToken.value);
   showToast({ icon: 'check', title: '同期キーをコピーしました', durationMs: 1800 });
+});
+// 貼り付け: クリップボードの文字を同期キーに入れる。読めないときは、入力欄を選んで手で貼れるようにする
+settingTokenPaste.addEventListener('click', async () => {
+  let text = '';
+  try {
+    text = ((await navigator.clipboard.readText()) || '').trim();
+  } catch {
+    // 権限がないときは、下の案内へ
+  }
+  if (text) {
+    settingToken.value = text;
+    settingToken.dispatchEvent(new Event('change'));
+    showToast({ icon: 'check', title: '同期キーを貼り付けました', durationMs: 1800 });
+  } else {
+    settingToken.focus();
+    settingToken.select();
+    showToast({ icon: 'info', title: '入力欄に貼り付けてください', sub: `${IS_MAC ? '⌘V' : 'Ctrl+V'} でキーを貼り付けます`, durationMs: 2500 });
+  }
 });
 settingCheckUpdate.addEventListener('click', () => window.bridge.checkForUpdates());
 window.bridge.onOpenSettings(() => openSettings());

@@ -77,110 +77,108 @@
     <!-- 右クリックのコンテキストメニュー (renderer.js が中身を組み立てる) -->
     <ul id="context-menu" role="menu" hidden></ul>
 
-    <!-- 設定シート (デバイス名 / 同期キー / ピア一覧) -->
+    <!-- 設定シート。1 ページ目 = つなぐ / 使いかた / このアプリ、2 ページ目 = 詳細設定 (困ったときの項目)。
+         変更は入力を確定した時点で自動保存する (保存ボタンはない) -->
     <section id="settings-sheet" hidden aria-label="設定">
       <div class="sheet-header">
         <button id="settings-back" class="footer-button" aria-label="戻る">
           <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3L5 8l5 5"/></svg>
-          戻る
+          <span id="settings-back-label">戻る</span>
         </button>
-        <span class="sheet-title">設定</span>
+        <span class="sheet-title" id="settings-title">設定</span>
         <span class="sheet-spacer"></span>
       </div>
-      <div class="sheet-body">
-        <div class="form-group">
-          <span class="form-label">履歴の使用状況</span>
-          <p class="form-help" id="setting-history-usage"></p>
-        </div>
 
-        <div class="form-group">
-          <label class="form-label" for="setting-device-name">このデバイスの名前</label>
-          <input id="setting-device-name" class="text-field" type="text" spellcheck="false" autocomplete="off" />
-          <p class="form-help">ほかのデバイスに届いたアイテムにこの名前が表示されます。</p>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label" for="setting-token">同期キー</label>
-          <div class="form-row">
-            <input id="setting-token" class="text-field" type="text" spellcheck="false" autocomplete="off" />
-            <button id="setting-token-copy" class="push-button" type="button">コピー</button>
+      <div class="sheet-body" id="settings-page-main">
+        <div class="set-status" id="setting-status">
+          <span class="set-dot" id="setting-status-dot"></span>
+          <div class="set-status-text">
+            <b id="setting-status-title">ほかのデバイスを探しています</b>
+            <small id="setting-status-sub"></small>
           </div>
-          <p class="form-help">同期したいデバイスすべてに同じキーを貼り付けてください。キーが違う相手とはつながりません。</p>
+          <button id="setting-scan" class="push-button" type="button">いま探す</button>
         </div>
 
-        <div class="form-group">
-          <div class="form-row form-row-between">
-            <span class="form-label">同じネットワークのデバイスを自動で見つける</span>
-            <input id="setting-autoscan" class="switch" type="checkbox" />
-          </div>
-          <p class="form-help">同じ Wi-Fi / LAN の Bridge 同士が互いに名乗り合って見つけます。見つからないときは「いま探す」で全ホストを確認します。</p>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label" for="setting-peers">手動で追加するデバイス (IP アドレス、1 行に 1 つ)</label>
-          <textarea id="setting-peers" class="text-field text-area" rows="2" spellcheck="false"></textarea>
-        </div>
-
-        <div class="form-group">
-          <div class="form-row form-row-between">
-            <span class="form-label">接続中のデバイス</span>
-            <button id="setting-scan" class="push-button" type="button">いま探す</button>
-          </div>
-          <ul id="setting-peer-list" class="peer-list"></ul>
-          <div class="form-row form-row-end">
-            <button id="setting-log" class="footer-button" type="button">ログを表示</button>
+        <div class="set-caption">つなぐ</div>
+        <div class="set-group">
+          <label class="set-row" for="setting-device-name">
+            <span>このデバイスの名前</span>
+            <input id="setting-device-name" class="set-inline" type="text" spellcheck="false" autocomplete="off" title="ほかのデバイスに届いたアイテムに、この名前が表示されます" />
+          </label>
+          <div class="set-row">
+            <label for="setting-token">同期キー</label>
+            <input id="setting-token" class="set-key" type="text" spellcheck="false" autocomplete="off" />
+            <span class="set-btns">
+              <button id="setting-token-copy" class="push-button" type="button">コピー</button>
+              <button id="setting-token-paste" class="push-button" type="button">貼り付け</button>
+            </span>
           </div>
         </div>
+        <p class="set-note">ほかのデバイスに同じキーを入れると、つながります。</p>
 
-        <div class="form-group">
-          <div class="form-row form-row-between">
-            <span class="form-label">コピー元アプリのアイコンを表示</span>
-            <input id="setting-sourceapp" class="switch" type="checkbox" />
+        <div class="set-caption">使いかた</div>
+        <div class="set-group">
+          <div class="set-row">
+            <span>開く / 閉じる</span>
+            <span class="set-hotkey">
+              <button id="setting-hotkey-toggle" class="hotkey-field" type="button" title="クリックして、押したいキーを押します"></button>
+              <button id="setting-hotkey-toggle-reset" class="footer-button" type="button" title="既定に戻す"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8a5 5 0 1 1 1.6 3.7M3 8V4M3 8h4"/></svg></button>
+            </span>
           </div>
-          <p class="form-help" id="setting-sourceapp-help"></p>
-        </div>
-
-        <div class="form-group">
-          <div class="form-row form-row-between">
-            <span class="form-label">ポップアップで選んだあと自動でペースト</span>
+          <div class="set-row">
+            <span>その場で貼る</span>
+            <span class="set-hotkey">
+              <button id="setting-hotkey-paste" class="hotkey-field" type="button" title="クリックして、押したいキーを押します"></button>
+              <button id="setting-hotkey-paste-reset" class="footer-button" type="button" title="既定に戻す"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8a5 5 0 1 1 1.6 3.7M3 8V4M3 8h4"/></svg></button>
+            </span>
+          </div>
+          <div class="set-row">
+            <label for="setting-autopaste">選んだらすぐ貼る</label>
             <input id="setting-autopaste" class="switch" type="checkbox" />
           </div>
-          <p class="form-help" id="setting-paste-help"></p>
+          <div class="set-row">
+            <label for="setting-sourceapp">コピー元のアイコンを表示</label>
+            <input id="setting-sourceapp" class="switch" type="checkbox" />
+          </div>
         </div>
+        <p class="set-note" id="setting-paste-help" hidden></p>
+        <p class="set-note" id="setting-sourceapp-help" hidden></p>
 
-        <div class="form-group">
-          <div class="form-row form-row-between">
-            <span class="form-label">ログイン時に Bridge を起動</span>
+        <div class="set-caption">このアプリ</div>
+        <div class="set-group">
+          <div class="set-row">
+            <label for="setting-login">ログイン時に起動</label>
             <input id="setting-login" class="switch" type="checkbox" />
           </div>
-        </div>
-
-        <div class="form-group">
-          <span class="form-label">ショートカットキー</span>
-          <div class="hotkey-row">
-            <span class="hotkey-name">表示 / 非表示</span>
-            <button id="setting-hotkey-toggle" class="hotkey-field" type="button"></button>
-            <button id="setting-hotkey-toggle-reset" class="footer-button" type="button" title="既定に戻す">
-              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8a5 5 0 1 1 1.6 3.7M3 8V4M3 8h4"/></svg>
-            </button>
+          <div class="set-row">
+            <span id="setting-version"></span>
+            <button id="setting-check-update" class="push-button" type="button">更新を確認</button>
           </div>
-          <div class="hotkey-row">
-            <span class="hotkey-name">ペーストポップアップ</span>
-            <button id="setting-hotkey-paste" class="hotkey-field" type="button"></button>
-            <button id="setting-hotkey-paste-reset" class="footer-button" type="button" title="既定に戻す">
-              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8a5 5 0 1 1 1.6 3.7M3 8V4M3 8h4"/></svg>
-            </button>
+          <button id="setting-open-advanced" class="set-row set-link" type="button"><span>詳細設定</span><svg class="set-chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3l5 5-5 5"/></svg></button>
+        </div>
+      </div>
+
+      <div class="sheet-body" id="settings-page-advanced" hidden>
+        <div class="set-caption">見つけかた</div>
+        <div class="set-group">
+          <div class="set-row">
+            <label for="setting-autoscan">同じネットワークを自動で探す</label>
+            <input id="setting-autoscan" class="switch" type="checkbox" />
           </div>
-          <p class="form-help" id="setting-hotkey-help"></p>
+          <div class="set-row set-col">
+            <label for="setting-peers">手動で追加 (IP アドレス、1 行に 1 つ)</label>
+            <textarea id="setting-peers" class="text-field text-area" rows="2" spellcheck="false" placeholder="192.168.1.21"></textarea>
+          </div>
         </div>
+        <p class="set-note">見つからないときは、1 ページ目の「いま探す」でも確認できます。</p>
 
-        <div class="form-row form-row-between">
-          <span class="form-help" id="setting-version"></span>
-          <button id="setting-check-update" class="footer-button" type="button">アップデートを確認</button>
-        </div>
+        <div class="set-caption">接続中のデバイス</div>
+        <ul id="setting-peer-list" class="peer-list"></ul>
 
-        <div class="form-row form-row-end">
-          <button id="settings-save" class="push-button primary" type="button">保存</button>
+        <div class="set-caption">そのほか</div>
+        <div class="set-group">
+          <div class="set-row set-col"><span>履歴の使用状況</span><span id="setting-history-usage" class="set-val"></span></div>
+          <button id="setting-log" class="set-row set-link" type="button"><span>ログを表示</span><svg class="set-chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3l5 5-5 5"/></svg></button>
         </div>
       </div>
     </section>

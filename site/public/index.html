@@ -358,96 +358,33 @@
   .checklist li{font-size:15px;line-height:1.6;color:var(--ink-dim);}
   .detail-solo .checklist{display:inline-flex;margin:24px auto 0;}
 
-  /* ---- os-compare: 同じ内容のパネルを2枚重ね、ハンドルより左をmac/右をwinで
-     clip-pathで出し分けるビフォーアフター比較スライダー。バー位置は初期表示だけ
-     訪問者のOSで決め、あとは自由にドラッグして見比べさせる ---- */
-  /* 本物の実測幅(325px)に合わせる。.brd自体は320pxでmax-widthされているので、
-     ここだけそれより広く出せるよう上書きする */
-  /* .detail-soloの標準max-width(640px)だと、traitsの2列(190px×2)+gap(72px×2)+
-     パネル(325px)=849pxが収まらず、flexのデフォルトshrinkでパネルが約295pxまで
-     縮んでいた(実機の325pxより明らかに細く見えるバグの原因)。この節だけ幅を
-     849pxが余裕を持って収まる900pxまで広げる (見出し文はもともと640px分も
-     使っていないので、広げても見た目上センタリングのまま変わらない) */
-  .detail-solo-compare{max-width:900px;}
-  .os-compare{position:relative;width:325px;flex-shrink:0;text-align:left;--split:100%;--handle-pos:100%;}
-  /* 本物の実寸(325×600px相当)に固定する。drop-zoneは480px固定(スクロール前提)
-     だが、ここは件数固定の静止デモなので中身の高さに合わせて伸縮させ、
-     パネル全体としては実機と同じ325×600pxの箱に収める */
-  .os-compare .brd{max-width:325px;height:600px;display:flex;flex-direction:column;overflow:hidden;}
-  .os-compare .brd .drop-zone{flex:1;height:auto;overflow:hidden;}
-  /* isolation:isolate が無いと、macパネル内の.segment-item(z-index:1)が.os-compareの
-     スタッキングコンテキストに直接参加し、winパネル(z-index:auto)より上に漏れて出てしまう */
-  /* z-indexを明示しないと、macの中身(isolationでできた独立スタック)がwinより
-     後の重なり順として解釈されることがあり、macのテキストがwin側に染み出して見える。
-     position:relativeを添えてz-indexを効かせ、winより確実に下に固定する */
-  .os-compare-mac{isolation:isolate;position:relative;z-index:1;}
-  .os-compare-mac .brd{box-shadow:0 20px 50px -24px rgba(20,20,25,0.3),0 0 0 1px var(--line);}
-  /* clip-pathだと境目でChromeが極小のアーティファクトを出すことがあるので、
-     幅そのものを可変にしてoverflow:hiddenで切る古典的な手法にする。
-     中のbrdは常に実寸325pxで描き、外側の枠(split〜325の範囲)だけがのぞき窓になる */
-  .os-compare-win{position:absolute;inset:0;z-index:2;overflow:hidden;clip-path:inset(0 0 0 var(--split));}
-  .os-compare-win .brd{box-shadow:0 20px 50px -24px rgba(20,20,25,0.3),0 0 0 1px var(--line);}
-  /* ハンドルの見た目位置(--handle-pos)はclip-pathの値(--split)と分け、0/100%を
-     少し超えてオーバーシュートできるようにする (clip-pathは0/100%でクランプしたまま) */
-  .os-compare-handle{position:absolute;top:0;bottom:0;left:var(--handle-pos);width:0;cursor:ew-resize;touch-action:none;z-index:5;}
-  /* ドラッグ追従中は指にぴったり付いてくる必要があるのでtransitionなし。
-     指を離して端まで寄せる/クリックで移動する瞬間だけ.is-settlingを付けて、
-     ワープではなくバネで滑らかに動くようにする (Apple製UIの挙動に合わせる) */
-  .os-compare.is-settling .os-compare-handle{transition:left 0.32s cubic-bezier(0.22,1,0.36,1);}
-  .os-compare.is-settling .os-compare-win{transition:clip-path 0.32s cubic-bezier(0.22,1,0.36,1);}
-  /* すりガラス風の縁: 不透明な棒ではなく、内側にハイライトを持つ半透明の帯にする
-     (macOSのバイブランシーの縁取りに近い質感を意識) */
-  .os-compare-handle::before{
-    content:"";position:absolute;top:0;bottom:0;left:-0.75px;width:1.5px;
-    background:rgba(255,255,255,0.9);
-    box-shadow:0 0 0 1px rgba(0,0,0,0.08),0 0 12px rgba(0,0,0,0.12);
-  }
-  .os-compare-handle-grip{
-    position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:34px;height:34px;border-radius:50%;
-    background:rgba(255,255,255,0.6);backdrop-filter:blur(10px) saturate(1.8);-webkit-backdrop-filter:blur(10px) saturate(1.8);
-    box-shadow:0 6px 18px rgba(0,0,0,0.22),0 0 0 1px rgba(255,255,255,0.7) inset,0 0 0 1px rgba(0,0,0,0.06);
-    display:flex;align-items:center;justify-content:center;gap:3px;color:var(--ink-dim);
-  }
-  .os-compare-handle-grip svg{width:8px;height:11px;}
-  /* win-skinのSegoe UIはmacの文字幅と微妙に違うので、同じテキストでも
-     グリフの位置が左右レイヤーでズレて、境目で二重に見えてしまう。
-     このスライダーの中だけは、両OSで完全に同じフォントで文字を組む */
-  .os-compare .brd.win-skin{font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Segoe UI","Yu Gothic UI",sans-serif;}
-  /* os-compareは横方向のclip-pathで左右を継ぎ合わせているので、行の高さが
-     mac/win間でズレると境目より下の行すべてがどんどんズレて、テキストが
-     混ざって見える。原因は主に2行折り返し(clip-preview)がOSごとのフォント幅で
-     折り返し位置が変わること。ここだけ折り返させず1行省略に統一して高さを固定する */
-  .os-compare .file-item .item-title.clip-preview{
-    display:block;-webkit-line-clamp:unset;-webkit-box-orient:unset;
-    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-  }
-  /* 325×600pxの箱に9件をちょうど収めるため、行間だけ詰める
-     (アイテム自体の余白は変えず、行と行の隙間だけ縮める) */
-  .os-compare .brd .file-item{padding-top:4px;padding-bottom:4px;margin-bottom:0;}
-  /* gapは、ハンドルのオーバーシュート(最大108%側)+グリップの半径がtraitsの文字に
-     被らないだけの余白を確保する必要がある (320px*8% + グリップ半径16px ≒ 42px) */
-  .os-compare-wrap{display:flex;align-items:flex-start;justify-content:center;gap:72px;margin-top:40px;}
-  .os-compare-col{display:flex;flex-direction:column;gap:16px;flex:0 0 auto;}
-  .os-compare-heading{display:flex;align-items:center;gap:10px;font-family:var(--display);font-size:17px;font-weight:700;color:var(--ink);}
-  .os-compare-heading img{width:32px;height:32px;border-radius:8px;flex-shrink:0;box-shadow:0 1px 2px rgba(0,0,0,0.12);}
-  .os-compare-col:has(.os-compare-traits-mac) .os-compare-heading{justify-content:flex-end;}
-  .os-compare-traits{list-style:none;margin:0;padding:0;width:190px;display:flex;flex-direction:column;gap:14px;font-size:13.5px;line-height:1.5;color:var(--ink-dim);}
-  .os-compare-traits-mac{text-align:right;}
-  .os-compare-traits-win{text-align:left;}
-  @media (max-width:860px){
-    .os-compare-wrap{flex-direction:column;align-items:center;gap:16px;}
-    .os-compare-col{width:100%;align-items:center;}
-    .os-compare-traits{width:100%;flex-direction:row;justify-content:center;flex-wrap:wrap;gap:8px 20px;}
-    .os-compare-traits-mac,.os-compare-traits-win{text-align:center;}
-    .os-compare-col:has(.os-compare-traits-mac) .os-compare-heading{justify-content:center;}
-  }
+  /* ---- Mac / Windows の比較: 左右に並べた動画 + 要点 ---- */
+  .clip.compare-clip{max-width:900px;margin:36px auto 0;}
+  .clip-video.compare-video{aspect-ratio:16/9;background:#e6eefb;}
+  .compare-cols{display:grid;grid-template-columns:1fr 1fr;gap:24px 48px;max-width:640px;margin:32px auto 0;text-align:left;}
+  .compare-heading{display:flex;align-items:center;gap:10px;font-weight:700;font-size:16px;color:var(--ink);margin-bottom:12px;}
+  .compare-heading img{width:28px;height:28px;border-radius:7px;}
+  .compare-traits{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px;font-size:14px;line-height:1.5;color:var(--ink-dim);}
+  @media (max-width:520px){ .compare-cols{grid-template-columns:1fr;gap:22px;} }
 
   /* ---- relatable: 「こんなこと、していませんか？」の"あるある"リスト。
      checklistの緑チェックは"良いこと"に見えてしまうので、あえて中立なダッシュにする ---- */
   #relatable h3{font-size:40px;}
-  .relatable-list{margin:28px 0 0;padding:0;list-style:none;display:inline-flex;flex-direction:column;gap:16px;text-align:left;}
-  .relatable-list li{font-size:18px;color:var(--ink-dim);display:flex;align-items:center;gap:14px;}
-  .relatable-list li img{width:32px;height:32px;border-radius:8px;flex-shrink:0;box-shadow:0 1px 2px rgba(0,0,0,0.12);}
+  #relatable .detail-solo{max-width:740px;}
+  /* 「あるある」は、開くと困っている様子の動画が出る (1 つ開くと、ほかは閉じる。最初の 1 つは開いておく) */
+  .pain-list{max-width:700px;margin:28px auto 0;text-align:left;border-top:1px solid var(--line);}
+  .pain-item{border-bottom:1px solid var(--line);}
+  .pain-item summary{list-style:none;display:flex;align-items:center;gap:14px;padding:16px 4px;cursor:pointer;font-size:18px;line-height:1.5;text-wrap:pretty;color:var(--ink-dim);transition:color .2s;-webkit-tap-highlight-color:transparent;}
+  .pain-item summary::-webkit-details-marker{display:none;}
+  .pain-item summary:hover{color:var(--ink);}
+  .pain-item summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:8px;}
+  .pain-item summary img{width:32px;height:32px;border-radius:8px;flex-shrink:0;box-shadow:0 1px 2px rgba(0,0,0,0.12);}
+  .pain-item summary .chev{margin-left:auto;width:18px;height:18px;flex-shrink:0;color:var(--ink-faint);transition:transform .25s ease;}
+  .pain-item.is-open summary{color:var(--ink);}
+  .pain-item.is-open summary .chev{transform:rotate(90deg);}
+  .pain-body{padding:2px 4px 22px;}
+  .pain-video{display:block;width:100%;aspect-ratio:16/9;border-radius:14px;background:#e6eefb;box-shadow:0 24px 60px -28px rgba(20,20,25,0.5),0 0 0 1px var(--line);}
+  @media (max-width:640px){ .pain-item summary{font-size:16px;gap:12px;} }
   .punchline{margin-top:36px;font-family:var(--display);font-weight:700;font-size:46px;color:var(--ink);letter-spacing:-0.01em;}
 
   /* ---- faq ---- */
@@ -725,13 +662,24 @@
 <section id="relatable">
   <div class="detail-solo">
     <h3>こんなこと、<br class="sm-only">していませんか？</h3>
-    <ul class="relatable-list">
-      <li><img src="../icons/mail.png" alt="" />資料を、自分宛てにメールで送ったことがある</li>
-      <li><img src="../icons/slack.png" alt="" />Slackの「自分だけ」チャンネルに、URLを貼ったことがある</li>
-      <li><img src="../icons/line.png" alt="" />LINEのKeepメモが、気づけば会社ファイルだらけ</li>
-      <li><img src="../icons/googledrive.png" alt="" />ファイルを一度クラウドに上げて、もう一方のデバイスで落とし直す</li>
-      <li><img src="../icons/chrome.png" alt="" />コピー&amp;ペーストのために、ブラウザとドキュメントを何度も往復する</li>
-    </ul>
+    <div class="pain-list">
+      <details class="pain-item is-open" open>
+        <summary><img src="../icons/mail.png" alt="" /><span>資料を、自分宛てにメールで送ったことがある</span><svg class="chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3l5 5-5 5"/></svg></summary>
+        <div class="pain-body"><video class="pain-video" muted loop playsinline preload="none" poster="media/pain-mail.jpg" data-src="media/pain-mail.mp4" aria-label="Mac でメールを作って自分宛てに添付して送り、Windows でメールが届くのを待って、添付を保存する"></video></div>
+      </details>
+      <details class="pain-item">
+        <summary><img src="../icons/slack.png" alt="" /><span>Slackの「自分だけ」チャンネルに、URLを貼ったことがある</span><svg class="chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3l5 5-5 5"/></svg></summary>
+        <div class="pain-body"><video class="pain-video" muted loop playsinline preload="none" poster="media/pain-slack.jpg" data-src="media/pain-slack.mp4" aria-label="Mac で URL をコピーして Slack の自分だけのチャンネルに貼り、Windows で Slack を開いて探し、コピーしてブラウザに貼る"></video></div>
+      </details>
+      <details class="pain-item">
+        <summary><img src="../icons/googledrive.png" alt="" /><span>ファイルを一度クラウドに上げて、もう一方のデバイスで落とし直す</span><svg class="chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3l5 5-5 5"/></svg></summary>
+        <div class="pain-body"><video class="pain-video" muted loop playsinline preload="none" poster="media/pain-cloud.jpg" data-src="media/pain-cloud.mp4" aria-label="Mac でクラウドにアップロードを待ち、Windows でクラウドを開いてファイルを探し、ダウンロードを待つ"></video></div>
+      </details>
+      <details class="pain-item">
+        <summary><img src="../icons/chrome.png" alt="" /><span>コピー&amp;ペーストのために、ブラウザとドキュメントを何度も往復する</span><svg class="chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3l5 5-5 5"/></svg></summary>
+        <div class="pain-body"><video class="pain-video" muted loop playsinline preload="none" poster="media/pain-roundtrip.jpg" data-src="media/pain-roundtrip.mp4" aria-label="ブラウザで文章を選んでコピーし、ドキュメントに貼り付ける、を何度も繰り返す"></video></div>
+      </details>
+    </div>
     <p class="punchline">それ、全部いらなくなります。</p>
   </div>
 </section>
@@ -913,249 +861,32 @@
     <p>郷に入っては、郷に従え。<br>細かい動きまで、それぞれの作法にならう。<br>まるで、はじめからそこにいたみたいに。</p>
     
 
-    <div class="os-compare-wrap">
-      <div class="os-compare-col">
-        <div class="os-compare-heading"><img src="../icons/finder.png" alt="" />macOS</div>
-        <ul class="os-compare-traits os-compare-traits-mac">
+    <figure class="clip compare-clip">
+      <video class="clip-video compare-video" muted loop playsinline preload="metadata" poster="media/clip-compare.jpg" aria-label="左が Mac、右が Windows。同じショートカットでパネルを開くと、Mac はバネのように滑らかに、Windows はフライアウトがスッと出る。コピーすると先頭に項目が入り、メニューバーとトレイに進捗が出る。">
+        <source src="media/clip-compare.mp4" type="video/mp4">
+      </video>
+    </figure>
+    <div class="compare-cols">
+      <div class="compare-col">
+        <div class="compare-heading"><img src="../icons/finder.png" alt="" />macOS</div>
+        <ul class="compare-traits">
           <li>すりガラスの質感</li>
           <li>バネで滑らかに開閉</li>
-          <li>タブがスーッと動く</li>
           <li>メニューバーに進捗表示</li>
           <li>⌘+C ですぐ格納</li>
-          <li>出身のわかるアイコン</li>
           <li>⌥+Space で呼び出し</li>
-          <li>⌘+Enter で Finder表示</li>
-          <li>Space でクイックルック</li>
-          <li>⌘+P でピン留め</li>
-          <li>⌫ でリストから外す</li>
           <li>Dock / ⌘+Tab に出ない</li>
         </ul>
       </div>
-
-    <div class="os-compare" id="os-compare">
-      <div class="os-compare-panel os-compare-mac">
-        <div class="brd brd-static" role="img" aria-label="macOS版の見た目">
-          <div class="search-area">
-            <div class="search-field"><input class="search-bar" type="text" placeholder="検索" readonly /></div>
-            <div class="filter-segment" role="tablist" aria-label="種別で絞り込み">
-              <div class="filter-segment-thumb" aria-hidden="true"></div>
-              <button type="button" class="segment-item active">すべて</button>
-              <button type="button" class="segment-item">ファイル</button>
-              <button type="button" class="segment-item">クリップ</button>
-            </div>
-          </div>
-          <div class="drop-zone">
-            <ul class="file-list">
-              <li class="section-header">ピン留め</li>
-              <li class="file-item">
-                <div class="item-leading"><div class="clip-glyph"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="12" height="14" rx="2.5"/><path d="M7.5 4V3.5A1.5 1.5 0 0 1 9 2h2a1.5 1.5 0 0 1 1.5 1.5V4M7.5 9.5h5M7.5 13h3.5"/></svg></div><img class="source-app-badge" src="../icons/teams.png" alt="" /></div>
-                <div class="item-lines">
-                  <div class="item-title clip-preview">【ゼミのTeamsリンク】</div>
-                  <div class="item-meta-line"><svg class="meta-pin" viewBox="0 0 16 16" fill="currentColor"><path d="M9.5 1.5 14.5 6.5l-1.2 1.2-.9-.3-2.6 2.6.3 2.6-1.2 1.2L6 11 2.5 14.5l-1-1L5 10 2.2 7.1l1.2-1.2 2.6.3 2.6-2.6-.3-.9z"/></svg>テキスト · 15:01</div>
-                </div>
-              </li>
-              <li class="section-header">今日</li>
-              <li class="file-item">
-                <div class="item-leading"><img class="file-icon" src="../icons/folder.png" alt="" /></div>
-                <div class="item-lines">
-                  <div class="item-title">20261007_ゼミ_調査資料</div>
-                  <div class="item-meta-line">フォルダ · 21:15</div>
-                </div>
-              </li>
-              <li class="file-item">
-                <div class="item-leading"><img class="file-icon" src="../icons/file-pdf.png" alt="" /></div>
-                <div class="item-lines">
-                  <div class="item-title">参考文献リスト_社会学概論.pdf</div>
-                  <div class="item-meta-line">PDF書類 · 20:54</div>
-                </div>
-              </li>
-              <li class="file-item">
-                <div class="item-leading"><img class="file-icon thumbnail" src="../icons/thumb-slide.png" alt="" /><img class="source-app-badge" src="../icons/notion.png" alt="" /></div>
-                <div class="item-lines">
-                  <div class="item-title">講義ノート_スライド18.png</div>
-                  <div class="item-meta-line">画像 · 20:27</div>
-                </div>
-              </li>
-              <li class="file-item">
-                <div class="item-leading"><img class="file-icon" src="../icons/file-docx.png" alt="" /></div>
-                <div class="item-lines">
-                  <div class="item-title">レポート_行動経済学_期末.docx</div>
-                  <div class="item-meta-line">Microsoft Word document (.docx) · 20:21</div>
-                </div>
-              </li>
-              <li class="file-item">
-                <div class="item-leading"><img class="file-icon" src="../icons/file-xlsx.png" alt="" /></div>
-                <div class="item-lines">
-                  <div class="item-title">実験結果_サンプルA.xlsx</div>
-                  <div class="item-meta-line">Microsoft Excel Workbook (.xlsx) · 18:54</div>
-                  <div class="item-badge-line"><span class="origin-chip"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="12" height="8" rx="1"/><path d="M6 13.5h4M8 11v2.5"/></svg><span>ゼミ室のPC</span></span></div>
-                </div>
-              </li>
-              <li class="file-item">
-                <div class="item-leading"><div class="clip-glyph"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="12" height="14" rx="2.5"/><path d="M7.5 4V3.5A1.5 1.5 0 0 1 9 2h2a1.5 1.5 0 0 1 1.5 1.5V4M7.5 9.5h5M7.5 13h3.5"/></svg></div><img class="source-app-badge" src="../icons/mail.png" alt="" /></div>
-                <div class="item-lines">
-                  <div class="item-title clip-preview">発表資料は金曜までに共有希望</div>
-                  <div class="item-meta-line">テキスト · 17:00</div>
-                </div>
-              </li>
-              <li class="file-item">
-                <div class="item-leading"><div class="clip-glyph"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="12" height="14" rx="2.5"/><path d="M7.5 4V3.5A1.5 1.5 0 0 1 9 2h2a1.5 1.5 0 0 1 1.5 1.5V4M7.5 9.5h5M7.5 13h3.5"/></svg></div><img class="source-app-badge" src="../icons/teams.png" alt="" /></div>
-                <div class="item-lines">
-                  <div class="item-title clip-preview">3限は102教室に変更になりました</div>
-                  <div class="item-meta-line">テキスト · 11:27</div>
-                </div>
-              </li>
-              <li class="file-item">
-                <div class="item-leading"><img class="file-icon thumbnail" src="../icons/thumb-circlelogo.png" alt="" /></div>
-                <div class="item-lines">
-                  <div class="item-title">サークル_ロゴ案.png</div>
-                  <div class="item-meta-line">PNG画像 · 10:27</div>
-                </div>
-              </li>
-              <li class="file-item">
-                <div class="item-leading"><div class="clip-glyph"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="12" height="14" rx="2.5"/><path d="M7.5 4V3.5A1.5 1.5 0 0 1 9 2h2a1.5 1.5 0 0 1 1.5 1.5V4M7.5 9.5h5M7.5 13h3.5"/></svg></div></div>
-                <div class="item-lines">
-                  <div class="item-title clip-preview">doi.org/10.1234/eg2026</div>
-                  <div class="item-meta-line">テキスト · 07:20</div>
-                  <div class="item-badge-line"><span class="origin-chip"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3.5" width="10" height="7" rx="1"/><path d="M1.5 12.5h13"/></svg><span>自宅PC</span></span></div>
-                </div>
-              </li>
-            </ul>
-          </div>
-          <div class="shelf-footer">
-            <div class="footer-status"></div>
-            <div class="footer-actions">
-              <button type="button" class="footer-button">すべて消去</button>
-              <button type="button" class="footer-button" aria-label="同期を一時停止" title="ほかのデバイスとの同期を一時停止"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg></button>
-              <button type="button" class="footer-button" aria-label="設定"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg></button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="os-compare-panel os-compare-win" id="os-compare-win">
-        <div class="brd brd-static win-skin" role="img" aria-label="Windows版の見た目">
-          <div class="search-area">
-            <div class="search-field"><input class="search-bar" type="text" placeholder="検索" readonly /></div>
-            <div class="filter-segment" role="tablist" aria-label="種別で絞り込み">
-              <div class="filter-segment-thumb" aria-hidden="true"></div>
-              <button type="button" class="segment-item active">すべて</button>
-              <button type="button" class="segment-item">ファイル</button>
-              <button type="button" class="segment-item">クリップ</button>
-            </div>
-          </div>
-          <div class="drop-zone">
-            <ul class="file-list">
-              <li class="section-header">ピン留め</li>
-              <li class="file-item">
-                <div class="item-leading"><div class="clip-glyph"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="12" height="14" rx="2.5"/><path d="M7.5 4V3.5A1.5 1.5 0 0 1 9 2h2a1.5 1.5 0 0 1 1.5 1.5V4M7.5 9.5h5M7.5 13h3.5"/></svg></div></div>
-                <div class="item-lines">
-                  <div class="item-title clip-preview">【ゼミのTeamsリンク】</div>
-                  <div class="item-meta-line"><svg class="meta-pin" viewBox="0 0 16 16" fill="currentColor"><path d="M9.5 1.5 14.5 6.5l-1.2 1.2-.9-.3-2.6 2.6.3 2.6-1.2 1.2L6 11 2.5 14.5l-1-1L5 10 2.2 7.1l1.2-1.2 2.6.3 2.6-2.6-.3-.9z"/></svg>テキスト · 15:01</div>
-                </div>
-              </li>
-              <li class="section-header">今日</li>
-              <li class="file-item">
-                <div class="item-leading"><img class="file-icon" src="../icons/folder-win.png" alt="" /></div>
-                <div class="item-lines">
-                  <div class="item-title">20261007_ゼミ_調査資料</div>
-                  <div class="item-meta-line">フォルダー · 21:15</div>
-                </div>
-              </li>
-              <li class="file-item">
-                <div class="item-leading"><img class="file-icon" src="../icons/file-pdf-win.png" alt="" /></div>
-                <div class="item-lines">
-                  <div class="item-title">参考文献リスト_社会学概論.pdf</div>
-                  <div class="item-meta-line">PDFファイル · 20:54</div>
-                </div>
-              </li>
-              <li class="file-item">
-                <div class="item-leading"><img class="file-icon thumbnail" src="../icons/thumb-slide.png" alt="" /></div>
-                <div class="item-lines">
-                  <div class="item-title">講義ノート_スライド18.png</div>
-                  <div class="item-meta-line">画像 · 20:27</div>
-                </div>
-              </li>
-              <li class="file-item">
-                <div class="item-leading"><img class="file-icon" src="../icons/file-docx-win.png" alt="" /></div>
-                <div class="item-lines">
-                  <div class="item-title">レポート_行動経済学_期末.docx</div>
-                  <div class="item-meta-line">DOCXファイル · 20:21</div>
-                </div>
-              </li>
-              <li class="file-item">
-                <div class="item-leading"><img class="file-icon" src="../icons/file-xlsx-win.png" alt="" /></div>
-                <div class="item-lines">
-                  <div class="item-title">実験結果_サンプルA.xlsx</div>
-                  <div class="item-meta-line">XLSXファイル · 18:54</div>
-                  <div class="item-badge-line"><span class="origin-chip"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="12" height="8" rx="1"/><path d="M6 13.5h4M8 11v2.5"/></svg><span>ゼミ室のPC</span></span></div>
-                </div>
-              </li>
-              <li class="file-item">
-                <div class="item-leading"><div class="clip-glyph"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="12" height="14" rx="2.5"/><path d="M7.5 4V3.5A1.5 1.5 0 0 1 9 2h2a1.5 1.5 0 0 1 1.5 1.5V4M7.5 9.5h5M7.5 13h3.5"/></svg></div></div>
-                <div class="item-lines">
-                  <div class="item-title clip-preview">発表資料は金曜までに共有希望</div>
-                  <div class="item-meta-line">テキスト · 17:00</div>
-                </div>
-              </li>
-              <li class="file-item">
-                <div class="item-leading"><div class="clip-glyph"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="12" height="14" rx="2.5"/><path d="M7.5 4V3.5A1.5 1.5 0 0 1 9 2h2a1.5 1.5 0 0 1 1.5 1.5V4M7.5 9.5h5M7.5 13h3.5"/></svg></div></div>
-                <div class="item-lines">
-                  <div class="item-title clip-preview">3限は102教室に変更になりました</div>
-                  <div class="item-meta-line">テキスト · 11:27</div>
-                </div>
-              </li>
-              <li class="file-item">
-                <div class="item-leading"><img class="file-icon thumbnail" src="../icons/thumb-circlelogo.png" alt="" /></div>
-                <div class="item-lines">
-                  <div class="item-title">サークル_ロゴ案.png</div>
-                  <div class="item-meta-line">PNGファイル · 10:27</div>
-                </div>
-              </li>
-              <li class="file-item">
-                <div class="item-leading"><div class="clip-glyph"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="12" height="14" rx="2.5"/><path d="M7.5 4V3.5A1.5 1.5 0 0 1 9 2h2a1.5 1.5 0 0 1 1.5 1.5V4M7.5 9.5h5M7.5 13h3.5"/></svg></div></div>
-                <div class="item-lines">
-                  <div class="item-title clip-preview">doi.org/10.1234/eg2026</div>
-                  <div class="item-meta-line">テキスト · 07:20</div>
-                  <div class="item-badge-line"><span class="origin-chip"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3.5" width="10" height="7" rx="1"/><path d="M1.5 12.5h13"/></svg><span>自宅PC</span></span></div>
-                </div>
-              </li>
-            </ul>
-          </div>
-          <div class="shelf-footer">
-            <div class="footer-status"></div>
-            <div class="footer-actions">
-              <button type="button" class="footer-button">すべて消去</button>
-              <button type="button" class="footer-button" aria-label="同期を一時停止" title="ほかのデバイスとの同期を一時停止"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg></button>
-              <button type="button" class="footer-button" aria-label="設定"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg></button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="os-compare-handle" id="os-compare-handle">
-        <div class="os-compare-handle-grip">
-          <svg viewBox="0 0 8 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 1.5 1 7l5 5.5"/></svg>
-          <svg viewBox="0 0 8 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 1.5 7 7l-5 5.5"/></svg>
-        </div>
-      </div>
-    </div>
-
-      <div class="os-compare-col">
-        <div class="os-compare-heading"><img src="../icons/windows.png" alt="" />Windows</div>
-        <ul class="os-compare-traits os-compare-traits-win">
+      <div class="compare-col">
+        <div class="compare-heading"><img src="../icons/windows.png" alt="" />Windows</div>
+        <ul class="compare-traits">
           <li>Fluentのフライアウト</li>
-          <li>通知領域の作法</li>
-          <li>下線タブでパッと切替</li>
+          <li>スッと出て、スッと消える</li>
           <li>トレイに進捗を表示</li>
           <li>Ctrl+C ですぐ格納</li>
-          <li>フルスクリーンを邪魔しない</li>
           <li>Ctrl+Shift+Space で呼び出し</li>
           <li>タスクバーに出さない</li>
-          <li>クイックルックは非対応</li>
-          <li>Ctrl+P でピン留め</li>
-          <li>Delete でリストから外す</li>
-          <li>選択は左端にアクセントバー</li>
         </ul>
       </div>
     </div>
@@ -1959,84 +1690,6 @@
 })();
 </script>
 <script>
-  // ---- os-compare: mac/win2枚のパネルを重ねたビフォーアフター比較スライダー。
-  // 初期位置だけ訪問者のOSで決め (自分のOS側を多めに見せる)、あとは自由にドラッグさせる ----
-  (function () {
-    var root = document.getElementById('os-compare');
-    var handle = document.getElementById('os-compare-handle');
-    if (!root || !handle) return;
-
-    var ua = navigator.userAgent || '';
-    var initial = /Win/i.test(ua) ? -15 : 115;
-    setSplit(initial);
-
-    var lastPct = initial;
-    function setSplit(pct) {
-      lastPct = pct;
-      var handlePct = Math.max(-15, Math.min(115, pct));
-      var clipPct = Math.max(0, Math.min(100, pct));
-      // %のままだと境目が小数px(サブピクセル)になり、macとwinの2枚の境目に
-      // アンチエイリアスでうっすら混ざって、ghost文字が見えてしまう。
-      // 整数pxに丸めて、境目を必ずピクセルの境界線上に落とす
-      var clipPx = Math.round(root.getBoundingClientRect().width * clipPct / 100);
-      root.style.setProperty('--handle-pos', handlePct + '%');
-      root.style.setProperty('--split', clipPx + 'px');
-    }
-
-    // is-settling中だけCSS transitionを効かせて、瞬間移動(ワープ)ではなく
-    // 短いバネで滑らかに動かす。ドラッグ追従(onMove)ではこれを使わず、常に
-    // setSplitを直接呼んで指に1:1でついてこさせる
-    var settleTimer;
-    function animateTo(pct) {
-      root.classList.add('is-settling');
-      setSplit(pct);
-      clearTimeout(settleTimer);
-      settleTimer = setTimeout(function () {
-        root.classList.remove('is-settling');
-      }, 340);
-    }
-
-    // 端から10%以内で指を離したら、その端まで一気に寄せる。footerの設定ボタンなど、
-    // パネル端すれすれの要素が細い隙間から半端に見切れた状態で止まらないようにする。
-    // ハンドル自体はBridge本体の端ぴったりに密着させず、少しはみ出した位置で止める
-    // (clip側は0/100%のままなので表示上はどちらかのOSに完全に切り替わる)
-    function settle() {
-      if (lastPct <= 10) animateTo(-15);
-      else if (lastPct >= 90) animateTo(115);
-    }
-
-    function pctFromEvent(e) {
-      var rect = root.getBoundingClientRect();
-      var x = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
-      return (x / rect.width) * 100;
-    }
-
-    var dragging = false;
-    function onMove(e) {
-      if (!dragging) return;
-      setSplit(pctFromEvent(e));
-      e.preventDefault();
-    }
-    function onUp() {
-      dragging = false;
-      document.removeEventListener('pointermove', onMove);
-      document.removeEventListener('pointerup', onUp);
-      settle();
-    }
-    handle.addEventListener('pointerdown', function (e) {
-      dragging = true;
-      document.addEventListener('pointermove', onMove);
-      document.addEventListener('pointerup', onUp);
-      e.preventDefault();
-    });
-    root.addEventListener('pointerdown', function (e) {
-      if (e.target === handle || handle.contains(e.target)) return;
-      var pct = pctFromEvent(e);
-      animateTo(pct <= 10 ? -15 : pct >= 90 ? 115 : pct);
-    });
-  })();
-</script>
-<script>
   // ---- ヘッダー: 上端にいる間は透明、少しでもスクロールしたらすりガラス化する ----
   (function () {
     var header = document.getElementById('site-header');
@@ -2204,6 +1857,48 @@
   })();
 </script>
 <script>
+/* 「こんなこと」: 開閉は高さをなめらかに動かす (1 つ開くと、ほかは閉じる)。開いた項目の動画だけ読み込んで再生し、
+   画面外・閉じているときは止める。「動きを減らす」設定のときは、アニメーションなし・静止画のまま */
+(function(){
+  var items=[].slice.call(document.querySelectorAll('.pain-item'));
+  if(!items.length) return;
+  var reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var visible=new Map();
+  function play(v){ if(reduce) return; if(!v.getAttribute('src')&&v.dataset.src){ v.src=v.dataset.src; } var p=v.play(); if(p&&p.catch)p.catch(function(){}); }
+  function sync(it){
+    var v=it.querySelector('video'); if(!v) return;
+    if(it.open && visible.get(v)===true){ play(v); } else { v.pause(); }
+  }
+  function anim(body,from,to,ms,ease,done){
+    if(reduce||!body.animate){ done(); return; }
+    body.style.overflow='hidden';
+    var a=body.animate([{height:from+'px',opacity:from?1:0},{height:to+'px',opacity:to?1:0}],{duration:ms,easing:ease});
+    a.onfinish=a.oncancel=function(){ body.style.overflow=''; done(); };
+  }
+  function openIt(it){
+    var body=it.querySelector('.pain-body'); it.classList.add('is-open'); it.open=true;
+    if(body.getAnimations) body.getAnimations().forEach(function(x){ x.cancel(); });
+    anim(body,0,body.scrollHeight,420,'cubic-bezier(.2,.8,.2,1)',function(){});
+  }
+  function closeIt(it){
+    var body=it.querySelector('.pain-body'); it.classList.remove('is-open');
+    anim(body,body.offsetHeight,0,300,'cubic-bezier(.4,0,.2,1)',function(){ if(!it.classList.contains('is-open')) it.open=false; });
+  }
+  items.forEach(function(it){
+    var v=it.querySelector('video'), sum=it.querySelector('summary');
+    if(reduce&&v){ v.controls=true; v.src=v.dataset.src; }
+    sum.addEventListener('click',function(e){
+      e.preventDefault();
+      if(it.classList.contains('is-open')){ closeIt(it); return; }
+      items.forEach(function(o){ if(o!==it&&o.classList.contains('is-open')) closeIt(o); });
+      openIt(it);
+    });
+    it.addEventListener('toggle',function(){ sync(it); });
+    if('IntersectionObserver' in window&&v){
+      new IntersectionObserver(function(es){es.forEach(function(e){ visible.set(v,e.isIntersecting); sync(it); });},{threshold:.4}).observe(v);
+    }
+  });
+})();
 /* 職種ごとの動画: 章 (10.4 秒ずつ) のボタンで頭出し。再生位置に合わせてボタンと進み具合を更新する */
 (function(){
   var v=document.getElementById('personaVideo'); if(!v) return;

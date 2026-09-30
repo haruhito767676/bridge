@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bridge 設定 UI — 配置案のモック</title>
+<!-- 設定 UI の配置案を見比べるためのモック (アプリ本体の styles.css をそのまま読み込み、部品も本物のクラスを使う)。
+     案 A: グループ分け + 「詳細設定」は別ページ / 案 B: セグメントで 3 つに分ける / 案 C: 初回の「つなぐ」ガイド
+     右上のボタンで、ダーク表示に切り替えられる。 -->
+<link rel="stylesheet" href="../../styles.css">
+<style>
+  html,body{height:auto;overflow:auto}
+  body{background:#dfe2ea;padding:32px 40px 80px;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Hiragino Sans",sans-serif;color:var(--fg)}
+  body.force-dark{background:#15161a;--fg:#f5f5f7;--fg-secondary:rgba(235,235,245,.6);--fg-tertiary:rgba(235,235,245,.3);--accent-tint:rgba(10,132,255,.24);--panel-fallback:rgba(40,40,44,.96);--fill:rgba(120,120,128,.2);--fill-hover:rgba(120,120,128,.3);--fill-strong:rgba(120,120,128,.4);--search-fill:rgba(0,0,0,.25);--segment-active-bg:rgba(120,120,128,.5);--divider:rgba(235,235,245,.12)}
+  h1{font-size:20px;margin-bottom:6px}
+  .lead{font-size:13px;color:var(--fg-secondary);margin-bottom:24px;max-width:760px;line-height:1.7}
+  #dark{position:fixed;right:24px;top:20px;z-index:9;height:30px;padding:0 14px;border-radius:15px;border:0;background:#fff;color:#1d1d1f;font:600 12px inherit;box-shadow:0 1px 4px rgba(0,0,0,.2);cursor:pointer}
+  h2{font-size:15px;margin:36px 0 4px}
+  .why{font-size:12.5px;color:var(--fg-secondary);margin-bottom:14px;max-width:820px;line-height:1.7}
+  .row{display:flex;gap:28px;flex-wrap:wrap;align-items:flex-start}
+  figure{margin:0}
+  figcaption{font-size:12px;color:var(--fg-secondary);margin:8px 0 0;max-width:320px;line-height:1.5}
+  .frame{width:320px;height:600px;background:var(--panel-fallback);border-radius:14px;overflow:hidden;position:relative;box-shadow:0 0 0 .5px rgba(0,0,0,.12),0 24px 60px -24px rgba(20,25,50,.4);font-size:13px}
+  .frame .sheet-header{padding:12px 8px 6px 12px}
+  .m-body{padding:0 12px 14px;display:flex;flex-direction:column;gap:0;height:calc(100% - 44px);overflow:hidden}
+  .m-status{display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:10px;background:var(--fill);margin-bottom:14px}
+  .m-status .dot{width:9px;height:9px;border-radius:50%;background:var(--success);flex:none;box-shadow:0 0 0 3px rgba(52,199,89,.2)}
+  .m-status.wait .dot{background:#ff9f0a;box-shadow:0 0 0 3px rgba(255,159,10,.2)}
+  .m-status div{flex:1;min-width:0}
+  .m-status b{display:block;font-size:13px;font-weight:600}
+  .m-status small{display:block;font-size:11px;color:var(--fg-secondary);margin-top:1px}
+  .m-cap{font-size:11px;font-weight:500;color:var(--fg-secondary);padding:0 4px 5px;margin-top:2px}
+  .m-group{background:var(--fill);border-radius:10px;margin-bottom:12px}
+  .m-row{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:36px;padding:6px 12px;font-size:13px}
+  .m-row+.m-row{box-shadow:inset 0 .5px 0 var(--divider)}
+  .m-row>span:first-child{flex:1 1 auto;min-width:0;white-space:nowrap}
+  .m-row code{font:11.5px ui-monospace,Menlo,monospace;color:var(--fg-secondary)}
+  .m-btns{display:flex;gap:6px}
+  .m-inline{border:0;background:transparent;text-align:right;font:inherit;color:var(--fg-secondary);width:120px;outline:none}
+  .m-note{font-size:11px;color:var(--fg-secondary);padding:0 4px;margin:-6px 0 12px;line-height:1.5}
+  .m-kbd{font-size:12px;font-weight:500;padding:0 10px;height:24px;border-radius:6px;background:var(--fill);display:inline-flex;align-items:center;color:var(--fg)}
+  .m-chev{width:14px;height:14px;color:var(--fg-tertiary);flex:none}
+  .m-seg{display:flex;margin:0 0 14px;background:var(--search-fill);border-radius:8px;padding:2px;position:relative}
+  .m-seg span{flex:1;text-align:center;font-size:12px;font-weight:500;padding:4px 0;border-radius:6px;color:var(--fg-secondary)}
+  .m-seg span.on{background:var(--segment-active-bg);color:var(--fg);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+  .m-peer{display:flex;align-items:center;gap:10px}
+  .m-peer .dot{width:8px;height:8px;border-radius:50%;background:var(--success)}
+  .m-peer small{color:var(--fg-secondary);font-size:11px;margin-left:6px}
+  .m-ta{width:100%;height:56px;border:0;border-radius:6px;background:var(--fill);padding:6px 8px;font:12px/1.4 ui-monospace,Menlo,monospace;color:var(--fg);resize:none;outline:none;margin-top:4px}
+  .m-center{text-align:center}
+  .m-step{display:flex;gap:12px;padding:12px;border-radius:12px;background:var(--fill);margin-bottom:10px}
+  .m-step .n{width:22px;height:22px;border-radius:50%;background:var(--accent);color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:none;margin-top:1px}
+  .m-step.done .n{background:var(--success)}
+  .m-step b{display:block;font-size:13px;font-weight:600;margin-bottom:3px}
+  .m-step p{font-size:11.5px;color:var(--fg-secondary);line-height:1.5}
+  .m-keybox{display:flex;align-items:center;gap:6px;margin-top:8px}
+  .m-keybox code{flex:1;height:28px;border-radius:6px;background:var(--search-fill);display:flex;align-items:center;padding:0 9px;font:12px ui-monospace,Menlo,monospace;letter-spacing:.02em}
+  .pulse{display:inline-block;width:8px;height:8px;border-radius:50%;background:#ff9f0a;margin-right:6px;animation:pl 1.2s ease-in-out infinite}
+  @keyframes pl{50%{opacity:.25}}
+  .m-hero{display:flex;flex-direction:column;align-items:center;text-align:center;gap:6px;padding:26px 8px 18px}
+  .m-hero svg{width:40px;height:40px;color:var(--accent)}
+  .m-hero b{font-size:15px}
+  .m-hero p{font-size:12px;color:var(--fg-secondary);line-height:1.5}
+  .list-mini{height:100%;display:flex;flex-direction:column}
+  .list-mini .top{padding:12px 12px 8px}
+  .list-mini .search{height:28px;border-radius:8px;background:var(--search-fill);color:var(--fg-tertiary);font-size:12px;padding:0 10px;display:flex;align-items:center}
+</style></head>
+<body>
+<button id="dark" type="button">ダーク表示にする</button>
+<h1>Bridge 設定 UI — 配置案</h1>
+<p class="lead">いまの設定は 1 本の縦長リスト (高さ約 950px、320×600 のパネルでスクロールが必要) に、12 項目が同じ重さで並んでいます。「つなぐ」ための項目 (同期キー・接続状況) が埋もれているのが、いちばんの問題です。3 つの配置案を、同じ項目・同じ部品 (アプリの styles.css) で並べました。文言は仮です。</p>
+
+<h2>案 A — グループ分け + 詳細は別ページ (おすすめ)</h2>
+<p class="why">先頭に「つながっているか」の状態を置き、その下を「つなぐ / 使いかた / このアプリ」の 3 グループに整理します。IP の手動追加・自動検出・ログ・使用状況のような「困ったとき」の項目は「詳細設定」へ (macOS の設定と同じ、押すと次のページ)。保存ボタンはやめて、変更を自動で保存します。1 画面に収まり、スクロールが要りません。</p>
+<div class="row">
+  <figure><div class="frame"><div class="sheet-header"><button class="footer-button"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3L5 8l5 5"/></svg>戻る</button><span class="sheet-title">設定</span><span class="sheet-spacer"></span></div>
+    <div class="m-body">
+      <div class="m-status"><span class="dot"></span><div><b>2 台とつながっています</b><small>会社用PC · 自宅iMac</small></div><button class="push-button" type="button">いま探す</button></div>
+      <div class="m-cap">つなぐ</div>
+      <div class="m-group">
+        <div class="m-row"><span>このデバイスの名前</span><input class="m-inline" value="自分のMac" aria-label="デバイス名"></div>
+        <div class="m-row"><span>同期キー</span><code>••••7F3A</code><span class="m-btns"><button class="push-button" type="button">コピー</button><button class="push-button" type="button">貼り付け</button></span></div>
+      </div>
+      <p class="m-note">ほかのデバイスに同じキーを入れると、つながります。</p>
+      <div class="m-cap">使いかた</div>
+      <div class="m-group">
+        <div class="m-row"><span>開く / 閉じる</span><span class="m-kbd">⌥ Space</span></div>
+        <div class="m-row"><span>その場で貼る</span><span class="m-kbd">⌥ ⌘ V</span></div>
+        <div class="m-row"><span>選んだらすぐ貼る</span><input class="switch" type="checkbox" checked></div>
+        <div class="m-row"><span>コピー元のアイコンを表示</span><input class="switch" type="checkbox"></div>
+      </div>
+      <div class="m-cap">このアプリ</div>
+      <div class="m-group">
+        <div class="m-row"><span>ログイン時に起動</span><input class="switch" type="checkbox" checked></div>
+        <div class="m-row"><span>バージョン 1.0.0</span><button class="push-button" type="button">更新を確認</button></div>
+        <div class="m-row"><span>詳細設定</span><svg class="m-chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3l5 5-5 5"/></svg></div>
+      </div>
+    </div></div><figcaption>A-1 メイン。スクロールなしで全部見える</figcaption></figure>
+
+  <figure><div class="frame"><div class="sheet-header"><button class="footer-button"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3L5 8l5 5"/></svg>設定</button><span class="sheet-title">詳細設定</span><span class="sheet-spacer"></span></div>
+    <div class="m-body">
+      <div class="m-cap">見つけかた</div>
+      <div class="m-group">
+        <div class="m-row"><span>同じネットワークを自動で探す</span><input class="switch" type="checkbox" checked></div>
+        <div class="m-row" style="display:block"><span style="display:block;margin-bottom:2px">手動で追加 (IP アドレス)</span><textarea class="m-ta" placeholder="192.168.1.21" spellcheck="false"></textarea></div>
+      </div>
+      <div class="m-cap">接続中のデバイス</div>
+      <div class="m-group">
+        <div class="m-row"><span class="m-peer"><i class="dot"></i>会社用PC<small>192.168.1.21</small></span><input class="switch" type="checkbox" checked></div>
+        <div class="m-row"><span class="m-peer"><i class="dot"></i>自宅iMac<small>192.168.1.34</small></span><input class="switch" type="checkbox" checked></div>
+      </div>
+      <div class="m-cap">そのほか</div>
+      <div class="m-group">
+        <div class="m-row"><span>履歴の使用状況</span><code>0/100 · 0/30 · 0/100</code></div>
+        <div class="m-row"><span>ログを表示</span><svg class="m-chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3l5 5-5 5"/></svg></div>
+        <div class="m-row"><span>ショートカットを初期化</span><button class="push-button" type="button">初期化</button></div>
+      </div>
+    </div></div><figcaption>A-2 「詳細設定」ページ。ふだんは開かない項目だけ</figcaption></figure>
+</div>
+
+<h2>案 B — セグメントで 3 つに分ける</h2>
+<p class="why">アプリの検索欄と同じセグメント (つなぐ / 操作 / 詳細) で切り替えます。案 A より 1 画面の情報は少なく、見通しが良い代わりに、ページ移動でなく切り替えなので「戻る」の関係が浅くなります。保存は自動。</p>
+<div class="row">
+  <figure><div class="frame"><div class="sheet-header"><button class="footer-button"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3L5 8l5 5"/></svg>戻る</button><span class="sheet-title">設定</span><span class="sheet-spacer"></span></div>
+    <div class="m-body"><div class="m-seg"><span class="on">つなぐ</span><span>操作</span><span>詳細</span></div>
+      <div class="m-status"><span class="dot"></span><div><b>2 台とつながっています</b><small>会社用PC · 自宅iMac</small></div><button class="push-button" type="button">いま探す</button></div>
+      <div class="m-cap">このデバイス</div>
+      <div class="m-group">
+        <div class="m-row"><span>名前</span><input class="m-inline" value="自分のMac" aria-label="デバイス名"></div>
+        <div class="m-row"><span>同期キー</span><code>••••7F3A</code><span class="m-btns"><button class="push-button" type="button">コピー</button><button class="push-button" type="button">貼り付け</button></span></div>
+      </div>
+      <p class="m-note">ほかのデバイスに同じキーを入れると、つながります。</p>
+      <div class="m-cap">接続中のデバイス</div>
+      <div class="m-group">
+        <div class="m-row"><span class="m-peer"><i class="dot"></i>会社用PC<small>192.168.1.21</small></span><input class="switch" type="checkbox" checked></div>
+        <div class="m-row"><span class="m-peer"><i class="dot"></i>自宅iMac<small>192.168.1.34</small></span><input class="switch" type="checkbox" checked></div>
+      </div>
+    </div></div><figcaption>B-1 つなぐ</figcaption></figure>
+  <figure><div class="frame"><div class="sheet-header"><button class="footer-button"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3L5 8l5 5"/></svg>戻る</button><span class="sheet-title">設定</span><span class="sheet-spacer"></span></div>
+    <div class="m-body"><div class="m-seg"><span>つなぐ</span><span class="on">操作</span><span>詳細</span></div>
+      <div class="m-cap">ショートカット</div>
+      <div class="m-group">
+        <div class="m-row"><span>開く / 閉じる</span><span class="m-kbd">⌥ Space</span></div>
+        <div class="m-row"><span>その場で貼る</span><span class="m-kbd">⌥ ⌘ V</span></div>
+      </div>
+      <div class="m-cap">ふるまい</div>
+      <div class="m-group">
+        <div class="m-row"><span>選んだらすぐ貼る</span><input class="switch" type="checkbox" checked></div>
+        <div class="m-row"><span>コピー元のアイコンを表示</span><input class="switch" type="checkbox"></div>
+        <div class="m-row"><span>ログイン時に起動</span><input class="switch" type="checkbox" checked></div>
+      </div>
+    </div></div><figcaption>B-2 操作</figcaption></figure>
+  <figure><div class="frame"><div class="sheet-header"><button class="footer-button"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3L5 8l5 5"/></svg>戻る</button><span class="sheet-title">設定</span><span class="sheet-spacer"></span></div>
+    <div class="m-body"><div class="m-seg"><span>つなぐ</span><span>操作</span><span class="on">詳細</span></div>
+      <div class="m-cap">見つけかた</div>
+      <div class="m-group">
+        <div class="m-row"><span>同じネットワークを自動で探す</span><input class="switch" type="checkbox" checked></div>
+        <div class="m-row" style="display:block"><span style="display:block;margin-bottom:2px">手動で追加 (IP アドレス)</span><textarea class="m-ta" placeholder="192.168.1.21" spellcheck="false"></textarea></div>
+      </div>
+      <div class="m-cap">そのほか</div>
+      <div class="m-group">
+        <div class="m-row"><span>履歴の使用状況</span><code>0/100 · 0/30 · 0/100</code></div>
+        <div class="m-row"><span>ログを表示</span><svg class="m-chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3l5 5-5 5"/></svg></div>
+        <div class="m-row"><span>バージョン 1.0.0</span><button class="push-button" type="button">更新を確認</button></div>
+      </div>
+    </div></div><figcaption>B-3 詳細</figcaption></figure>
+</div>
+
+<h2>案 C — 初回の「つなぐ」ガイド (A / B と組み合わせる)</h2>
+<p class="why">初めて使うときは、まだ相手がいません。履歴が空のパネルの中に「ほかのデバイスとつなぐ」の手順カードを出して、設定を開かなくても、そこで完結させます。サイトの「はじめかた」の動画も、この流れをそのまま撮れば、言葉と絵がぴったり合います。つながったら、カードは自然に消えます。</p>
+<div class="row">
+  <figure><div class="frame"><div class="list-mini"><div class="top"><div class="search">検索</div></div>
+    <div class="m-body" style="padding-top:6px">
+      <div class="m-hero"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="26" height="18" rx="3"/><path d="M1 32h32"/><rect x="34" y="16" width="10" height="18" rx="2.5"/></svg><b>ほかのデバイスとつなぐ</b><p>2 台目の Bridge に、同じキーを入れるだけです。</p></div>
+      <div class="m-step"><span class="n">1</span><div style="flex:1"><b>このキーをコピー</b><div class="m-keybox"><code>k7Xq-92Lm-7F3A</code><button class="push-button primary" type="button">コピー</button></div></div></div>
+      <div class="m-step"><span class="n">2</span><div><b>もう 1 台の設定に貼り付け</b><p>設定の「同期キー」に貼ると、自動で見つかります。</p></div></div>
+      <p class="m-note m-center" style="margin-top:2px"><span class="pulse"></span>ほかのデバイスを探しています…</p>
+    </div></div></div><figcaption>C-1 待っているところ</figcaption></figure>
+  <figure><div class="frame"><div class="list-mini"><div class="top"><div class="search">検索</div></div>
+    <div class="m-body" style="padding-top:6px">
+      <div class="m-hero"><svg viewBox="0 0 48 48" fill="none" stroke="var(--success)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:var(--success)"><circle cx="24" cy="24" r="18"/><path d="M15 25l6 6 12-13"/></svg><b>会社用PC とつながりました</b><p>ここでコピーしたものが、そちらにも届きます。</p></div>
+      <div class="m-step done"><span class="n">✓</span><div><b>キーを共有した</b><p>同期キーが一致しました。</p></div></div>
+      <div class="m-step done"><span class="n">✓</span><div><b>つながった</b><p>会社用PC · 192.168.1.21</p></div></div>
+      <div style="display:flex;justify-content:center;margin-top:6px"><button class="push-button primary" type="button">はじめる</button></div>
+    </div></div></div><figcaption>C-2 つながった</figcaption></figure>
+</div>
+
+<h2>気づいたこと (どの案でも)</h2>
+<p class="why">・保存ボタンは要らない (変更を自動で保存し、デバイス名だけ入力の確定で反映)。・「同期キー」は、見せるより「コピー」「貼り付け」の 2 つのボタンで扱えれば十分 (右側の端末では「貼り付け」が主役)。・説明文は 1 行まで (いまは 2〜3 行が多い)。・「自動ペースト」の文言は、実際の挙動に合わせて言い直したい。・Windows は、これに Windows 用のスキン (既存) を当てる。</p>
+<script>
+  document.getElementById('dark').addEventListener('click',function(){var d=document.body.classList.toggle('force-dark');this.textContent=d?'ライト表示にする':'ダーク表示にする';});
+</script>
+</body></html>
