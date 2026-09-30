@@ -848,7 +848,7 @@
     <p>テキストでも、ファイルでも。<br class="sm-only">形を問わず、そのまま残っていく。<br>ファイルは本物のファイルとして<br class="sm-only">返ってくるから、開き直すときに迷わない。</p>
   </div>
   <div class="persona-stage">
-    <video class="clip-video persona-video" id="personaVideo" muted playsinline preload="metadata" loop poster="media/clip-persona.jpg" aria-label="Excel でコピーした数字、Finder から入れた画像、ターミナルで貼り付けたコマンドが、どれも右端のパネルに残っていく">
+    <video class="clip-video persona-video" id="personaVideo" muted playsinline preload="metadata" loop poster="media/clip-persona.jpg" aria-label="請求書をパネルからメールに添付する、デスクトップの画像と Figma の画面をパネルに入れる、ターミナルで履歴からコマンドを呼び出して貼る、の 3 場面">
       <source src="media/clip-persona.mp4" type="video/mp4">
     </video>
     <div class="persona-tabs" role="tablist" aria-label="仕事の種類">
@@ -2271,10 +2271,10 @@
   })();
 </script>
 <script>
-/* 職種ごとの動画: 章 (8.4 秒ずつ) のボタンで頭出し。再生位置に合わせてボタンと進み具合を更新する */
+/* 職種ごとの動画: 章 (10.4 秒ずつ) のボタンで頭出し。再生位置に合わせてボタンと進み具合を更新する */
 (function(){
   var v=document.getElementById('personaVideo'); if(!v) return;
-  var CH=8.4, tabs=[].slice.call(document.querySelectorAll('.persona-tab'));
+  var CH=10.4, tabs=[].slice.call(document.querySelectorAll('.persona-tab'));
   function paint(){
     var t=v.currentTime||0, c=Math.min(tabs.length-1,Math.floor(t/CH));
     tabs.forEach(function(b,i){var on=i===c; b.classList.toggle('active',on); b.setAttribute('aria-selected',on?'true':'false'); b.style.setProperty('--p',on?Math.min(1,(t-c*CH)/CH).toFixed(3):0);});

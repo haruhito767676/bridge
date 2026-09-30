@@ -17,7 +17,6 @@ const T = (text, a, ago, from) => ({ k: 'text', text, a, ago, from });
 const F = (name, a, ago, from) => ({ k: 'file', name, a, ago, from });
 const PERSONAS = {
   office: {
-    newItem: T('9月度 売上合計 ¥12,840,000', 'Excel', 0.2),
     items: [
       T('16時からの定例、資料共有をお願いします', 'Teams', 25, '会社用PC'),
       F('経費精算_9月.xlsx', 'Excel', 70),
@@ -32,13 +31,14 @@ const PERSONAS = {
     ],
   },
   creator: {
-    newFile: F('バナー案_C案.png', null, 0.2),
+    // 新しく入るもの (後に入るものが先頭): 1 つ目 = デスクトップから落とした画像ファイル / 2 つ目 = コピーした画像 (サムネイルつき)
+    news: [{ k: 'file', name: 'ロゴ_v4.png', a: null, ago: 0.6 }, { k: 'image', name: 'バナー案_A案.png', a: 'Figma', ago: 0.2 }],
     items: [
       T('#0A84FF', 'Figma', 8),
       F('アイコンセット_v2.png', 'Figma', 40),
       T('https://www.figma.com/file/abcd1234/EC-Renewal', 'Chrome', 75, '自宅iMac'),
-      F('ロゴ_v4.png', 'Figma', 130),
-      F('バナー案_A案.png', 'Figma', 200),
+      F('ロゴ_v3.png', 'Figma', 130),
+      F('バナー案_初期検討.png', 'Figma', 200),
       T('Noto Sans JP / Bold / 32px / 行間 1.5', 'Figma', 280),
       F('バナー案_B案.png', 'Figma', 340),
       F('名刺デザイン案.png', 'Figma', 420, '自宅iMac'),
@@ -79,19 +79,33 @@ for (const [key, P] of Object.entries(PERSONAS)) {
   const dir = path.join(OUT, key); mkdirSync(dir, { recursive: true });
   await open('darwin', '自分のMac');
   await ev(`window.__emit('restore-items', ${JSON.stringify(P.items.map(toSaved))}); window.__emit('shelter-expanded',{focus:false});`); await sleep(1300);
-  if (P.newItem) {
-    await ev(`window.__emit('clipboard-item', ${JSON.stringify({ type: 'clipboard-text', text: P.newItem.text, timestamp: tsOf(P.newItem), sourceApp: app(P.newItem.a) })})`); await sleep(1300);
-  } else if (P.newFile) {
-    await ev(`Date.now = () => ${tsOf(P.newFile)}; window.__emit('add-file', ${JSON.stringify({ path: D(P.newFile.name), name: P.newFile.name, timestamp: tsOf(P.newFile) })})`); await sleep(1500);
+  for (const nw of P.news || []) {
+    if (nw.k === 'image') await ev(`window.__emit('clipboard-item', ${JSON.stringify({ type: 'clipboard-image', path: D(nw.name), timestamp: tsOf(nw), sourceApp: app(nw.a) })})`);
+    else await ev(`Date.now = () => ${tsOf(nw)}; window.__emit('add-file', ${JSON.stringify({ path: D(nw.name), name: nw.name, timestamp: tsOf(nw) })})`);
+    await sleep(1500);
   }
   const g = await listGeom(); DZB = g.dz.bottom;
-  const M = manifest[key] = { dz: g.dz, rows: g.rows.map((r) => ({ cls: r.cls, top: r.top, height: r.height, text: r.text })), hasNew: !!(P.newItem || P.newFile) };
+  const M = manifest[key] = { dz: g.dz, rows: g.rows.map((r) => ({ cls: r.cls, top: r.top, height: r.height, text: r.text })), newCount: (P.news || []).length };
   for (let i = 0; i < g.rows.length; i++) {
     const r = g.rows[i];
     if (r.top < g.dz.top - 5 || r.top >= g.dz.bottom - 4) { M.rows[i].skipped = true; continue; }
     const y = Math.max(0, r.top - 2);
     await shotTo(path.join(dir, `row${i}.png`), { x: 0, y, width: 320, height: Math.max(4, Math.min(DZB - y, r.height + 4)) });
+    if (r.top + r.height > g.dz.bottom - 2) M.rows[i].clipped = true;   // 下端で切れた行は、あとでスクロールして撮り直す
   }
+  // 最初は見えていない行 (リストの下側) も撮る: 新しい項目が入る前の並びでは、そこに見えるので
+  for (const off of [120, 240, 360]) {
+    const sc = await ev(`(()=>{const d=document.getElementById('drop-zone'); d.scrollTop=${off}; return d.scrollTop})()`); await sleep(250);
+    const g2 = await listGeom();
+    for (let i = 0; i < g2.rows.length; i++) {
+      const r = g2.rows[i];
+      if (!(M.rows[i].skipped || M.rows[i].clipped) || r.top < g2.dz.top || r.top + r.height > g2.dz.bottom - 2) continue;
+      const y = Math.max(0, r.top - 2);
+      await shotTo(path.join(dir, `row${i}.png`), { x: 0, y, width: 320, height: Math.max(4, Math.min(DZB - y, r.height + 4)) });
+      M.rows[i].skipped = false; M.rows[i].clipped = false; M.rows[i].top = r.top + sc;
+    }
+  }
+  await ev(`document.getElementById('drop-zone').scrollTop=0`); await sleep(250);
   await ev(`document.getElementById('file-list').style.setProperty('visibility','hidden')`); await sleep(300);
   await shotTo(path.join(dir, 'chrome.png'), { x: 0, y: 0, width: 320, height: 600 });
   console.log('done', key, M.rows.length, 'rows');
@@ -101,7 +115,7 @@ writeFileSync(path.join(OUT, 'manifest.js'), 'window.PMAN=' + JSON.stringify(man
 // エンジニア章のポップアップ (⌥⌘V): 「ssh」を 1 文字ずつ入力
 {
   const dir = path.join(OUT, 'popup'); mkdirSync(dir, { recursive: true });
-  const pitems = PERSONAS.engineer.items.map((d) => { const s = toSaved(d); return d.k === 'file' ? { kind: 'file', path: s.path, name: s.name, timestamp: s.timestamp } : { kind: 'clip-text', text: s.text, timestamp: s.timestamp, sourceApp: s.sourceApp }; });
+  const pitems = PERSONAS.engineer.items.filter((d) => d.k === 'text').map((d) => { const s = toSaved(d); return d.k === 'file' ? { kind: 'file', path: s.path, name: s.name, timestamp: s.timestamp } : { kind: 'clip-text', text: s.text, timestamp: s.timestamp, sourceApp: s.sourceApp }; });
   await open('darwin', '自分のMac', 'popup.html', [300, 380]);
   await ev(`window.__emit('popup-items', ${JSON.stringify({ items: pitems })})`); await sleep(1300);
   const shot = (n) => shotTo(path.join(dir, n + '.png'), { x: 0, y: 0, width: 300, height: 380 });
@@ -110,6 +124,12 @@ writeFileSync(path.join(OUT, 'manifest.js'), 'window.PMAN=' + JSON.stringify(man
   for (let i = 1; i <= q.length; i++) {
     await ev(`(()=>{const e=document.getElementById('popup-search'); e.value=${JSON.stringify(q.slice(0, i))}; e.dispatchEvent(new Event('input',{bubbles:true}));})()`); await sleep(450);
     await shot('q' + i);
+  }
+  const q2 = 'doc';
+  await ev(`(()=>{const e=document.getElementById('popup-search'); e.value=''; e.dispatchEvent(new Event('input',{bubbles:true}));})()`); await sleep(400);
+  for (let i = 1; i <= q2.length; i++) {
+    await ev(`(()=>{const e=document.getElementById('popup-search'); e.value=${JSON.stringify(q2.slice(0, i))}; e.dispatchEvent(new Event('input',{bubbles:true}));})()`); await sleep(450);
+    await shot('d' + i);
   }
   console.log('popup done');
 }
