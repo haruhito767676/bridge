@@ -2200,7 +2200,7 @@ function renderSettingsStatus() {
     settingStatusSub.textContent = online.map((p) => p.device || p.host).join(' · ');
   } else if (peers.length > 0) {
     settingStatusTitle.textContent = 'つながっているデバイスはありません';
-    settingStatusSub.textContent = peers.map((p) => p.device || p.host).join(' · ');
+    settingStatusSub.textContent = '同じ Wi-Fi と同期キーを確認してください';
   } else {
     settingStatusTitle.textContent = 'ほかのデバイスを探しています';
     settingStatusSub.textContent = '同じ Wi-Fi / LAN に Bridge があれば、自動で見つかります';
@@ -2406,7 +2406,7 @@ settingsBtn.addEventListener('click', openSettings);
 const settingScan = document.getElementById('setting-scan');
 settingScan.addEventListener('click', async () => {
   settingScan.disabled = true;
-  settingScan.textContent = '探しています…';
+  settingScan.textContent = '探索中…';
   try {
     const status = await window.bridge.scanPeersNow();
     if (status) {

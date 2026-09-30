@@ -38,7 +38,7 @@ Text, images and files you copy on your Mac show up in the history of your iMac 
 
 <p align="center"><img src="docs/media/clip-search.webp" width="760" alt="Search the history in a popup and paste it straight into Slack"></p>
 
-A history popup opens next to your cursor. Type to filter, press Enter, and the item is pasted on the spot (**Ctrl+Alt+Shift+V** on Windows).
+**Quick Paste** opens a small history popup next to your cursor. Type to filter, press Enter, and the item is pasted on the spot (**Ctrl+Alt+Shift+V** on Windows).
 
 ### Files, just as they are
 
@@ -86,7 +86,7 @@ Sync traffic is encrypted with **AES-256-GCM**, using a key derived from your sy
 - History limits are per kind (100 text / 30 images / 100 files). Older items beyond the limit are deleted, and files Bridge generated are also removed from disk. The current counts appear in the settings sheet, for example "Text 82/100 · Images 12/30 · Files 40/100" (pinned items are not counted)
 - Copies flagged as "do not keep in history" (Concealed / Transient) by password managers and similar tools are neither recorded nor synced
 - The history is saved in `history.json` and survives restarts. Pin frequently used items (right-click / ⌘P) to keep them at the top, exempt from limit-based deletion and "Clear all"
-- Press **⌥⌘V** (Windows: Ctrl+Alt+Shift+V; configurable in the settings sheet) to open a history popup near the mouse cursor and paste the chosen item on the spot. Auto-paste can be turned off in settings. On macOS this needs the Accessibility permission
+- Press **⌥⌘V** (Windows: Ctrl+Alt+Shift+V; configurable in the settings sheet) to open **Quick Paste**, a history popup near the mouse cursor, and paste the chosen item on the spot. Auto-paste can be turned off in settings. On macOS this needs the Accessibility permission
 
 #### 3. Automatic sync between devices
 - Each device runs an HTTP server (`node:http`) on port `9095`, and devices talk to each other directly
@@ -113,7 +113,7 @@ Sync traffic is encrypted with **AES-256-GCM**, using a key derived from your sy
 - Right-click menu: Copy / Open link / Quick Look / Reveal in Finder / Open / Copy path / Pin / Remove from list. For a URL text, ⌘Enter opens it in the browser
 - Items whose original file was moved or deleted show "Not found". Right after dragging something out, "Undo" puts it back in the list
 - Menu bar icon: click to show / hide the panel. Right-click for "Pause watching", "Pause sync", "Launch at login", "Settings…", "Check for updates…", "Quit Bridge". Update checks can also be run from the settings sheet
-- Shortcuts (show / hide the panel, paste popup) can be changed in the settings sheet: click the field and press the keys you want (must include Ctrl / Alt / ⌘). Use this if they clash with another app's shortcuts
+- Shortcuts (show / hide the panel, Quick Paste) can be changed in the settings sheet: click the field and press the keys you want (must include Ctrl / Alt / ⌘). Use this if they clash with another app's shortcuts
 - On Windows, the handle is not shown while a video or game is in full screen
 
 </details>
@@ -173,7 +173,7 @@ Settings are stored in `sync-config.json`, created in the `userData` directory o
 | `port` | Port the sync server listens on (default `9095`) |
 | `peers` | Peers to connect to manually (`host` or `host:port`). For devices that auto-discovery cannot find, or that are on another network segment |
 | `autoScan` | Automatic discovery over UDP multicast (default `true`). If no peer is found 15 seconds after launch, a /24 subnet scan runs once |
-| `autoPaste` | Paste automatically after choosing an item in the paste popup (default `true`) |
+| `autoPaste` | Paste automatically after choosing an item in Quick Paste (default `true`) |
 | `showSourceApp` | Show the source app's icon on items (macOS default `true` / Windows default `false`, because Windows launches PowerShell on every copy) |
 | `myDeviceName` | Your device name as shown on other devices (defaults to `os.hostname()`) |
 | `iconType` | Device type used by the former mouse-sharing feature (`win_laptop` / `macbook` / `win_desktop`). Still sent and received for compatibility, but not used in the current UI |
@@ -225,7 +225,7 @@ bridge/
 ├── renderer.js           # Renderer: list UI, search, selection, drag & drop, history
 ├── index.html            # Panel HTML (with CSP)
 ├── styles.css            # Design tokens and panel styles (light / dark)
-├── popup.html / popup.js / popup.css  # Paste popup
+├── popup.html / popup.js / popup.css  # Quick Paste popup
 ├── tab.html / tab.js / tab.css        # Windows: per-display handle windows
 ├── lib/format.js         # Pure functions for display (shared by Renderer and tests)
 ├── lib/sync-utils.js     # Pure functions for sync / detection (shared by Main and tests)
