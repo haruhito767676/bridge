@@ -987,11 +987,11 @@ else {
 
 <script>
 (() => {
-  const orig = window.renderAt, T0 = 21.7000, D = 6.7;
+  const orig = window.renderAt, T0 = 21.7000, D0 = 6.7, D = 8.2;
   const st = document.createElement('style'); st.textContent = '#hlA,#hlB,#hlC,#hlD{display:none!important}'; document.head.appendChild(st);
   const cl = v => v < 0 ? 0 : v > 1 ? 1 : v;
   window.renderAt = t => {
-    orig(T0 + t);
+    orig(T0 + Math.min(t, D0 - .1));
     document.getElementById('s2').style.opacity = 1;
     document.getElementById('fade').style.opacity = Math.max(1 - cl(t / .25), cl((t - (D - .3)) / .3)).toFixed(3);
   };

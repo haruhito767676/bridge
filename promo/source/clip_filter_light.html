@@ -190,11 +190,12 @@ img{display:block}
 body.cap #controls{display:none}
 
 #s2,#s2bg{background:#fbfbfa!important}
+#wp{position:absolute;left:908px;top:20px;width:720px;height:1040px;background:radial-gradient(90% 55% at 90% 96%,#ffd9a0 0%,rgba(255,217,160,0) 62%),radial-gradient(90% 55% at 8% 6%,#9fe8d3 0%,rgba(159,232,211,0) 62%),radial-gradient(80% 50% at 45% 50%,#b9d3ff 0%,rgba(185,211,255,0) 64%),linear-gradient(170deg,#e3f4ff,#e8e4ff)}
 .glow{display:none!important}
 #camwrap{display:none!important}
 #hlA,#hlB,#hlC,#hlD,#cursorH,#hring{display:none!important}
 .panel.glass{border-radius:14px!important;background:rgba(250,250,251,.86)!important;box-shadow:inset 0 0 0 .5px rgba(0,0,0,.12),0 26px 64px -20px rgba(20,20,25,.34),0 0 0 1px rgba(0,0,0,.05)!important}
-#fade{background:#fbfbfa!important}
+#fade{background:#f6f7fa!important}
 #ctxWrap{position:absolute;left:0;top:0;width:320px;height:600px;transform-origin:0 0;visibility:hidden}
 #ctxWrap img{position:absolute;left:0;top:0;width:320px;height:600px}
 #curs{position:absolute;left:0;top:0;width:34px;height:44px;filter:drop-shadow(0 4px 8px rgba(0,0,0,.35));opacity:0}
@@ -287,7 +288,7 @@ body.cap #controls{display:none}
 
     <div id="hlA" class="hl"></div>
 
-    <div id="hero">
+    <div id="hero"><div id="wp"></div>
       <div id="hpanel"></div>
       <div id="hlB" class="hl2"></div>
       <div id="hlC" class="hl2"></div>
@@ -987,7 +988,7 @@ else {
 <svg id="curs" viewBox="0 0 34 44"><path d="M3 2v34l9-8 6 14 7-3-6-14 12-1z" fill="#fff" stroke="#000" stroke-width="2.4" stroke-linejoin="round"/></svg>
 <script>
 (() => {
-  const orig = window.renderAt, TH0 = 28.8500, K = 1.25, D = 5.9;
+  const orig = window.renderAt, TH0 = 28.8500, K = 1.25, D = 7.4;
   const $ = id => document.getElementById(id);
   const cl = v => v < 0 ? 0 : v > 1 ? 1 : v;
   const ease = x => { x = cl(x); return x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2; };

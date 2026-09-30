@@ -9,6 +9,10 @@ a = "v4: { cx: -1720, cy: -25, s: 1.1 }"
 assert s.count(a) == 1
 # 画面座標 (420, 375) が中心: iMac の画面の原点は世界座標 (-2440, -430)
 dark = s.replace(a, "v4: { cx: -2020, cy: -55, s: 2.0 }")
+# 終わりの状態を 1.5 秒止めてから、フェードして頭に戻る (すぐにループしないように)
+h1 = "T0 = 21.7000, D = 6.7;"; h2 = "orig(T0 + t);"
+assert dark.count(h1) == 1 and dark.count(h2) == 1
+dark = dark.replace(h1, "T0 = 21.7000, D0 = 6.7, D = 8.2;").replace(h2, "orig(T0 + Math.min(t, D0 - .1));")
 open('clip_search_zoom.html', 'w', encoding='utf8').write(dark)
 
 LIGHT_CSS = """

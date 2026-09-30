@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """サイト用 (ライト): 実際の操作どおりの「デバイスで絞り込む」クリップ。
    他デバイス出身の項目を右クリック → 「"会社用PC" のアイテムだけ表示」 → 絞り込み → チップの ✕ で解除。
-   パネルだけを、サイトの背景色 (#fbfbfa) の上に映す (OS の背景・画面なし)。縦長 (700x1080) に切り取る。
+   パネルを、PC の画面の右端 (壁紙の上) に映す。縦長 (720x1040) に切り取る (render-crop.sh 908:20)。
    パネルの画像は ui/plates-light (SCHEME=light node ui/plates.mjs)。"""
 import json
 FL0, K = 12.3, 1.25
@@ -21,18 +21,22 @@ s = s.replace('ui/plates/', 'ui/plates-light/')
 s = s.replace('<title>Bridge Multi-Device Film v8</title>', '<title>Bridge clip: filter (light)</title>')
 CSS = """
 #s2,#s2bg{background:#fbfbfa!important}
+#wp{position:absolute;left:908px;top:20px;width:720px;height:1040px;background:radial-gradient(90% 55% at 90% 96%,#ffd9a0 0%,rgba(255,217,160,0) 62%),radial-gradient(90% 55% at 8% 6%,#9fe8d3 0%,rgba(159,232,211,0) 62%),radial-gradient(80% 50% at 45% 50%,#b9d3ff 0%,rgba(185,211,255,0) 64%),linear-gradient(170deg,#e3f4ff,#e8e4ff)}
 .glow{display:none!important}
 #camwrap{display:none!important}
 #hlA,#hlB,#hlC,#hlD,#cursorH,#hring{display:none!important}
 .panel.glass{border-radius:14px!important;background:rgba(250,250,251,.86)!important;box-shadow:inset 0 0 0 .5px rgba(0,0,0,.12),0 26px 64px -20px rgba(20,20,25,.34),0 0 0 1px rgba(0,0,0,.05)!important}
-#fade{background:#fbfbfa!important}
+#fade{background:#f6f7fa!important}
 #ctxWrap{position:absolute;left:0;top:0;width:320px;height:600px;transform-origin:0 0;visibility:hidden}
 #ctxWrap img{position:absolute;left:0;top:0;width:320px;height:600px}
 #curs{position:absolute;left:0;top:0;width:34px;height:44px;filter:drop-shadow(0 4px 8px rgba(0,0,0,.35));opacity:0}
 """
 assert s.count('</style>') == 1
 s = s.replace('</style>', CSS + '</style>')
-D = 5.9
+a = '<div id="hero">'
+assert s.count(a) == 1
+s = s.replace(a, a + '<div id="wp"></div>')
+D = 7.4
 inject = f"""
 <div id="ctxWrap" class="panel glass"><img id="ctxM" src="ui/plates-light/mac/ctx-menu.png"><img id="ctxH" src="ui/plates-light/mac/ctx-hover.png" style="opacity:0"></div>
 <svg id="curs" viewBox="0 0 34 44"><path d="M3 2v34l9-8 6 14 7-3-6-14 12-1z" fill="#fff" stroke="#000" stroke-width="2.4" stroke-linejoin="round"/></svg>

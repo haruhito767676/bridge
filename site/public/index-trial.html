@@ -280,6 +280,16 @@
     .persona-frame{width:236px;height:450px;}
     .persona-frame .brd{transform:scale(0.7375);}
   }
+  /* ---- 職種ごとの動画 (1 本 = 3 章)。章のボタンで頭出しする ---- */
+  .persona-stage{max-width:1000px;margin:40px auto 0;}
+  .clip-video.persona-video{aspect-ratio:16/9;background:#e6eefb;}
+  .persona-tabs{display:flex;justify-content:center;gap:8px;margin-top:22px;flex-wrap:wrap;}
+  .persona-tab{position:relative;display:inline-flex;align-items:center;gap:9px;padding:8px 18px 8px 10px;border:0;border-radius:999px;background:transparent;font:600 14px var(--display);color:var(--ink-dim);cursor:pointer;overflow:hidden;transition:background .2s,color .2s,box-shadow .2s;}
+  .persona-tab img{width:24px;height:24px;display:block;}
+  .persona-tab:hover{color:var(--ink);}
+  .persona-tab.active{background:#fff;color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,0.08),0 0 0 1px var(--line);}
+  .persona-tab::after{content:"";position:absolute;left:14px;right:14px;bottom:3px;height:2px;border-radius:1px;background:var(--accent);transform:scaleX(var(--p,0));transform-origin:0 50%;opacity:0;}
+  .persona-tab.active::after{opacity:.9;}
   /* .featuresは共有の860pxブレークポイントより広い1000pxで先に縦積みへ切り替える
      (このカード数だと860〜1000px幅で1行タイトルが収まりきらなくなるため、
      他セクションと同じブレークポイントを流用せずここだけ独自に早める) */
@@ -617,11 +627,9 @@
   /* 余白のある広い画面では、動画を右へ最大 120px はみ出させて大きく見せる (狭い画面では列の幅のまま) */
   @media (min-width:861px){ #detail-pick .clip{margin-right:clamp(-120px,calc((100vw - 1080px) / -2),0px);} }
   .clip-video{display:block;width:100%;height:auto;aspect-ratio:4/3;border-radius:18px;background:#0a84ff;box-shadow:0 24px 60px -28px rgba(20,20,25,0.5),0 0 0 1px var(--line);}
-  /* パネルだけを映す縦長の動画: 背景はページと同じ色にして、縁をぼかして溶け込ませる */
-  .clip-portrait{max-width:340px;}
-  .clip-portrait .clip-video{aspect-ratio:600/1040;background:transparent;border-radius:0;box-shadow:none;
-    -webkit-mask-image:linear-gradient(to right,transparent 0,#000 7%,#000 93%,transparent 100%),linear-gradient(to bottom,transparent 0,#000 4%,#000 96%,transparent 100%);
-    -webkit-mask-composite:source-in;mask-image:linear-gradient(to right,transparent 0,#000 7%,#000 93%,transparent 100%),linear-gradient(to bottom,transparent 0,#000 4%,#000 96%,transparent 100%);mask-composite:intersect;}
+  /* PC の画面の右端にパネルを映す縦長の動画 (壁紙ごと映る) */
+  .clip-portrait{max-width:420px;}
+  .clip-portrait .clip-video{aspect-ratio:720/1040;}
   .popup-mock-wrap{max-width:300px;margin:0 auto;}
   .popup-mock-kbd{display:flex;gap:6px;justify-content:center;margin-bottom:16px;}
   .popup-mock-kbd kbd{font-family:var(--mono);font-size:12px;font-weight:500;color:var(--ink);background:#fff;border-radius:6px;padding:5px 9px;box-shadow:0 1px 2px rgba(0,0,0,0.12),0 0 0 1px var(--line);}
@@ -839,305 +847,14 @@
     <h3>どんな仕事でも、ちゃんと残る。</h3>
     <p>テキストでも、ファイルでも。<br class="sm-only">形を問わず、そのまま残っていく。<br>ファイルは本物のファイルとして<br class="sm-only">返ってくるから、開き直すときに迷わない。</p>
   </div>
-  <div class="persona-row">
-    <div class="persona-card">
-      <div class="persona-label">オフィスワーカー</div>
-      <div class="persona-frame">
-        <div class="brd brd-static" style="width:320px;" role="img" aria-label="「すべて」が選択され、テキストと書類が混在した履歴が並び、リストの下端で見切れている">
-          <div class="search-area">
-            <div class="search-field"><input class="search-bar" type="text" placeholder="検索" readonly /></div>
-            <div class="filter-segment" role="tablist" aria-label="種別で絞り込み">
-              <div class="filter-segment-thumb" aria-hidden="true"></div>
-              <button type="button" class="segment-item active">すべて</button>
-              <button type="button" class="segment-item">ファイル</button>
-              <button type="button" class="segment-item">クリップ</button>
-            </div>
-          </div>
-          <div class="drop-zone">
-            <ul class="file-list">
-              <li class="section-header">今日</li>
-              <li class="file-item">
-                <div class="item-leading"><div class="clip-glyph"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="12" height="14" rx="2.5"/><path d="M7.5 4V3.5A1.5 1.5 0 0 1 9 2h2a1.5 1.5 0 0 1 1.5 1.5V4M7.5 9.5h5M7.5 13h3.5"/></svg></div><img class="source-app-badge" src="../icons/outlook.png" alt="" /></div>
-                <div class="item-lines">
-                  <div class="item-title clip-preview">明日14時、会議室Bでキックオフです。</div>
-                  <div class="item-meta-line">テキスト · 17:20</div>
-                </div>
-              </li>
-              <li class="file-item">
-                <div class="item-leading"><img class="file-icon" src="../icons/file-docx.png" alt="" /></div>
-                <div class="item-lines">
-                  <div class="item-title">議事録_キックオフ.docx</div>
-                  <div class="item-meta-line">Word文書 · 17:05</div>
-                </div>
-              </li>
-              <li class="file-item">
-                <div class="item-leading"><div class="clip-glyph"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="12" height="14" rx="2.5"/><path d="M7.5 4V3.5A1.5 1.5 0 0 1 9 2h2a1.5 1.5 0 0 1 1.5 1.5V4M7.5 9.5h5M7.5 13h3.5"/></svg></div><img class="source-app-badge" src="../icons/teams.png" alt="" /></div>
-                <div class="item-lines">
-                  <div class="item-title clip-preview">16時からの定例、資料共有をお願いします</div>
-                  <div class="item-meta-line">テキスト · 15:40</div>
-                </div>
-              </li>
-              <li class="file-item">
-                <div class="item-leading"><img class="file-icon" src="../icons/file-xlsx.png" alt="" /></div>
-                <div class="item-lines">
-                  <div class="item-title">経費精算_9月.xlsx</div>
-                  <div class="item-meta-line">Microsoft Excel Workbook (.xlsx) · 13:05</div>
-                </div>
-              </li>
-              <li class="file-item">
-                <div class="item-leading"><div class="clip-glyph"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="12" height="14" rx="2.5"/><path d="M7.5 4V3.5A1.5 1.5 0 0 1 9 2h2a1.5 1.5 0 0 1 1.5 1.5V4M7.5 9.5h5M7.5 13h3.5"/></svg></div><img class="source-app-badge" src="../icons/teams.png" alt="" /></div>
-                <div class="item-lines">
-                  <div class="item-title clip-preview">第2会議室に変更</div>
-                  <div class="item-meta-line">テキスト · 11:10</div>
-                </div>
-              </li>
-              <li class="file-item">
-                <div class="item-leading"><img class="file-icon" src="../icons/file-pptx.png" alt="" /></div>
-                <div class="item-lines">
-                  <div class="item-title">週次報告_テンプレート.pptx</div>
-                  <div class="item-meta-line">PowerPoint · 10:42</div>
-                </div>
-              </li>
-              <li class="file-item">
-                <div class="item-leading"><div class="clip-glyph"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="12" height="14" rx="2.5"/><path d="M7.5 4V3.5A1.5 1.5 0 0 1 9 2h2a1.5 1.5 0 0 1 1.5 1.5V4M7.5 9.5h5M7.5 13h3.5"/></svg></div><img class="source-app-badge" src="../icons/outlook.png" alt="" /></div>
-                <div class="item-lines">
-                  <div class="item-title clip-preview">経費精算は今月25日までにお願いします。</div>
-                  <div class="item-meta-line">テキスト · 09:15</div>
-                </div>
-              </li>
-              <li class="file-item">
-                <div class="item-leading"><img class="file-icon" src="../icons/file-pdf.png" alt="" /></div>
-                <div class="item-lines">
-                  <div class="item-title">見積書_オフィス機器更新.pdf</div>
-                  <div class="item-meta-line">PDF書類 · 08:05</div>
-                </div>
-              </li>
-              <li class="file-item">
-                <div class="item-leading"><div class="clip-glyph"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="12" height="14" rx="2.5"/><path d="M7.5 4V3.5A1.5 1.5 0 0 1 9 2h2a1.5 1.5 0 0 1 1.5 1.5V4M7.5 9.5h5M7.5 13h3.5"/></svg></div><img class="source-app-badge" src="../icons/teams.png" alt="" /></div>
-                <div class="item-lines">
-                  <div class="item-title clip-preview">来週の全社会議、資料の締切は月曜17時です。</div>
-                  <div class="item-meta-line">テキスト · 08:40</div>
-                </div>
-              </li>
-              <li class="file-item">
-                <div class="item-leading"><img class="file-icon" src="../icons/file-xlsx.png" alt="" /></div>
-                <div class="item-lines">
-                  <div class="item-title">来客対応リスト_今週分.xlsx</div>
-                  <div class="item-meta-line">Microsoft Excel Workbook (.xlsx) · 07:55</div>
-                </div>
-              </li>
-              <li class="file-item">
-                <div class="item-leading"><div class="clip-glyph"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="12" height="14" rx="2.5"/><path d="M7.5 4V3.5A1.5 1.5 0 0 1 9 2h2a1.5 1.5 0 0 1 1.5 1.5V4M7.5 9.5h5M7.5 13h3.5"/></svg></div><img class="source-app-badge" src="../icons/outlook.png" alt="" /></div>
-                <div class="item-lines">
-                  <div class="item-title clip-preview">駐車場の予約は今週中にお願いします。</div>
-                  <div class="item-meta-line">テキスト · 07:20</div>
-                </div>
-              </li>
-            </ul>
-          </div>
-          <div class="shelf-footer">
-            <div class="footer-status"></div>
-            <div class="footer-actions">
-              <button type="button" class="footer-button">すべて消去</button>
-              <button type="button" class="footer-button" aria-label="同期を一時停止" title="ほかのデバイスとの同期を一時停止"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg></button>
-              <button type="button" class="footer-button" aria-label="設定"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg></button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="persona-card">
-      <div class="persona-label">クリエイター</div>
-      <div class="persona-frame">
-        <div class="brd brd-static" style="width:320px;" role="img" aria-label="「ファイル」のみが絞り込まれ、動画編集の書き出しファイルが並び、リストの下端で見切れている">
-          <div class="search-area">
-            <div class="search-field"><input class="search-bar" type="text" placeholder="検索" readonly /></div>
-            <div class="filter-segment" role="tablist" aria-label="種別で絞り込み">
-              <div class="filter-segment-thumb" aria-hidden="true" style="transform:translateX(100%);"></div>
-              <button type="button" class="segment-item">すべて</button>
-              <button type="button" class="segment-item active">ファイル</button>
-              <button type="button" class="segment-item">クリップ</button>
-            </div>
-          </div>
-          <div class="drop-zone">
-            <ul class="file-list">
-              <li class="section-header">今日</li>
-              <li class="file-item">
-                <div class="item-leading"><img class="file-icon" src="../icons/folder.png" alt="" /></div>
-                <div class="item-lines">
-                  <div class="item-title">素材_インタビュー撮影分</div>
-                  <div class="item-meta-line">フォルダ · 22:10</div>
-                </div>
-              </li>
-              <li class="file-item">
-                <div class="item-leading"><img class="file-icon" src="../icons/file-prproj.png" alt="" /></div>
-                <div class="item-lines">
-                  <div class="item-title">オープニング_v3.prproj</div>
-                  <div class="item-meta-line">Premiere Pro プロジェクト · 21:40</div>
-                </div>
-              </li>
-              <li class="file-item">
-                <div class="item-leading"><img class="file-icon" src="../icons/file-pptx.png" alt="" /></div>
-                <div class="item-lines">
-                  <div class="item-title">クライアント確認_絵コンテ.pptx</div>
-                  <div class="item-meta-line">PowerPoint · 19:12</div>
-                </div>
-              </li>
-              <li class="file-item">
-                <div class="item-leading"><img class="file-icon" src="../icons/file-csv.png" alt="" /></div>
-                <div class="item-lines">
-                  <div class="item-title">納品リスト_10月.csv</div>
-                  <div class="item-meta-line">CSV · 18:05</div>
-                </div>
-              </li>
-              <li class="section-header">昨日</li>
-              <li class="file-item">
-                <div class="item-leading"><img class="file-icon thumbnail" src="../icons/thumb-videoframe.png" alt="" /></div>
-                <div class="item-lines">
-                  <div class="item-title">色調整プレビュー_v3.png</div>
-                  <div class="item-meta-line">PNG画像 · 14:52</div>
-                </div>
-              </li>
-              <li class="file-item">
-                <div class="item-leading"><img class="file-icon" src="../icons/file-psd.png" alt="" /></div>
-                <div class="item-lines">
-                  <div class="item-title">サムネイル素材_B.psd</div>
-                  <div class="item-meta-line">Photoshop · 14:30</div>
-                </div>
-              </li>
-              <li class="file-item">
-                <div class="item-leading"><img class="file-icon" src="../icons/file-pdf.png" alt="" /></div>
-                <div class="item-lines">
-                  <div class="item-title">請求書_10月分.pdf</div>
-                  <div class="item-meta-line">PDF書類 · 11:05</div>
-                </div>
-              </li>
-              <li class="section-header">9月13日</li>
-              <li class="file-item">
-                <div class="item-leading"><img class="file-icon" src="../icons/file-csv.png" alt="" /></div>
-                <div class="item-lines">
-                  <div class="item-title">編集依頼リスト_10月.csv</div>
-                  <div class="item-meta-line">CSV · 09:40</div>
-                </div>
-              </li>
-              <li class="file-item">
-                <div class="item-leading"><img class="file-icon" src="../icons/file-pdf.png" alt="" /></div>
-                <div class="item-lines">
-                  <div class="item-title">契約書_発注書_サイン済み.pdf</div>
-                  <div class="item-meta-line">PDF書類 · 08:15</div>
-                </div>
-              </li>
-            </ul>
-          </div>
-          <div class="shelf-footer">
-            <div class="footer-status"></div>
-            <div class="footer-actions">
-              <button type="button" class="footer-button">すべて消去</button>
-              <button type="button" class="footer-button" aria-label="同期を一時停止" title="ほかのデバイスとの同期を一時停止"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg></button>
-              <button type="button" class="footer-button" aria-label="設定"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg></button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="persona-card">
-      <div class="persona-label">エンジニア</div>
-      <div class="persona-frame">
-        <div class="brd brd-static" style="width:320px;" role="img" aria-label="「クリップ」のみが絞り込まれ、開発中のコマンドやリンクが並び、リストの下端で見切れている">
-          <div class="search-area">
-            <div class="search-field"><input class="search-bar" type="text" placeholder="検索" readonly /></div>
-            <div class="filter-segment" role="tablist" aria-label="種別で絞り込み">
-              <div class="filter-segment-thumb" aria-hidden="true" style="transform:translateX(200%);"></div>
-              <button type="button" class="segment-item">すべて</button>
-              <button type="button" class="segment-item">ファイル</button>
-              <button type="button" class="segment-item active">クリップ</button>
-            </div>
-          </div>
-          <div class="drop-zone">
-            <ul class="file-list">
-              <li class="section-header">今日</li>
-              <li class="file-item">
-                <div class="item-leading"><div class="clip-glyph"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="12" height="14" rx="2.5"/><path d="M7.5 4V3.5A1.5 1.5 0 0 1 9 2h2a1.5 1.5 0 0 1 1.5 1.5V4M7.5 9.5h5M7.5 13h3.5"/></svg></div><img class="source-app-badge" src="../icons/terminal.png" alt="" /></div>
-                <div class="item-lines">
-                  <div class="item-title clip-preview">flutter build ios --release</div>
-                  <div class="item-meta-line">テキスト · 23:41</div>
-                </div>
-              </li>
-              <li class="file-item">
-                <div class="item-leading"><div class="clip-glyph"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="12" height="14" rx="2.5"/><path d="M7.5 4V3.5A1.5 1.5 0 0 1 9 2h2a1.5 1.5 0 0 1 1.5 1.5V4M7.5 9.5h5M7.5 13h3.5"/></svg></div><img class="source-app-badge" src="../icons/vscode.png" alt="" /></div>
-                <div class="item-lines">
-                  <div class="item-title clip-preview">unwrap() をResult型に置き換える</div>
-                  <div class="item-meta-line">テキスト · 22:58</div>
-                </div>
-              </li>
-              <li class="file-item">
-                <div class="item-leading"><div class="clip-glyph"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="12" height="14" rx="2.5"/><path d="M7.5 4V3.5A1.5 1.5 0 0 1 9 2h2a1.5 1.5 0 0 1 1.5 1.5V4M7.5 9.5h5M7.5 13h3.5"/></svg></div><img class="source-app-badge" src="../icons/vscode.png" alt="" /></div>
-                <div class="item-lines">
-                  <div class="item-title clip-preview">TODO: 通知権限のダイアログ文言を直す</div>
-                  <div class="item-meta-line">テキスト · 21:03</div>
-                </div>
-              </li>
-              <li class="file-item">
-                <div class="item-leading"><div class="clip-glyph"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="12" height="14" rx="2.5"/><path d="M7.5 4V3.5A1.5 1.5 0 0 1 9 2h2a1.5 1.5 0 0 1 1.5 1.5V4M7.5 9.5h5M7.5 13h3.5"/></svg></div><img class="source-app-badge" src="../icons/terminal.png" alt="" /></div>
-                <div class="item-lines">
-                  <div class="item-title clip-preview">ssh deploy@192.168.1.42 -p 2222 -i ~/.ssh/id_ed25519</div>
-                  <div class="item-meta-line">テキスト · 16:47</div>
-                </div>
-              </li>
-              <li class="file-item">
-                <div class="item-leading"><div class="clip-glyph"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="12" height="14" rx="2.5"/><path d="M7.5 4V3.5A1.5 1.5 0 0 1 9 2h2a1.5 1.5 0 0 1 1.5 1.5V4M7.5 9.5h5M7.5 13h3.5"/></svg></div><img class="source-app-badge" src="../icons/terminal.png" alt="" /></div>
-                <div class="item-lines">
-                  <div class="item-title clip-preview">npm run build && npm run test</div>
-                  <div class="item-meta-line">テキスト · 15:12</div>
-                </div>
-              </li>
-              <li class="file-item">
-                <div class="item-leading"><div class="clip-glyph"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="12" height="14" rx="2.5"/><path d="M7.5 4V3.5A1.5 1.5 0 0 1 9 2h2a1.5 1.5 0 0 1 1.5 1.5V4M7.5 9.5h5M7.5 13h3.5"/></svg></div><img class="source-app-badge" src="../icons/figma.png" alt="" /></div>
-                <div class="item-lines">
-                  <div class="item-title clip-preview">アイコンのサイズを24pxに統一してください</div>
-                  <div class="item-meta-line">テキスト · 11:30</div>
-                </div>
-              </li>
-              <li class="file-item">
-                <div class="item-leading"><div class="clip-glyph"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="12" height="14" rx="2.5"/><path d="M7.5 4V3.5A1.5 1.5 0 0 1 9 2h2a1.5 1.5 0 0 1 1.5 1.5V4M7.5 9.5h5M7.5 13h3.5"/></svg></div><img class="source-app-badge" src="../icons/notion.png" alt="" /></div>
-                <div class="item-lines">
-                  <div class="item-title clip-preview">次回リリースのチェックリストを更新しました</div>
-                  <div class="item-meta-line">テキスト · 09:05</div>
-                </div>
-              </li>
-              <li class="file-item">
-                <div class="item-leading"><div class="clip-glyph"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="12" height="14" rx="2.5"/><path d="M7.5 4V3.5A1.5 1.5 0 0 1 9 2h2a1.5 1.5 0 0 1 1.5 1.5V4M7.5 9.5h5M7.5 13h3.5"/></svg></div><img class="source-app-badge" src="../icons/terminal.png" alt="" /></div>
-                <div class="item-lines">
-                  <div class="item-title clip-preview">npx expo run:ios --device</div>
-                  <div class="item-meta-line">テキスト · 08:40</div>
-                </div>
-              </li>
-              <li class="file-item">
-                <div class="item-leading"><div class="clip-glyph"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="12" height="14" rx="2.5"/><path d="M7.5 4V3.5A1.5 1.5 0 0 1 9 2h2a1.5 1.5 0 0 1 1.5 1.5V4M7.5 9.5h5M7.5 13h3.5"/></svg></div><img class="source-app-badge" src="../icons/terminal.png" alt="" /></div>
-                <div class="item-lines">
-                  <div class="item-title clip-preview">git rebase -i HEAD~3</div>
-                  <div class="item-meta-line">テキスト · 07:55</div>
-                </div>
-              </li>
-              <li class="file-item">
-                <div class="item-leading"><div class="clip-glyph"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="12" height="14" rx="2.5"/><path d="M7.5 4V3.5A1.5 1.5 0 0 1 9 2h2a1.5 1.5 0 0 1 1.5 1.5V4M7.5 9.5h5M7.5 13h3.5"/></svg></div><img class="source-app-badge" src="../icons/vscode.png" alt="" /></div>
-                <div class="item-lines">
-                  <div class="item-title clip-preview">git push origin main</div>
-                  <div class="item-meta-line">テキスト · 07:20</div>
-                </div>
-              </li>
-            </ul>
-          </div>
-          <div class="shelf-footer">
-            <div class="footer-status"></div>
-            <div class="footer-actions">
-              <button type="button" class="footer-button">すべて消去</button>
-              <button type="button" class="footer-button" aria-label="同期を一時停止" title="ほかのデバイスとの同期を一時停止"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg></button>
-              <button type="button" class="footer-button" aria-label="設定"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg></button>
-            </div>
-          </div>
-        </div>
-      </div>
+  <div class="persona-stage">
+    <video class="clip-video persona-video" id="personaVideo" muted playsinline preload="metadata" loop poster="media/clip-persona.jpg" aria-label="Excel でコピーした数字、Finder から入れた画像、ターミナルで貼り付けたコマンドが、どれも右端のパネルに残っていく">
+      <source src="media/clip-persona.mp4" type="video/mp4">
+    </video>
+    <div class="persona-tabs" role="tablist" aria-label="仕事の種類">
+      <button type="button" class="persona-tab active" role="tab" aria-selected="true" data-ch="0"><img src="../icons/excel.png" alt="">オフィスワーカー</button>
+      <button type="button" class="persona-tab" role="tab" aria-selected="false" data-ch="1"><img src="../icons/figma.png" alt="">クリエイター</button>
+      <button type="button" class="persona-tab" role="tab" aria-selected="false" data-ch="2"><img src="../icons/terminal.png" alt="">エンジニア</button>
     </div>
   </div>
 </section>
@@ -2554,6 +2271,21 @@
   })();
 </script>
 <script>
+/* 職種ごとの動画: 章 (8.4 秒ずつ) のボタンで頭出し。再生位置に合わせてボタンと進み具合を更新する */
+(function(){
+  var v=document.getElementById('personaVideo'); if(!v) return;
+  var CH=8.4, tabs=[].slice.call(document.querySelectorAll('.persona-tab'));
+  function paint(){
+    var t=v.currentTime||0, c=Math.min(tabs.length-1,Math.floor(t/CH));
+    tabs.forEach(function(b,i){var on=i===c; b.classList.toggle('active',on); b.setAttribute('aria-selected',on?'true':'false'); b.style.setProperty('--p',on?Math.min(1,(t-c*CH)/CH).toFixed(3):0);});
+  }
+  (function loop(){ if(!v.paused) paint(); requestAnimationFrame(loop); })();
+  v.addEventListener('seeked',paint);
+  tabs.forEach(function(b){b.addEventListener('click',function(){
+    v.currentTime=(+b.dataset.ch)*CH+.02; paint();
+    var p=v.play(); if(p&&p.catch)p.catch(function(){});
+  });});
+})();
 /* 機能クリップ: 画面に入ったら再生、外れたら停止。「動きを減らす」設定のときは静止画のまま */
 (function(){
   var vids=document.querySelectorAll('video.clip-video');
