@@ -4306,7 +4306,7 @@ app.whenReady().then(() => {
         clip('見積の有効期限は発行日から30日間です', 146, '会社用PC', 'win32', appWord);
         clip('https://github.com/example-team/ec-renewal/issues/58', 149, null, null, appChrome);
         clip('レスポンシブ対応、スマホ表示崩れの修正完了しました', 152, null, null, appSlack);
-        clip('領収書の宛名は「株式会社Notoa」でお願いします', 169, '会社用PC', 'win32', appOutlook);
+        clip('領収書の宛名は「株式会社サンプル」でお願いします', 169, '会社用PC', 'win32', appOutlook);
         clip('本日の作業時間: 6.5h', 171, null, null, appNotion);
         clip('Wi-Fiパスワード: sample-wifi-pass-2026', 174, '自宅iMac', 'darwin', appNotion);
         clip('打ち合わせ議事録のリンクを共有します: https://notion.so/xxxx', 194, '自宅iMac', 'darwin', appTeams);

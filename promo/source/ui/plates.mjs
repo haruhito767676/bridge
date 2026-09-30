@@ -42,7 +42,7 @@ const DATA = [
   { id: 'i2', k: 'image', name: 'clipboard_2026-09-13_11-05-00.png', o: '自宅iMac', y: 4 * HOUR, app: 'Chrome' },
   { id: 't7', k: 'text', text: 'https://www.figma.com/file/abcd1234/EC-Renewal', o: '自分のMac', y: 6 * HOUR, app: 'Chrome' },
   { id: 'f7', k: 'file', name: '納品リスト_10月.xlsx', o: '自宅iMac', y: 8 * HOUR, app: 'Excel' },
-  { id: 't8', k: 'text', text: '領収書の宛名は「株式会社Notoa」でお願いします', o: '会社用PC', y: 10 * HOUR, app: 'Outlook' },
+  { id: 't8', k: 'text', text: '領収書の宛名は「株式会社サンプル」でお願いします', o: '会社用PC', y: 10 * HOUR, app: 'Outlook' },
   { id: 'f8', k: 'file', name: '進行スケジュール.csv', o: '自分のMac', y: 12 * HOUR, app: 'Numbers' },
   { id: 'f9', k: 'file', name: '見積比較_他社.xlsx', o: '会社用PC', y: 14 * HOUR, app: 'Excel' },
   { id: 't9', k: 'text', text: '来週の定例は10/22(木) 14:00〜でお願いします', o: '自宅iMac', y: 16 * HOUR, app: 'Teams' },
