@@ -408,24 +408,20 @@
   .faq-item summary:hover h4{color:var(--accent);}
   .faq-item p{font-size:14.5px;padding-bottom:20px;}
 
-  /* ---- getting started: 縦の3ステップをレールで繋ぐ。footer-ctaの直前に置き、
-     「読んだらすぐ試せる」という流れでダウンロードに繋げる。
-     レールの縦線は px指定せず、.step-body の高さに flex stretch で追従させる
-     (文章の折返し行数が変わっても、線が次の丸にきっちり届くようにするため) ---- */
-  .steps{max-width:520px;margin:0 auto;}
-  .step{display:flex;gap:22px;}
-  .step-rail{flex:0 0 40px;display:flex;flex-direction:column;align-items:center;}
-  .step-num{
-    width:40px;height:40px;border-radius:50%;background:var(--accent-tint);color:var(--accent);
-    display:flex;align-items:center;justify-content:center;flex-shrink:0;
-    font-family:var(--display);font-weight:700;font-size:16px;
-  }
-  .step-line{flex:1;width:2px;min-height:24px;margin:8px 0;background:var(--line);}
-  .step:last-child .step-line{display:none;}
-  .step-body{padding-bottom:36px;}
-  .step:last-child .step-body{padding-bottom:0;}
-  .step-body h3{font-size:19px;margin:2px 0 6px;}
-  .step-body p{font-size:14.5px;line-height:1.65;}
+  /* ---- getting started: 動画 (3 章) の下に、3 ステップをタブとして並べる。再生位置に合わせて、今のステップと進み具合が動く ---- */
+  .start-stage{max-width:1000px;margin:0 auto;}
+  .clip-video.start-video{aspect-ratio:16/9;background:#e6eefb;}
+  .start-steps{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:22px;}
+  .start-step{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:6px;padding:16px 18px 20px;border:0;border-radius:16px;background:transparent;font:inherit;text-align:left;color:var(--ink-dim);cursor:pointer;overflow:hidden;transition:background .2s,box-shadow .2s;}
+  .start-step:hover{background:rgba(255,255,255,.6);}
+  .start-step.active{background:#fff;box-shadow:0 1px 2px rgba(0,0,0,0.08),0 0 0 1px var(--line);}
+  .start-step .step-num{width:30px;height:30px;font-size:14px;background:var(--accent-tint);color:var(--accent);border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--display);font-weight:700;transition:background .2s,color .2s;}
+  .start-step.active .step-num{background:var(--accent);color:#fff;}
+  .start-step h3{font-size:17px;margin:4px 0 0;color:var(--ink);}
+  .start-step p{font-size:13.5px;line-height:1.6;margin:0;}
+  .start-step::after{content:"";position:absolute;left:18px;right:18px;bottom:8px;height:2px;border-radius:1px;background:var(--accent);transform:scaleX(var(--p,0));transform-origin:0 50%;opacity:0;}
+  .start-step.active::after{opacity:.9;}
+  @media (max-width:760px){ .start-steps{grid-template-columns:1fr;} .start-step{flex-direction:row;flex-wrap:wrap;align-items:center;column-gap:12px;} .start-step p{flex-basis:100%;} .start-step h3{margin:0;} }
   .req-strip{margin:48px 0 0;display:flex;justify-content:center;align-items:center;gap:32px;flex-wrap:wrap;}
   .req-item{display:inline-flex;align-items:center;gap:11px;font-family:var(--mono);font-size:17px;color:var(--ink-dim);}
   .req-item img{width:28px;height:28px;border-radius:7px;flex-shrink:0;}
@@ -975,27 +971,14 @@
   <div class="prose" style="margin:0 auto 44px;text-align:center;">
     <h2 style="font-size:36px;">はじめかた</h2>
   </div>
-  <div class="steps">
-    <div class="step">
-      <div class="step-rail"><div class="step-num">1</div><div class="step-line"></div></div>
-      <div class="step-body">
-        <h3>インストール</h3>
-        <p>Mac にも、Windows にも。開いて、そのまま進むだけ。</p>
-      </div>
-    </div>
-    <div class="step">
-      <div class="step-rail"><div class="step-num">2</div><div class="step-line"></div></div>
-      <div class="step-body">
-        <h3>同期キーを合わせる</h3>
-        <p>同じ同期キーを、繋ぎたい端末に。あとは自動で見つけ合う。</p>
-      </div>
-    </div>
-    <div class="step">
-      <div class="step-rail"><div class="step-num">3</div><div class="step-line"></div></div>
-      <div class="step-body">
-        <h3>コピーして、試す</h3>
-        <p>⌘C と Ctrl+C。⌘V と Ctrl+V。もう、それだけ。</p>
-      </div>
+  <div class="start-stage">
+    <video class="clip-video start-video" id="startVideo" muted playsinline preload="metadata" loop poster="media/clip-start.jpg" aria-label="ディスクイメージから Applications へ入れる、片方の同期キーをコピーしてもう片方に貼り付ける、コピーした内容がもう片方のパネルに届く、の 3 場面 (Mac が左、Windows が右)">
+      <source src="media/clip-start.mp4" type="video/mp4">
+    </video>
+    <div class="start-steps" role="tablist" aria-label="はじめかたの手順">
+      <button type="button" class="start-step active" role="tab" aria-selected="true" data-ch="0"><span class="step-num">1</span><h3>インストール</h3><p>Mac にも、Windows にも。開いて、そのまま進むだけ。</p></button>
+      <button type="button" class="start-step" role="tab" aria-selected="false" data-ch="1"><span class="step-num">2</span><h3>同期キーを合わせる</h3><p>片方のキーを、もう片方に貼り付けるだけ。あとは自動でつながる。</p></button>
+      <button type="button" class="start-step" role="tab" aria-selected="false" data-ch="2"><span class="step-num">3</span><h3>コピーして、試す</h3><p>コピーした内容が、もう片方のパネルに届く。選んで、貼るだけ。</p></button>
     </div>
   </div>
   <div class="req-strip">
@@ -1912,6 +1895,21 @@
   v.addEventListener('seeked',paint);
   tabs.forEach(function(b){b.addEventListener('click',function(){
     v.currentTime=(+b.dataset.ch)*CH+.02; paint();
+    var p=v.play(); if(p&&p.catch)p.catch(function(){});
+  });});
+})();
+/* はじめかた: 3 章 (10.8 / 11.6 / 10.8 秒) のステップで頭出し。再生位置に合わせて、今のステップと進み具合を更新する */
+(function(){
+  var v=document.getElementById('startVideo'); if(!v) return;
+  var LEN=[10.8,11.6,10.8], ST=[0,10.8,22.4], steps=[].slice.call(document.querySelectorAll('.start-step'));
+  function paint(){
+    var t=v.currentTime||0, c=t>=ST[2]?2:(t>=ST[1]?1:0);
+    steps.forEach(function(b,i){var on=i===c; b.classList.toggle('active',on); b.setAttribute('aria-selected',on?'true':'false'); b.style.setProperty('--p',on?Math.min(1,(t-ST[i])/LEN[i]).toFixed(3):0);});
+  }
+  (function loop(){ if(!v.paused) paint(); requestAnimationFrame(loop); })();
+  v.addEventListener('seeked',paint);
+  steps.forEach(function(b){b.addEventListener('click',function(){
+    v.currentTime=ST[+b.dataset.ch]+.02; paint();
     var p=v.play(); if(p&&p.catch)p.catch(function(){});
   });});
 })();
