@@ -79,7 +79,7 @@ PAGE = r'''<!doctype html>
           <div class="pslot" id="slotMac" style="left:1120px;top:150px;width:320px;height:600px">
             <div class="panel glass"><img id="pb" src="ui/plates/shelf/before.png" style="position:absolute;left:0;top:0;width:320px;height:600px"><img id="po" src="ui/plates/shelf/over.png" style="position:absolute;left:0;top:0;width:320px;height:600px;opacity:0"><img id="pa" src="ui/plates/shelf/after.png" style="position:absolute;left:0;top:0;width:320px;height:600px;opacity:0"></div>
           </div>
-          <div class="dock"><img src="ui/clipicons/finder.png"><img src="ui/clipicons/mail.png"><img src="ui/appicons/Chrome.png"><img src="ui/appicons/Slack.png"><img src="ui/appicons/Notion.png"><img src="ui/appicons/Figma.png"><i class="dot" id="dotF" style="left:0"></i><i class="dot" id="dotM" style="left:0;opacity:0"></i></div>
+          <div class="dock"><span class="di run"><img src="ui/appicons/Finder.png"></span><span class="di" id="diM"><img src="ui/appicons/Mail.png"></span><span class="di run"><img src="ui/appicons/Chrome.png"></span><span class="di"><img src="ui/appicons/Slack.png"></span><span class="di"><img src="ui/appicons/Notion.png"></span><span class="di"><img src="ui/appicons/Figma.png"></span><i class="sep"></i><span class="di"><svg width="64" height="64" viewBox="0 0 64 64"><defs><linearGradient id="tgS" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#eef0f5"/><stop offset="1" stop-color="#9aa0ad"/></linearGradient></defs><path d="M18 20h28l-2.5 34a4 4 0 0 1-4 3.6H24.5a4 4 0 0 1-4-3.6z" fill="rgba(255,255,255,.28)" stroke="url(#tgS)" stroke-width="2.5"/><rect x="14" y="14" width="36" height="6" rx="3" fill="url(#tgS)"/><rect x="26" y="9" width="12" height="6" rx="2.5" fill="url(#tgS)"/><path d="M26 26v24M32 26v24M38 26v24" stroke="rgba(255,255,255,.55)" stroke-width="2" stroke-linecap="round"/></svg></span></div>
           <div id="ghost"></div>
           <svg id="curs" viewBox="0 0 34 44"><path d="M3 2v34l9-8 6 14 7-3-6-14 12-1z" fill="#fff" stroke="#000" stroke-width="2.4" stroke-linejoin="round"/></svg>
         </div>
@@ -173,8 +173,7 @@ function render(t) {
   const mf = t >= T.mail + .05;
   $('mbF').style.display = mf ? 'none' : ''; $('mbM').style.display = mf ? '' : 'none';
   document.querySelector('.fin').classList.toggle('inactive', mf);
-  $('dotF').style.left = (14 + 32 - 2) + 'px'; $('dotM').style.left = (14 + 76 + 32 - 2) + 'px';
-  $('dotM').style.opacity = mf ? 1 : 0;
+  $('diM').classList.toggle('run', mf);
   // 送信ボタン: 最後にクリックして「送信済み」
   const snd = $('msend'), sent = t >= T.send + .1;
   snd.textContent = sent ? '✓ 送信済み' : '送信'; snd.classList.toggle('sent', sent);

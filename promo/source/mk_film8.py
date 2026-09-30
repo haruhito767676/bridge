@@ -158,5 +158,42 @@ rep('    <div id="tag"></div>', '    <div id="tag"></div>\n    <div id="url"></d
 rep('#flash{background', '#url{position:absolute;left:960px;top:832px;font:500 34px/1 var(--display);letter-spacing:.03em;color:rgba(235,235,245,.5);white-space:nowrap;transform:translate(-50%,-50%)}\n#flash{background')
 rep("  TG.c.forEach((ch, i) => {", "  UR.c.forEach((ch, i) => { const e = E.out(P(t, 14.1 + i * .012, 14.6 + i * .012)); ch.style.transform = `translate3d(0,${(30 * (1 - e)).toFixed(2)}px,0)`; ch.style.opacity = e; ch.style.filter = e < .98 ? `blur(${(6 * (1 - e)).toFixed(1)}px)` : ''; });\n  TG.c.forEach((ch, i) => {")
 
+
+# ---------------------------------------------------------------- 細部: Dock (Finder・区切り・ゴミ箱・起動中の点) / タスクバーの起動中の線 / Windows のウィンドウボタン
+rep('/* ---------- S2 : multi-device ---------- */', """.dock .di{position:relative;width:64px;height:64px;flex:none}
+.dock .di img{width:64px;height:64px}
+.dock .di.run::after{content:"";position:absolute;left:50%;bottom:-8px;width:5px;height:5px;margin-left:-2.5px;border-radius:3px;background:rgba(255,255,255,.88)}
+.dock .sep{width:1.5px;height:56px;border-radius:1px;background:rgba(255,255,255,.3);flex:none;margin:0 2px}
+.taskbar .ti{position:relative;width:34px;height:34px;flex:none}
+.taskbar .ti img{width:34px;height:34px}
+.taskbar .ti.run::after{content:"";position:absolute;left:50%;bottom:-8px;width:8px;height:3px;margin-left:-4px;border-radius:2px;background:rgba(255,255,255,.55)}
+.taskbar .ti.act::after{content:"";position:absolute;left:50%;bottom:-8px;width:16px;height:3px;margin-left:-8px;border-radius:2px;background:#4cc2ff}
+.caps{margin-left:auto;display:flex;align-self:stretch}
+.caps i{width:46px;display:flex;align-items:center;justify-content:center}
+.caps svg{width:11px;height:11px;stroke:#fff;fill:none;stroke-width:1.1}
+/* ---------- S2 : multi-device ---------- */""")
+
+def trash(n):
+    return ('<span class="di"><svg width="64" height="64" viewBox="0 0 64 64"><defs><linearGradient id="tg%s" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#eef0f5"/><stop offset="1" stop-color="#9aa0ad"/></linearGradient></defs>'
+            '<path d="M18 20h28l-2.5 34a4 4 0 0 1-4 3.6H24.5a4 4 0 0 1-4-3.6z" fill="rgba(255,255,255,.28)" stroke="url(#tg%s)" stroke-width="2.5"/>'
+            '<rect x="14" y="14" width="36" height="6" rx="3" fill="url(#tg%s)"/><rect x="26" y="9" width="12" height="6" rx="2.5" fill="url(#tg%s)"/>'
+            '<path d="M26 26v24M32 26v24M38 26v24" stroke="rgba(255,255,255,.55)" stroke-width="2" stroke-linecap="round"/></svg></span>') % (n, n, n, n)
+def dock(run, n):
+    apps = ['Finder', 'Chrome', 'Slack', 'Notion', 'Figma', 'Word', 'Excel']
+    ic = ''.join('<span class="di%s"><img src="ui/appicons/%s.png"></span>' % (' run' if a in run else '', a) for a in apps)
+    return '<div class="dock">' + ic + '<i class="sep"></i>' + trash(n) + '</div>'
+OLD_DOCK = '<div class="dock"><img src="ui/appicons/Chrome.png"><img src="ui/appicons/Slack.png"><img src="ui/appicons/Notion.png"><img src="ui/appicons/Figma.png"><img src="ui/appicons/Word.png"><img src="ui/appicons/Excel.png"></div>'
+assert src.count(OLD_DOCK) == 2
+src = src.replace(OLD_DOCK, dock({'Finder', 'Chrome', 'Slack'}, 'I'), 1)     # 自宅iMac (Slack を使用中)
+src = src.replace(OLD_DOCK, dock({'Finder', 'Chrome', 'Notion'}, 'M'), 1)    # 自分のMac (Notion を使用中)
+
+tb = src[src.index('<div class="taskbar">'):src.index('</div>', src.index('<img src="ui/appicons/Outlook.png">')) + 6]
+new_tb = ('<div class="taskbar"><div class="winlogo"><i></i><i></i><i></i><i></i></div>'
+          + ''.join('<span class="ti%s"><img src="ui/appicons/%s.png"></span>' % (c, a) for a, c in [('Chrome', ' run'), ('Slack', ' run'), ('Teams', ' run'), ('Word', ' act'), ('Excel', ''), ('Outlook', ' run')])
+          + '</div>')
+src = src.replace(tb, new_tb)
+CAPS = '<div class="caps"><i><svg viewBox="0 0 11 11"><path d="M0 5.5h11"/></svg></i><i><svg viewBox="0 0 11 11"><rect x=".6" y=".6" width="9.8" height="9.8"/></svg></i><i><svg viewBox="0 0 11 11"><path d="M.5.5l10 10M10.5.5l-10 10"/></svg></i></div>'
+rep('<div class="bar"><span>議事録.docx – Word</span></div>', '<div class="bar" style="padding-right:0"><span>議事録.docx – Word</span>' + CAPS + '</div>')
+
 open('film8.html', 'w', encoding='utf8').write(src)
 print('film8.html written', len(src))

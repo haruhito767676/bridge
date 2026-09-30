@@ -71,6 +71,17 @@ img{display:block}
 .pw.dc .pgw .h{height:12px;width:120px;border-radius:6px;background:#1b1b1f;margin-bottom:18px}
 .pw.dc .pgw .l2{height:8px;border-radius:4px;background:#d9dce4;margin-bottom:12px}
 
+.dock .di{position:relative;width:64px;height:64px;flex:none}
+.dock .di img{width:64px;height:64px}
+.dock .di.run::after{content:"";position:absolute;left:50%;bottom:-8px;width:5px;height:5px;margin-left:-2.5px;border-radius:3px;background:rgba(255,255,255,.88)}
+.dock .sep{width:1.5px;height:56px;border-radius:1px;background:rgba(255,255,255,.3);flex:none;margin:0 2px}
+.taskbar .ti{position:relative;width:34px;height:34px;flex:none}
+.taskbar .ti img{width:34px;height:34px}
+.taskbar .ti.run::after{content:"";position:absolute;left:50%;bottom:-8px;width:8px;height:3px;margin-left:-4px;border-radius:2px;background:rgba(255,255,255,.55)}
+.taskbar .ti.act::after{content:"";position:absolute;left:50%;bottom:-8px;width:16px;height:3px;margin-left:-8px;border-radius:2px;background:#4cc2ff}
+.caps{margin-left:auto;display:flex;align-self:stretch}
+.caps i{width:46px;display:flex;align-items:center;justify-content:center}
+.caps svg{width:11px;height:11px;stroke:#fff;fill:none;stroke-width:1.1}
 /* ---------- S2 : multi-device ---------- */
 #s2{overflow:hidden;background:#0a84ff}
 #s2bg{background:linear-gradient(150deg,#0a84ff 0%,#0a84ff 36%,#3f6cf5 70%,#6a55ee 100%)}
@@ -218,7 +229,7 @@ body.cap #controls{display:none}
             <div class="inp"><span class="pt"><i id="slkHl"></i><span id="slkWords"></span></span><em id="slkCaret"></em></div></div>
           <div class="pslot" id="slotImac" style="left:1120px;top:105px;width:320px;height:600px"></div>
           <div class="popglass" id="popIm" style="left:150px;top:192px;opacity:0"><img id="pop0" src="ui/plates/popup/sel0.png"><img id="pop1" src="ui/plates/popup/sel1.png" style="opacity:0"><img id="popq1" src="ui/plates/popup/q1.png" style="opacity:0"><img id="popq2" src="ui/plates/popup/q2.png" style="opacity:0"><img id="popq3" src="ui/plates/popup/q3.png" style="opacity:0"><img id="popq4" src="ui/plates/popup/q4.png" style="opacity:0"></div>
-          <div class="dock"><img src="ui/appicons/Chrome.png"><img src="ui/appicons/Slack.png"><img src="ui/appicons/Notion.png"><img src="ui/appicons/Figma.png"><img src="ui/appicons/Word.png"><img src="ui/appicons/Excel.png"></div>
+          <div class="dock"><span class="di run"><img src="ui/appicons/Finder.png"></span><span class="di run"><img src="ui/appicons/Chrome.png"></span><span class="di run"><img src="ui/appicons/Slack.png"></span><span class="di"><img src="ui/appicons/Notion.png"></span><span class="di"><img src="ui/appicons/Figma.png"></span><span class="di"><img src="ui/appicons/Word.png"></span><span class="di"><img src="ui/appicons/Excel.png"></span><i class="sep"></i><span class="di"><svg width="64" height="64" viewBox="0 0 64 64"><defs><linearGradient id="tgI" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#eef0f5"/><stop offset="1" stop-color="#9aa0ad"/></linearGradient></defs><path d="M18 20h28l-2.5 34a4 4 0 0 1-4 3.6H24.5a4 4 0 0 1-4-3.6z" fill="rgba(255,255,255,.28)" stroke="url(#tgI)" stroke-width="2.5"/><rect x="14" y="14" width="36" height="6" rx="3" fill="url(#tgI)"/><rect x="26" y="9" width="12" height="6" rx="2.5" fill="url(#tgI)"/><path d="M26 26v24M32 26v24M38 26v24" stroke="rgba(255,255,255,.55)" stroke-width="2" stroke-linecap="round"/></svg></span></div>
         </div>
       </div>
 
@@ -238,7 +249,7 @@ body.cap #controls{display:none}
             <div class="ln" style="width:78%"></div><div class="ln" style="width:52%"></div><div class="ln" style="width:70%"></div>
           </div>
           <div class="pslot" id="slotMac" style="left:1120px;top:150px;width:320px;height:600px"></div>
-          <div class="dock"><img src="ui/appicons/Chrome.png"><img src="ui/appicons/Slack.png"><img src="ui/appicons/Notion.png"><img src="ui/appicons/Figma.png"><img src="ui/appicons/Word.png"><img src="ui/appicons/Excel.png"></div>
+          <div class="dock"><span class="di run"><img src="ui/appicons/Finder.png"></span><span class="di run"><img src="ui/appicons/Chrome.png"></span><span class="di"><img src="ui/appicons/Slack.png"></span><span class="di run"><img src="ui/appicons/Notion.png"></span><span class="di"><img src="ui/appicons/Figma.png"></span><span class="di"><img src="ui/appicons/Word.png"></span><span class="di"><img src="ui/appicons/Excel.png"></span><i class="sep"></i><span class="di"><svg width="64" height="64" viewBox="0 0 64 64"><defs><linearGradient id="tgM" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#eef0f5"/><stop offset="1" stop-color="#9aa0ad"/></linearGradient></defs><path d="M18 20h28l-2.5 34a4 4 0 0 1-4 3.6H24.5a4 4 0 0 1-4-3.6z" fill="rgba(255,255,255,.28)" stroke="url(#tgM)" stroke-width="2.5"/><rect x="14" y="14" width="36" height="6" rx="3" fill="url(#tgM)"/><rect x="26" y="9" width="12" height="6" rx="2.5" fill="url(#tgM)"/><path d="M26 26v24M32 26v24M38 26v24" stroke="rgba(255,255,255,.55)" stroke-width="2" stroke-linecap="round"/></svg></span></div>
         </div>
       </div>
 
@@ -249,13 +260,13 @@ body.cap #controls{display:none}
         <div class="screen" id="scWin" style="left:20px;top:20px;width:1440px;height:810px;border-radius:8px">
           <div class="wp wp-win"></div>
           <div class="win word" style="left:150px;top:70px;width:900px;height:640px;border-radius:10px">
-            <div class="bar"><span>議事録.docx – Word</span></div><div class="rib"><b></b><b style="width:50px"></b><b style="width:90px"></b><b></b><b style="width:60px"></b></div>
+            <div class="bar" style="padding-right:0"><span>議事録.docx – Word</span><div class="caps"><i><svg viewBox="0 0 11 11"><path d="M0 5.5h11"/></svg></i><i><svg viewBox="0 0 11 11"><rect x=".6" y=".6" width="9.8" height="9.8"/></svg></i><i><svg viewBox="0 0 11 11"><path d="M.5.5l10 10M10.5.5l-10 10"/></svg></i></div></div><div class="rib"><b></b><b style="width:50px"></b><b style="width:90px"></b><b></b><b style="width:60px"></b></div>
             <div class="pg"><h2>定例会議 議事録</h2><div class="ln" style="width:92%"></div><div class="ln" style="width:70%"></div>
               <div class="dec"><span style="color:#666">決定事項：</span><span class="pt" id="pasteTxt"><i id="pasteHl"></i><span id="pasteWords"></span></span><em id="pasteCaret"></em></div>
               <div class="ln" style="width:84%"></div><div class="ln" style="width:58%"></div><div class="ln" style="width:76%"></div></div>
           </div>
           <div class="pslot" id="slotWin" style="left:1120px;top:81px;width:320px;height:600px"></div>
-          <div class="taskbar"><div class="winlogo"><i></i><i></i><i></i><i></i></div><img src="ui/appicons/Chrome.png"><img src="ui/appicons/Slack.png"><img src="ui/appicons/Teams.png"><img src="ui/appicons/Word.png"><img src="ui/appicons/Excel.png"><img src="ui/appicons/Outlook.png"></div>
+          <div class="taskbar"><div class="winlogo"><i></i><i></i><i></i><i></i></div><span class="ti run"><img src="ui/appicons/Chrome.png"></span><span class="ti run"><img src="ui/appicons/Slack.png"></span><span class="ti run"><img src="ui/appicons/Teams.png"></span><span class="ti act"><img src="ui/appicons/Word.png"></span><span class="ti"><img src="ui/appicons/Excel.png"></span><span class="ti run"><img src="ui/appicons/Outlook.png"></span></div>
           <svg id="cursorW" viewBox="0 0 34 44" style="display:none"><path d="M3 2v34l9-8 6 14 7-3-6-14 12-1z" fill="#fff" stroke="#000" stroke-width="2.4" stroke-linejoin="round"/></svg>
         </div>
       </div>
