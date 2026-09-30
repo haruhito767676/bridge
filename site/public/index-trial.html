@@ -613,8 +613,10 @@
 
   /* ---- quick-paste 用モックアップ: popup.html / popup.css の該当ルールを縮小移植 ----
      カーソル付近に出る「その場ペースト」ポップアップの見た目を再現する (静止画像の代替) */
-  .clip{margin:0 auto;max-width:560px;}
-  .clip-video{display:block;width:100%;height:auto;aspect-ratio:16/9;border-radius:18px;background:#0a84ff;box-shadow:0 24px 60px -28px rgba(20,20,25,0.5),0 0 0 1px var(--line);}
+  .clip{margin:0 auto;max-width:none;}
+  /* 余白のある広い画面では、動画を右へ最大 120px はみ出させて大きく見せる (狭い画面では列の幅のまま) */
+  @media (min-width:861px){ #detail-pick .clip{margin-right:clamp(-120px,calc((100vw - 1080px) / -2),0px);} }
+  .clip-video{display:block;width:100%;height:auto;aspect-ratio:4/3;border-radius:18px;background:#0a84ff;box-shadow:0 24px 60px -28px rgba(20,20,25,0.5),0 0 0 1px var(--line);}
   .popup-mock-wrap{max-width:300px;margin:0 auto;}
   .popup-mock-kbd{display:flex;gap:6px;justify-content:center;margin-bottom:16px;}
   .popup-mock-kbd kbd{font-family:var(--mono);font-size:12px;font-weight:500;color:var(--ink);background:#fff;border-radius:6px;padding:5px 9px;box-shadow:0 1px 2px rgba(0,0,0,0.12),0 0 0 1px var(--line);}
@@ -1252,7 +1254,6 @@
     </div>
     <div class="detail-shot">
       <figure class="clip">
-        <div class="popup-mock-kbd"><kbd>⌥</kbd><kbd>⌘</kbd><kbd>V</kbd></div>
         <video class="clip-video" muted loop playsinline preload="metadata" poster="media/clip-search.jpg" aria-label="⌥⌘V で履歴のポップアップが開き、文字を打つと絞り込まれ、Enter で Slack にそのまま貼り付けて送信できる">
           <source src="media/clip-search.mp4" type="video/mp4">
         </video>

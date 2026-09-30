@@ -25,7 +25,7 @@ const items = [
   F_('契約書_業務委託.docx', 9 * HOUR),
   T_('npm run build && npm run deploy', 10 * HOUR, 'Terminal'),
 ];
-const OUT = path.join(DIR, 'plates', 'popup'); mkdirSync(OUT, { recursive: true });
+const OUT = path.join(DIR, 'plates', process.env.SCHEME === 'light' ? 'popup-light' : 'popup'); mkdirSync(OUT, { recursive: true });
 await open('darwin', '自宅iMac', 'popup.html', [300, 380]);
 await ev(`window.__emit('popup-items', ${JSON.stringify({ items })})`); await sleep(1300);
 const shot = async (n) => { const r = await send('Page.captureScreenshot', { format: 'png', fromSurface: true, clip: { x: 0, y: 0, width: 300, height: 380, scale: 1 } }); writeFileSync(path.join(OUT, n + '.png'), Buffer.from(r.data, 'base64')); console.log('saved', n); };

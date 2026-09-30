@@ -27,7 +27,7 @@ const ev = async (expr) => { const r = await send('Runtime.evaluate', { expressi
 const mock = readFileSync(path.join(DIR, 'mock-bridge.js'), 'utf8');
 await send('Page.enable');
 await send('Emulation.setDeviceMetricsOverride', { width: 320, height: 600, deviceScaleFactor: DSF, mobile: false });
-await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'dark' }] });
+await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: process.env.SCHEME || 'dark' }] });   // SCHEME=light でライトモードの UI を撮る
 await send('Emulation.setDefaultBackgroundColorOverride', { color: { r: 0, g: 0, b: 0, a: 0 } });
 
 let _script = null;
