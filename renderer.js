@@ -2179,8 +2179,6 @@ const settingsTitle = document.getElementById('settings-title');
 const settingsBackLabel = document.getElementById('settings-back-label');
 const settingAutoPaste = document.getElementById('setting-autopaste');
 const settingSourceApp = document.getElementById('setting-sourceapp');
-const settingSourceAppHelp = document.getElementById('setting-sourceapp-help');
-const settingPasteHelp = document.getElementById('setting-paste-help');
 const settingHotkeyToggle = document.getElementById('setting-hotkey-toggle');
 const settingHotkeyToggleReset = document.getElementById('setting-hotkey-toggle-reset');
 const settingHotkeyPaste = document.getElementById('setting-hotkey-paste');
@@ -2198,13 +2196,11 @@ function renderSettingsStatus() {
   if (online.length > 0) {
     settingStatusTitle.textContent = `${online.length} 台とつながっています`;
     settingStatusSub.textContent = online.map((p) => p.device || p.host).join(' · ');
-  } else if (peers.length > 0) {
-    settingStatusTitle.textContent = 'つながっているデバイスはありません';
-    settingStatusSub.textContent = '同じ Wi-Fi と同期キーを確認してください';
   } else {
-    settingStatusTitle.textContent = 'ほかのデバイスを探しています';
-    settingStatusSub.textContent = '同じ Wi-Fi / LAN に Bridge があれば、自動で見つかります';
+    settingStatusTitle.textContent = 'つながっているデバイスはありません';
+    settingStatusSub.textContent = '';
   }
+  settingStatusSub.hidden = !settingStatusSub.textContent;
 }
 
 function renderPeerList() {
@@ -2214,7 +2210,7 @@ function renderPeerList() {
   if (peers.length === 0) {
     const li = document.createElement('li');
     li.className = 'peer-empty';
-    li.textContent = '同じネットワークに Bridge が見つかると、ここに表示されます。';
+    li.textContent = 'まだありません';
     settingPeerList.appendChild(li);
     return;
   }
@@ -2280,9 +2276,6 @@ async function openSettings() {
     settingLogin.checked = Boolean(s.openAtLogin);
     settingAutoPaste.checked = Boolean(s.autoPaste);
     settingSourceApp.checked = Boolean(s.showSourceApp);
-    // 補足は、必要なときだけ 1 行で出す (Mac は不要、Windows は動作が重くなることだけ)
-    settingSourceAppHelp.textContent = IS_MAC ? '' : 'コピーのたびに PowerShell を使うため、少し重くなります。';
-    settingSourceAppHelp.hidden = !settingSourceAppHelp.textContent;
     settingHotkeyToggle.dataset.accelerator = s.toggleShortcut || '';
     settingHotkeyToggle.dataset.default = s.defaultToggleShortcut || '';
     settingHotkeyToggle.dataset.defaultLabel = s.defaultToggleShortcutLabel || '';
@@ -2292,10 +2285,6 @@ async function openSettings() {
     settingHotkeyPaste.dataset.defaultLabel = s.defaultPasteShortcutLabel || '';
     settingHotkeyPaste.textContent = s.pasteHotkeyLabel || '';
     settingVersion.textContent = s.version ? `バージョン ${s.version}` : '';
-    settingPasteHelp.textContent = IS_MAC
-      ? '「すぐ貼る」には、アクセシビリティの許可が必要です (システム設定 > プライバシーとセキュリティ)。'
-      : '';
-    settingPasteHelp.hidden = !settingPasteHelp.textContent;
   } catch (err) {
     console.error('設定の読み込みに失敗:', err);
   }

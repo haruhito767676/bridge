@@ -93,8 +93,8 @@
         <div class="set-status" id="setting-status">
           <span class="set-dot" id="setting-status-dot"></span>
           <div class="set-status-text">
-            <b id="setting-status-title">ほかのデバイスを探しています</b>
-            <small id="setting-status-sub"></small>
+            <b id="setting-status-title">つながっているデバイスはありません</b>
+            <small id="setting-status-sub" hidden></small>
           </div>
           <button id="setting-scan" class="push-button" type="button">いま探す</button>
         </div>
@@ -114,7 +114,6 @@
             </span>
           </div>
         </div>
-        <p class="set-note">ほかのデバイスに同じキーを入れると、つながります。</p>
 
         <div class="set-caption">使いかた</div>
         <div class="set-group">
@@ -141,8 +140,6 @@
             <input id="setting-sourceapp" class="switch" type="checkbox" />
           </div>
         </div>
-        <p class="set-note" id="setting-paste-help" hidden></p>
-        <p class="set-note" id="setting-sourceapp-help" hidden></p>
 
         <div class="set-caption">このアプリ</div>
         <div class="set-group">
@@ -170,7 +167,6 @@
             <textarea id="setting-peers" class="text-field text-area" rows="2" spellcheck="false" placeholder="192.168.1.21"></textarea>
           </div>
         </div>
-        <p class="set-note">見つからないときは、1 ページ目の「いま探す」でも確認できます。</p>
 
         <div class="set-caption">接続中のデバイス</div>
         <ul id="setting-peer-list" class="peer-list"></ul>
