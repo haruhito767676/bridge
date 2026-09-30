@@ -32,7 +32,10 @@ jobs:
       # Apple Developer 証明書を用意するまでは未署名でビルドする。
       # CSC_IDENTITY_AUTO_DISCOVERY=false にしないと、CI ランナー上に
       # 署名用の keychain が無いことで electron-builder がエラー終了する。
-      - run: npm run ${{ matrix.script }}
+      # electron-builder はタグのビルドで、既定で GitHub へ「公開」まで行おうとして、
+      # GH_TOKEN が無いと失敗する。公開は下の release ジョブ (action-gh-release) に任せるので、
+      # ここではビルドだけにする (--publish never)。
+      - run: npm run ${{ matrix.script }} -- --publish never
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
 

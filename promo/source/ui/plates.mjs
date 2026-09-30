@@ -48,7 +48,7 @@ const DATA = [
   { id: 't9', k: 'text', text: '来週の定例は10/22(木) 14:00〜でお願いします', o: '自宅iMac', y: 16 * HOUR, app: 'Teams' },
 ];
 
-const OUT = path.join(DIR, 'plates'); mkdirSync(OUT, { recursive: true });
+const OUT = path.join(DIR, process.env.SCHEME === 'light' ? 'plates-light' : 'plates'); mkdirSync(OUT, { recursive: true });   // SCHEME=light → plates-light/
 const manifest = {};
 
 async function emitAll(devKey, upTo) {

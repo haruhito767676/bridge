@@ -617,6 +617,8 @@
   /* 余白のある広い画面では、動画を右へ最大 120px はみ出させて大きく見せる (狭い画面では列の幅のまま) */
   @media (min-width:861px){ #detail-pick .clip{margin-right:clamp(-120px,calc((100vw - 1080px) / -2),0px);} }
   .clip-video{display:block;width:100%;height:auto;aspect-ratio:4/3;border-radius:18px;background:#0a84ff;box-shadow:0 24px 60px -28px rgba(20,20,25,0.5),0 0 0 1px var(--line);}
+  .clip-portrait{max-width:400px;}
+  .clip-portrait .clip-video{aspect-ratio:4/5;}
   .popup-mock-wrap{max-width:300px;margin:0 auto;}
   .popup-mock-kbd{display:flex;gap:6px;justify-content:center;margin-bottom:16px;}
   .popup-mock-kbd kbd{font-family:var(--mono);font-size:12px;font-weight:500;color:var(--ink);background:#fff;border-radius:6px;padding:5px 9px;box-shadow:0 1px 2px rgba(0,0,0,0.12),0 0 0 1px var(--line);}
@@ -1140,101 +1142,12 @@
 <section id="detail-deliver">
   <div class="detail-row">
     <div class="detail-shot">
-    <div class="brd brd-static" style="max-width:360px;margin:0 auto;box-shadow:0 24px 60px -28px rgba(0,0,0,0.6),0 0 0 1px var(--line);" role="img" aria-label="種別セグメントの下に「リビングのPC のみ」というデバイス絞り込みチップが表示され、該当デバイスのアイテムだけに絞り込まれている" aria-hidden="false">
-      <div class="search-area">
-        <div class="search-field"><input class="search-bar" type="text" placeholder="検索" readonly /></div>
-        <div class="filter-segment" role="tablist" aria-label="種別で絞り込み">
-          <div class="filter-segment-thumb" aria-hidden="true"></div>
-          <button type="button" class="segment-item active">すべて</button>
-          <button type="button" class="segment-item">ファイル</button>
-          <button type="button" class="segment-item">クリップ</button>
-        </div>
-        <span class="device-filter-chip">
-          <span>"リビングのPC" のみ</span>
-          <button class="device-filter-clear" aria-label="絞り込みを解除" tabindex="-1"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 3l6 6M9 3l-6 6"/></svg></button>
-        </span>
-      </div>
-      <div class="drop-zone">
-        <ul class="file-list">
-          <li class="section-header">今日</li>
-          <li class="file-item">
-            <div class="item-leading"><img class="file-icon" src="../icons/folder.png" alt="" /></div>
-            <div class="item-lines">
-              <div class="item-title">運動会_写真まとめ</div>
-              <div class="item-meta-line">フォルダ · 20:41</div>
-              <div class="item-badge-line"><span class="origin-chip"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="12" height="8" rx="1"/><path d="M6 13.5h4M8 11v2.5"/></svg><span>リビングのPC</span></span></div>
-            </div>
-          </li>
-          <li class="file-item">
-            <div class="item-leading"><img class="file-icon" src="../icons/file-pdf.png" alt="" /></div>
-            <div class="item-lines">
-              <div class="item-title">遠足のしおり_10月.pdf</div>
-              <div class="item-meta-line">PDF書類 · 20:21</div>
-              <div class="item-badge-line"><span class="origin-chip"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="12" height="8" rx="1"/><path d="M6 13.5h4M8 11v2.5"/></svg><span>リビングのPC</span></span></div>
-            </div>
-          </li>
-          <li class="file-item">
-            <div class="item-leading"><div class="clip-glyph"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="12" height="14" rx="2.5"/><path d="M7.5 4V3.5A1.5 1.5 0 0 1 9 2h2a1.5 1.5 0 0 1 1.5 1.5V4M7.5 9.5h5M7.5 13h3.5"/></svg></div></div>
-            <div class="item-lines">
-              <div class="item-title clip-preview">運動会は10/12(土)、雨天の場合は10/13に延期です</div>
-              <div class="item-meta-line">テキスト · 15:43</div>
-              <div class="item-badge-line"><span class="origin-chip"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="12" height="8" rx="1"/><path d="M6 13.5h4M8 11v2.5"/></svg><span>リビングのPC</span></span></div>
-            </div>
-          </li>
-          <li class="file-item">
-            <div class="item-leading"><div class="clip-glyph"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="12" height="14" rx="2.5"/><path d="M7.5 4V3.5A1.5 1.5 0 0 1 9 2h2a1.5 1.5 0 0 1 1.5 1.5V4M7.5 9.5h5M7.5 13h3.5"/></svg></div></div>
-            <div class="item-lines">
-              <div class="item-title clip-preview">木曜14時、小児科の予約が取れました。</div>
-              <div class="item-meta-line">テキスト · 15:00</div>
-              <div class="item-badge-line"><span class="origin-chip"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="12" height="8" rx="1"/><path d="M6 13.5h4M8 11v2.5"/></svg><span>リビングのPC</span></span></div>
-            </div>
-          </li>
-          <li class="section-header">昨日</li>
-          <li class="file-item">
-            <div class="item-leading"><img class="file-icon thumbnail" src="../icons/thumb-sportsday.png" alt="" /></div>
-            <div class="item-lines">
-              <div class="item-title">運動会_集合写真.jpg</div>
-              <div class="item-meta-line">画像 · 20:27</div>
-              <div class="item-badge-line"><span class="origin-chip"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="12" height="8" rx="1"/><path d="M6 13.5h4M8 11v2.5"/></svg><span>リビングのPC</span></span></div>
-            </div>
-          </li>
-          <li class="file-item">
-            <div class="item-leading"><div class="clip-glyph"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="12" height="14" rx="2.5"/><path d="M7.5 4V3.5A1.5 1.5 0 0 1 9 2h2a1.5 1.5 0 0 1 1.5 1.5V4M7.5 9.5h5M7.5 13h3.5"/></svg></div></div>
-            <div class="item-lines">
-              <div class="item-title clip-preview">参観日は10/18(土)、上履き持参とのことです</div>
-              <div class="item-meta-line">テキスト · 11:27</div>
-              <div class="item-badge-line"><span class="origin-chip"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="12" height="8" rx="1"/><path d="M6 13.5h4M8 11v2.5"/></svg><span>リビングのPC</span></span></div>
-            </div>
-          </li>
-          <li class="file-item">
-            <div class="item-leading"><img class="file-icon" src="../icons/file-xlsx.png" alt="" /></div>
-            <div class="item-lines">
-              <div class="item-title">家計簿_9月.xlsx</div>
-              <div class="item-meta-line">Microsoft Excel Workbook (.xlsx) · 10:27</div>
-              <div class="item-badge-line"><span class="origin-chip"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="12" height="8" rx="1"/><path d="M6 13.5h4M8 11v2.5"/></svg><span>リビングのPC</span></span></div>
-            </div>
-          </li>
-          <li class="section-header">9月13日 (日)</li>
-          <li class="file-item">
-            <div class="item-leading"><img class="file-icon" src="../icons/file-pdf.png" alt="" /></div>
-            <div class="item-lines">
-              <div class="item-title">保育園_お便り_10月号.pdf</div>
-              <div class="item-meta-line">PDF書類 · 13:05</div>
-              <div class="item-badge-line"><span class="origin-chip"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="12" height="8" rx="1"/><path d="M6 13.5h4M8 11v2.5"/></svg><span>リビングのPC</span></span></div>
-            </div>
-          </li>
-        </ul>
-      </div>
-      <div class="shelf-footer">
-        <div class="footer-status"></div>
-        <div class="footer-actions">
-          <button type="button" class="footer-button">すべて消去</button>
-          <button type="button" class="footer-button" aria-label="同期を一時停止" title="ほかのデバイスとの同期を一時停止"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg></button>
-          <button type="button" class="footer-button" aria-label="設定"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg></button>
-        </div>
-      </div>
+    <figure class="clip clip-portrait">
+      <video class="clip-video" muted loop playsinline preload="metadata" poster="media/clip-filter.jpg" aria-label="履歴の各項目に、どのデバイスから来たかのバッジが付いていて、バッジを選ぶと、そのデバイスの項目だけに絞り込まれる">
+        <source src="media/clip-filter.mp4" type="video/mp4">
+      </video>
+    </figure>
     </div>
-</div>
     <div class="detail-text">
       <h3>「あれ、どっちの PC だっけ？」<br>　が、なくなる。</h3>
       <p>　　書斎のPC、リビングのPC、会社のPC。<br>　　あの作業をやったのは、どれだっけ？<br>　　そんなときも、選ぶだけで出身がわかる。</p>
