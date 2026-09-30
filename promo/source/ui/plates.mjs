@@ -112,12 +112,28 @@ for (const [key, dev] of Object.entries(DEVS)) {
   await shotTo(path.join(dir, 'chrome.png'), { x: 0, y: 0, width: 320, height: 600 });
   console.log('done', key);
 }
+// 3.5) Mac 視点: 他デバイス出身の項目を右クリック → 「"会社用PC" のアイテムだけ表示」 (実 UI のコンテキストメニュー)
+{
+  await open('darwin', '自分のMac');
+  await emitAll('mac');
+  const dir = path.join(OUT, 'mac');
+  const info = await ev(`(()=>{const li=[...document.querySelectorAll('#file-list > li.file-item')].find(x=>/見積書_ECサイト改修_v2/.test(x.textContent)); const r=li.getBoundingClientRect(); const x=Math.round(r.left+150), y=Math.round(r.top+28); li.dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,clientX:x,clientY:y,button:2})); return {x,y,row:{top:r.top,height:r.height}};})()`);
+  await sleep(500);
+  const menu = await ev(`(()=>{const m=document.getElementById('context-menu'); const r=m.getBoundingClientRect(); return {left:r.left,top:r.top,width:r.width,height:r.height,items:[...m.querySelectorAll('li')].map(li=>{const b=li.getBoundingClientRect();return {text:li.textContent.trim(),separator:li.classList.contains('separator'),top:b.top,left:b.left,width:b.width,height:b.height};})};})()`);
+  await shotTo(path.join(dir, 'ctx-menu.png'), { x: 0, y: 0, width: 320, height: 600 });
+  const tgt = menu.items.find((it) => /アイテムだけ表示/.test(it.text));
+  await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: tgt.left + tgt.width / 2, y: tgt.top + tgt.height / 2 }); await sleep(350);
+  await shotTo(path.join(dir, 'ctx-hover.png'), { x: 0, y: 0, width: 320, height: 600 });
+  manifest.mac.ctx = { click: info, menu };
+  console.log('ctx menu done', JSON.stringify(tgt));
+}
 // 4) Mac 視点: デバイス絞り込み (会社用PC) と 同期中プレースホルダ
 {
   await open('darwin', '自分のMac');
   await emitAll('mac');
   const dir = path.join(OUT, 'mac');
   await ev(`setDeviceFilter('会社用PC'); render();`); await sleep(900);
+  manifest.mac.chip = await ev(`(()=>{const c=document.getElementById('device-filter-chip').getBoundingClientRect(), x=document.getElementById('device-filter-clear').getBoundingClientRect(); return {chip:{left:c.left,top:c.top,width:c.width,height:c.height},clear:{left:x.left,top:x.top,width:x.width,height:x.height}};})()`);
   const g = await listGeom(); DZB = g.dz.bottom; manifest.mac.filter = { rows: g.rows.map((r) => ({ cls: r.cls, top: r.top, height: r.height, text: r.text })) };
   await ev(`document.getElementById('file-list').style.setProperty('visibility','hidden')`); await sleep(300);
   await send('Page.captureScreenshot', { format: 'png' }).then((r) => writeFileSync(path.join(dir, 'chrome-filter.png'), Buffer.from(r.data, 'base64')));

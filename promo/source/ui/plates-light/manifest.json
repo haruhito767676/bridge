@@ -162,6 +162,126 @@
     "skipped": true
    }
   ],
+  "ctx": {
+   "click": {
+    "x": 154,
+    "y": 339,
+    "row": {
+     "top": 310.71875,
+     "height": 66.390625
+    }
+   },
+   "menu": {
+    "left": 83.5625,
+    "top": 339,
+    "width": 213.4375,
+    "height": 241.375,
+    "items": [
+     {
+      "text": "コピー⏎",
+      "separator": false,
+      "top": 344,
+      "left": 88.5625,
+      "width": 203.4375,
+      "height": 25.546875
+     },
+     {
+      "text": "クイックルックSpace",
+      "separator": false,
+      "top": 369.546875,
+      "left": 88.5625,
+      "width": 203.4375,
+      "height": 25.546875
+     },
+     {
+      "text": "",
+      "separator": true,
+      "top": 399.09375,
+      "left": 94.5625,
+      "width": 191.4375,
+      "height": 1
+     },
+     {
+      "text": "Finder で表示⌘⏎",
+      "separator": false,
+      "top": 404.09375,
+      "left": 88.5625,
+      "width": 203.4375,
+      "height": 25.546875
+     },
+     {
+      "text": "開く",
+      "separator": false,
+      "top": 429.640625,
+      "left": 88.5625,
+      "width": 203.4375,
+      "height": 25.546875
+     },
+     {
+      "text": "パスをコピー",
+      "separator": false,
+      "top": 455.1875,
+      "left": 88.5625,
+      "width": 203.4375,
+      "height": 25.546875
+     },
+     {
+      "text": "",
+      "separator": true,
+      "top": 484.734375,
+      "left": 94.5625,
+      "width": 191.4375,
+      "height": 1
+     },
+     {
+      "text": "\"会社用PC\" のアイテムだけ表示",
+      "separator": false,
+      "top": 489.734375,
+      "left": 88.5625,
+      "width": 203.4375,
+      "height": 25.546875
+     },
+     {
+      "text": "",
+      "separator": true,
+      "top": 519.28125,
+      "left": 94.5625,
+      "width": 191.4375,
+      "height": 1
+     },
+     {
+      "text": "ピン留め⌘P",
+      "separator": false,
+      "top": 524.28125,
+      "left": 88.5625,
+      "width": 203.4375,
+      "height": 25.546875
+     },
+     {
+      "text": "リストから外す⌫",
+      "separator": false,
+      "top": 549.828125,
+      "left": 88.5625,
+      "width": 203.4375,
+      "height": 25.546875
+     }
+    ]
+   }
+  },
+  "chip": {
+   "chip": {
+    "left": 12,
+    "top": 81,
+    "width": 126.609375,
+    "height": 20.84375
+   },
+   "clear": {
+    "left": 120.609375,
+    "top": 84.421875,
+    "width": 14,
+    "height": 14
+   }
+  },
   "filter": {
    "rows": [
     {
