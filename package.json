@@ -1,6 +1,6 @@
 {
   "name": "bridge",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Mac/Windows 間でファイルやクリップボードを共有するユーティリティ (プロトタイプ: Yoink 風ファイルシェルフ)",
   "main": "main.js",
   "scripts": {
