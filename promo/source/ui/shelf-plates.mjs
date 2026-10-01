@@ -1,4 +1,4 @@
-// 「ファイルの一時置き場」クリップ用: パネルの 3 状態を実 UI で撮る。
+// 「ファイル棚」クリップ用: パネルの 3 状態を実 UI で撮る。
 //   plates/shelf/before.png … 履歴だけ (Mac 自身のもの)
 //   plates/shelf/over.png   … ファイルをドラッグして重ねた状態 (body.drag-mode: 枠がアクセント色で光る)
 //   plates/shelf/after.png  … ドロップされて、先頭に 2 件のファイルが入った状態
