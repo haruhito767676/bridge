@@ -162,11 +162,11 @@ img{display:block}
 
 /* ---------- 南京錠 ---------- */
 #lockBody{position:absolute;left:740px;top:490px;width:440px;height:340px;border-radius:64px;overflow:hidden;
-  background:linear-gradient(180deg,#43434c 0%,#2a2a31 55%,#232329 100%);
-  box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.2),inset 0 2px 0 rgba(255,255,255,.28),0 40px 90px rgba(30,40,90,.38),0 0 0 1px rgba(0,0,0,.2)}
+  background:linear-gradient(180deg,#ffffff 0%,#f1f2f6 55%,#e4e6ee 100%);
+  box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.9),inset 0 -2px 0 rgba(0,0,0,.04),0 40px 90px rgba(30,40,90,.38),0 0 0 1px rgba(0,0,0,.12)}
 .lrow{position:absolute;left:40px;width:360px;height:34px;display:flex;align-items:center;gap:14px}
 .lrow i{width:30px;height:30px;border-radius:8px;flex:none}
-.lrow b{height:12px;border-radius:6px;background:rgba(255,255,255,.28)}
+.lrow b{height:12px;border-radius:6px;background:rgba(0,0,0,.16)}
 #keyhole{position:absolute;left:190px;top:168px;filter:drop-shadow(0 0 0 rgba(10,132,255,0))}
 #lockPen{position:absolute;left:0;top:0;width:28px;height:28px;margin:-14px 0 0 -14px;border-radius:50%;background:#fff;box-shadow:0 0 30px 8px rgba(10,132,255,.9),0 0 90px 24px rgba(10,132,255,.5)}
 #lockTxt{position:absolute;left:960px;top:938px;font:800 84px/1 var(--display);letter-spacing:-.02em;color:#fff;white-space:nowrap;transform:translate(-50%,-50%)}
@@ -315,7 +315,7 @@ body.cap #controls{display:none}
           <div class="lrow" style="top:34px"><i style="background:#0a84ff"></i><b style="width:250px"></b></div>
           <div class="lrow" style="top:80px"><i style="background:#bf5af2"></i><b style="width:190px"></b></div>
           <div class="lrow" style="top:126px"><i style="background:#30d158"></i><b style="width:280px"></b></div>
-          <svg id="keyhole" width="60" height="110" viewBox="0 0 60 110"><circle cx="30" cy="30" r="26" fill="#0b0b0f"/><path d="M19 46 L41 46 L48 104 L12 104 Z" fill="#0b0b0f"/></svg>
+          <svg id="keyhole" width="60" height="110" viewBox="0 0 60 110"><circle cx="30" cy="30" r="26" fill="#3a4054"/><path d="M19 46 L41 46 L48 104 L12 104 Z" fill="#3a4054"/></svg>
         </div>
       </div>
       <div id="lockPen"></div>
@@ -849,7 +849,7 @@ function lockScene(T) {
   // ---- 鍵穴: 施錠で青く点灯 / 到着で消灯 ----
   const on = E.out(P(T, tClick, tClick + .25)) * (1 - E.out(P(T, tArr, tArr + .25)));
   $('keyhole').style.filter = `drop-shadow(0 0 ${(22 * on).toFixed(1)}px rgba(10,132,255,${on.toFixed(2)}))`;
-  $('keyhole').querySelectorAll('circle,path').forEach(n => n.setAttribute('fill', on > .01 ? `rgb(${Math.round(lerp(11, 10, on))},${Math.round(lerp(11, 132, on))},${Math.round(lerp(15, 255, on))})` : '#0b0b0f'));
+  $('keyhole').querySelectorAll('circle,path').forEach(n => n.setAttribute('fill', on > .01 ? `rgb(${Math.round(lerp(58, 10, on))},${Math.round(lerp(64, 132, on))},${Math.round(lerp(84, 255, on))})` : '#3a4054'));
   $('lockBody').querySelectorAll('.lrow').forEach(r => { r.style.opacity = (.85 - .45 * on).toFixed(3); });
   // ---- 運ぶ: 出発点 → (弧を描いて) → 相手のシェルフの前 → 開く → 行になって収まる ----
   const pr = E.inOut(P(T, tTr0, tTr1_(tTr0)));

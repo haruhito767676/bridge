@@ -28,6 +28,15 @@ rep('0 50px 110px rgba(0,20,120,.55)', '0 40px 90px rgba(30,40,90,.38)')
 rep('<stop offset="0" stop-color="#f4f5f8"/><stop offset="1" stop-color="#c9ccd6"/>', '<stop offset="0" stop-color="#c3c8d6"/><stop offset="1" stop-color="#8189a0"/>')
 rep("c.setAttribute('stroke', '#fff'); $('rings')", "c.setAttribute('stroke', '#0a84ff'); $('rings')")
 rep("p.setAttribute('stroke', '#fff'); p.setAttribute('stroke-linecap', 'round'", "p.setAttribute('stroke', '#0a84ff'); p.setAttribute('stroke-linecap', 'round'")
+# 鍵の本体: 暗いガラスの板 → 白いパネルから変わっても自然な、明るいガラスの板に (線は暗く、錠前の穴は青みのあるグレー)
+rep('background:linear-gradient(180deg,#43434c 0%,#2a2a31 55%,#232329 100%);', 'background:linear-gradient(180deg,#ffffff 0%,#f1f2f6 55%,#e4e6ee 100%);')
+rep('inset 0 0 0 1.5px rgba(255,255,255,.2),inset 0 2px 0 rgba(255,255,255,.28),0 40px 90px rgba(30,40,90,.38),0 0 0 1px rgba(0,0,0,.2)', 'inset 0 0 0 1.5px rgba(255,255,255,.9),inset 0 -2px 0 rgba(0,0,0,.04),0 40px 90px rgba(30,40,90,.38),0 0 0 1px rgba(0,0,0,.12)')
+s = s.replace('.lrow b{height:12px;border-radius:6px;background:rgba(255,255,255,.28)}', '.lrow b{height:12px;border-radius:6px;background:rgba(0,0,0,.16)}')
+assert s.count('#0b0b0f') >= 2
+s = s.replace('#0b0b0f', '#3a4054')
+rep('Math.round(lerp(11, 10, on))', 'Math.round(lerp(58, 10, on))')
+rep('Math.round(lerp(11, 132, on))', 'Math.round(lerp(64, 132, on))')
+rep('Math.round(lerp(15, 255, on))', 'Math.round(lerp(84, 255, on))')
 # 終わりを止める
 import re
 m = re.search(r'T0 = ([\d.]+), D = ([\d.]+);', s); assert m
