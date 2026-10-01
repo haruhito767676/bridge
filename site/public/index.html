@@ -417,11 +417,6 @@
   .start-step::after{content:"";position:absolute;left:18px;right:18px;bottom:8px;height:2px;border-radius:1px;background:var(--accent);transform:scaleX(var(--p,0));transform-origin:0 50%;opacity:0;}
   .start-step.active::after{opacity:.9;}
   @media (max-width:760px){ .start-steps{grid-template-columns:1fr;} .start-step{flex-direction:row;flex-wrap:wrap;align-items:center;column-gap:12px;} .start-step p{flex-basis:100%;} .start-step h3{margin:0;} }
-  .req-strip{margin:48px 0 0;display:flex;justify-content:center;align-items:center;gap:32px;flex-wrap:wrap;}
-  .req-item{display:inline-flex;align-items:center;gap:11px;font-family:var(--mono);font-size:17px;color:var(--ink-dim);}
-  .req-item img{width:28px;height:28px;border-radius:7px;flex-shrink:0;}
-  .req-item svg{width:23px;height:23px;stroke:var(--ink-dim);flex-shrink:0;}
-  .req-sep{width:1px;height:20px;background:var(--line);}
 
   /* ---- footer cta ---- */
   .footer-cta{
@@ -947,13 +942,6 @@
       <button type="button" class="start-step" role="tab" aria-selected="false" data-ch="1"><span class="step-num">2</span><h3>同期キーを合わせる</h3><p>片方のキーを、もう片方に貼り付けるだけ。あとは自動でつながる。</p></button>
       <button type="button" class="start-step" role="tab" aria-selected="false" data-ch="2"><span class="step-num">3</span><h3>コピーして、試す</h3><p>コピーした内容が、もう片方のパネルに届く。選んで、貼るだけ。</p></button>
     </div>
-  </div>
-  <div class="req-strip">
-    <span class="req-item"><img src="../icons/finder.png" alt="" />macOS 12 以降</span>
-    <span class="req-sep"></span>
-    <span class="req-item"><img src="../icons/windows.png" alt="" />Windows 10 以降</span>
-    <span class="req-sep"></span>
-    <span class="req-item"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5a11 11 0 0 1 14 0"/><path d="M8.5 16a6.5 6.5 0 0 1 7 0"/><circle cx="12" cy="19.5" r="1" fill="currentColor" stroke="none"/></svg>同期には同じ Wi-Fi / LAN</span>
   </div>
 </section>
 
