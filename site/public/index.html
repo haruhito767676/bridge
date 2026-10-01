@@ -332,6 +332,7 @@
   }
   .privacy-point b{display:block;font-size:14.5px;font-weight:600;color:var(--ink);margin-bottom:4px;line-height:1.4;}
   .privacy-point p{margin:0;font-size:13.5px;line-height:1.6;color:var(--ink-dim);}
+  .privacy-point,.feature p,.faq-item p,.detail-text p,.start-step p{word-break:auto-phrase;}
   @media (max-width:860px){
     .privacy-points{grid-template-columns:1fr 1fr;}
   }
@@ -384,7 +385,7 @@
   .punchline{margin-top:36px;font-family:var(--display);font-weight:700;font-size:46px;color:var(--ink);letter-spacing:-0.01em;}
 
   /* ---- faq ---- */
-  .faq{max-width:720px;}
+  .faq{max-width:720px;margin:0 auto;}
   .faq-item{padding:6px 0;border-bottom:1px solid var(--line);}
   .faq-item:first-child{padding-top:0;}
   .faq-item summary{
@@ -619,8 +620,8 @@
       <div class="links">
         <a href="#features">機能</a>
         <a href="#privacy">プライバシー</a>
-        <a href="#getting-started">はじめかた</a>
         <a href="#faq">よくある質問</a>
+        <a href="#getting-started">はじめかた</a>
         <a href="https://github.com/haruhito767676/bridge" target="_blank" rel="noopener">GitHub</a>
       </div>
       <a class="nav-cta" href="#download">ダウンロード</a>
@@ -651,7 +652,7 @@
         <div class="pain-body"><video class="pain-video" muted loop playsinline preload="none" poster="media/pain-mail.jpg" data-src="media/pain-mail.mp4" aria-label="Mac でメールを作って自分宛てに添付して送り、Windows でメールが届くのを待って、添付を保存する"></video></div>
       </details>
       <details class="pain-item">
-        <summary><img src="../icons/slack.png" alt="" /><span>Slackの「自分だけ」チャンネルに、URLを貼ったことがある</span><svg class="chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3l5 5-5 5"/></svg></summary>
+        <summary><img src="../icons/slack.png" alt="" /><span>Slack の「自分だけ」チャンネルに、URL を貼ったことがある</span><svg class="chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3l5 5-5 5"/></svg></summary>
         <div class="pain-body"><video class="pain-video" muted loop playsinline preload="none" poster="media/pain-slack.jpg" data-src="media/pain-slack.mp4" aria-label="Mac で URL をコピーして Slack の自分だけのチャンネルに貼り、Windows で Slack を開いて探し、コピーしてブラウザに貼る"></video></div>
       </details>
       <details class="pain-item">
@@ -813,7 +814,7 @@
     </div>
     <div class="detail-text">
       <h3>「あれ、どっちの PC だっけ？」<br>　が、なくなる。</h3>
-      <p>　　書斎のPC、リビングのPC、会社のPC。<br>　　あの作業をやったのは、どれだっけ？<br>　　そんなときも、選ぶだけで出身がわかる。</p>
+      <p>　　書斎の PC、リビングの PC、会社の PC。<br>　　あの作業をやったのは、どれだっけ？<br>　　そんなときも、選ぶだけで出身がわかる。</p>
     </div>
   </div>
 </section>
@@ -878,8 +879,8 @@
 
 
 <section id="faq">
-  <div class="prose" style="margin-bottom:36px;">
-    <h2 style="font-size:32px;">よくある質問</h2>
+  <div class="prose" style="margin:0 auto 44px;text-align:center;">
+    <h2 style="font-size:36px;">よくある質問</h2>
   </div>
   <div class="faq">
     <details class="faq-item">
@@ -888,10 +889,10 @@
     </details>
     <details class="faq-item">
       <summary><h4>スマートフォンには対応していますか？</h4></summary>
-      <p>今のところは macOS と Windows に対応しています。スマホ iOS やAndroid には現在対応していません。</p>
+      <p>今のところは macOS と Windows に対応しています。iPhone や Android のスマートフォンには、現在対応していません。</p>
     </details>
     <details class="faq-item">
-      <summary><h4>対応OSはなんですか？</h4></summary>
+      <summary><h4>対応 OS はなんですか？</h4></summary>
       <p>macOS 12 以降と Windows 10 以降に対応しています。Linux 動作はしますが、公式サポートの対象外です。</p>
     </details>
     <details class="faq-item">
@@ -911,8 +912,8 @@
       <p>使えます。台数も OS の組み合わせも問いません。Mac 同士でも、Windows 同士でも、Mac と Windows の混在でも、同じ同期キーであれば繋がります。</p>
     </details>
     <details class="faq-item">
-      <summary><h4>1台のPCでしか使いませんが、意味ありますか？</h4></summary>
-      <p>あります。履歴もファイルの格納も、その場でペーストも、1台だけでそのまま使えます。</p>
+      <summary><h4>1 台の PC でしか使いませんが、意味ありますか？</h4></summary>
+      <p>あります。履歴もファイルの格納も、その場でペーストも、1 台だけでそのまま使えます。</p>
     </details>
     <details class="faq-item">
       <summary><h4>コピーした内容はどこかに送信されますか？</h4></summary>
