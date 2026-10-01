@@ -362,11 +362,6 @@
   .detail-solo.detail-solo-compare{max-width:1000px;}
   .clip.compare-clip{max-width:1000px;margin:36px auto 0;}
   .clip-video.compare-video{aspect-ratio:16/9;background:#e6eefb;}
-  .compare-cols{display:grid;grid-template-columns:1fr 1fr;gap:24px 48px;max-width:720px;margin:32px auto 0;text-align:left;}
-  .compare-heading{display:flex;align-items:center;gap:10px;font-weight:700;font-size:16px;color:var(--ink);margin-bottom:12px;}
-  .compare-heading img{width:28px;height:28px;border-radius:7px;}
-  .compare-traits{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px;font-size:14px;line-height:1.5;color:var(--ink-dim);}
-  @media (max-width:520px){ .compare-cols{grid-template-columns:1fr;gap:22px;} }
 
   /* ---- relatable: 「こんなこと、していませんか？」の"あるある"リスト。
      checklistの緑チェックは"良いこと"に見えてしまうので、あえて中立なダッシュにする ---- */
@@ -437,11 +432,6 @@
   .footer-cta .cta-row{margin-top:28px;}
   .footer-cta .btn-primary{background:#fff;color:var(--ink);}
   .footer-cta .btn-secondary{background:rgba(255,255,255,0.12);color:#fff;}
-  .code-line{
-    margin-top:24px;display:inline-flex;align-items:center;gap:10px;
-    font-family:var(--mono);font-size:13.5px;background:rgba(255,255,255,0.1);
-    padding:10px 18px;border-radius:10px;color:rgba(255,255,255,0.85);
-  }
 
   footer.site{padding:40px 0 60px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;}
   footer.site .fine{font-size:13px;color:var(--ink-faint);}
@@ -863,30 +853,6 @@
         <source src="media/clip-compare.mp4" type="video/mp4">
       </video>
     </figure>
-    <div class="compare-cols">
-      <div class="compare-col">
-        <div class="compare-heading"><img src="../icons/finder.png" alt="" />macOS</div>
-        <ul class="compare-traits">
-          <li>すりガラスの質感</li>
-          <li>バネで滑らかに開閉</li>
-          <li>メニューバーに進捗表示</li>
-          <li>⌘+C ですぐ格納</li>
-          <li>⌥+Space で呼び出し</li>
-          <li>Dock / ⌘+Tab に出ない</li>
-        </ul>
-      </div>
-      <div class="compare-col">
-        <div class="compare-heading"><img src="../icons/windows.png" alt="" />Windows</div>
-        <ul class="compare-traits">
-          <li>Fluentのフライアウト</li>
-          <li>スッと出て、スッと消える</li>
-          <li>トレイに進捗を表示</li>
-          <li>Ctrl+C ですぐ格納</li>
-          <li>Ctrl+Shift+Space で呼び出し</li>
-          <li>タスクバーに出さない</li>
-        </ul>
-      </div>
-    </div>
   </div>
 </section>
 
@@ -998,8 +964,6 @@
       <a class="btn btn-secondary" id="dl-mac" href="https://github.com/haruhito767676/bridge/releases" target="_blank" rel="noopener">macOS 用をダウンロード</a>
       <a class="btn btn-secondary" id="dl-win" href="https://github.com/haruhito767676/bridge/releases" target="_blank" rel="noopener">Windows 用をダウンロード</a>
     </div>
-    <p style="margin-top:24px;font-size:13.5px;">またはソースから起動:</p>
-    <div class="code-line">git clone github.com/haruhito767676/bridge &amp;&amp; npm install &amp;&amp; npm start</div>
     <div class="cta-row">
       <a class="btn btn-primary" href="https://github.com/haruhito767676/bridge" target="_blank" rel="noopener">GitHub を見る</a>
     </div>
@@ -1922,7 +1886,7 @@
     var it=e.detail; if(!it) return; used=true; clearTimeout(timer);
     var el=document.createElement('div');
     if(it.kind==='clip-text'){ el.className='note-item text'; el.textContent=it.copy||it.name; }
-    else { el.className='note-item file'; var im=new Image(); im.alt=''; im.src=it.thumb||it.icon||''; var sp=document.createElement('span'); sp.textContent=it.name; el.appendChild(im); el.appendChild(sp); }
+    else { el.className='note-item file'; var im=new Image(); im.alt=''; var src=it.thumb||it.icon||''; if(!it.thumb && brd.classList.contains('win-skin')) src=src.replace(/(file-[a-z0-9]+|terminal|folder)\.png$/i,'$1-win.png'); im.src=src; var sp=document.createElement('span'); sp.textContent=it.name; el.appendChild(im); el.appendChild(sp); }
     list.appendChild(el); while(list.children.length>3) list.removeChild(list.firstChild);
     body.classList.add('has-note');
   });

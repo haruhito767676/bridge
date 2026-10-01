@@ -8,7 +8,7 @@
 <meta name="robots" content="noindex">
 <link rel="icon" href="icon.png" type="image/png">
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
 
   :root{
     --paper:#fbfbfa;
@@ -18,12 +18,12 @@
     --ink-dim:rgba(60,60,67,0.74);
     --ink-faint:rgba(60,60,67,0.54);
     --accent:#0a84ff;
-    --display:'Sora','Hiragino Sans','Meiryo','Yu Gothic UI','Yu Gothic',sans-serif;
-    --sans:'IBM Plex Sans','Hiragino Sans','Meiryo','Yu Gothic UI','Yu Gothic',sans-serif;
+    --display:-apple-system,BlinkMacSystemFont,'SF Pro Display','Inter','Hiragino Sans','Noto Sans JP','Meiryo','Yu Gothic UI',sans-serif;
+    --sans:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter','Hiragino Sans','Noto Sans JP','Meiryo','Yu Gothic UI',sans-serif;
     --mono:'IBM Plex Mono','SF Mono',Menlo,Consolas,monospace;
   }
   *{box-sizing:border-box;}
-  html{color-scheme:light;}
+  html{color-scheme:light;scroll-padding-top:84px;}
   body{
     margin:0;background:var(--paper);color:var(--ink);
     font-family:var(--sans);font-size:16px;line-height:1.75;
@@ -36,10 +36,36 @@
   a:hover{text-decoration:underline;}
 
   .wrap{max-width:720px;margin:0 auto;padding:0 28px;}
-
-  nav{display:flex;align-items:center;justify-content:space-between;padding:22px 0;max-width:1080px;margin:0 auto;padding-left:28px;padding-right:28px;}
+  .hwrap{max-width:1080px;margin:0 auto;padding:0 28px;}
+  .site-header{position:sticky;top:0;z-index:50;}
+  .header-glass{position:absolute;left:0;right:0;top:0;height:calc(100% + 56px);pointer-events:none;z-index:-1;opacity:0;transition:opacity 0.25s ease;}
+  .site-header.scrolled .header-glass{opacity:1;}
+  .header-glass span{position:absolute;inset:0;}
+  /* 8層、消える位置を少しずつずらして重ねる: どの深さでも常に複数層が薄く
+     効いている状態を作ることで、合成結果がなめらかな連続に見える。
+     表示範囲(header-glassの高さ)自体も96px→56pxへ縮め、フェードが
+     ヒーローの奥まで間延びしないようにしている */
+  .header-glass span:nth-child(1){background:rgba(251,251,250,0.42);backdrop-filter:blur(22px) saturate(1.6);-webkit-backdrop-filter:blur(22px) saturate(1.6);-webkit-mask-image:linear-gradient(to bottom,#000 0%,#000 32%,transparent 50%);mask-image:linear-gradient(to bottom,#000 0%,#000 32%,transparent 50%);}
+  .header-glass span:nth-child(2){background:rgba(251,251,250,0.38);backdrop-filter:blur(17px) saturate(1.55);-webkit-backdrop-filter:blur(17px) saturate(1.55);-webkit-mask-image:linear-gradient(to bottom,#000 0%,#000 38%,transparent 57%);mask-image:linear-gradient(to bottom,#000 0%,#000 38%,transparent 57%);}
+  .header-glass span:nth-child(3){background:rgba(251,251,250,0.34);backdrop-filter:blur(13px) saturate(1.5);-webkit-backdrop-filter:blur(13px) saturate(1.5);-webkit-mask-image:linear-gradient(to bottom,#000 0%,#000 44%,transparent 64%);mask-image:linear-gradient(to bottom,#000 0%,#000 44%,transparent 64%);}
+  .header-glass span:nth-child(4){background:rgba(251,251,250,0.30);backdrop-filter:blur(9px) saturate(1.45);-webkit-backdrop-filter:blur(9px) saturate(1.45);-webkit-mask-image:linear-gradient(to bottom,#000 0%,#000 50%,transparent 71%);mask-image:linear-gradient(to bottom,#000 0%,#000 50%,transparent 71%);}
+  .header-glass span:nth-child(5){background:rgba(251,251,250,0.27);backdrop-filter:blur(6px) saturate(1.4);-webkit-backdrop-filter:blur(6px) saturate(1.4);-webkit-mask-image:linear-gradient(to bottom,#000 0%,#000 56%,transparent 78%);mask-image:linear-gradient(to bottom,#000 0%,#000 56%,transparent 78%);}
+  .header-glass span:nth-child(6){background:rgba(251,251,250,0.24);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);-webkit-mask-image:linear-gradient(to bottom,#000 0%,#000 62%,transparent 85%);mask-image:linear-gradient(to bottom,#000 0%,#000 62%,transparent 85%);}
+  .header-glass span:nth-child(7){background:rgba(251,251,250,0.21);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);-webkit-mask-image:linear-gradient(to bottom,#000 0%,#000 68%,transparent 92%);mask-image:linear-gradient(to bottom,#000 0%,#000 68%,transparent 92%);}
+  .header-glass span:nth-child(8){background:rgba(251,251,250,0.20);-webkit-mask-image:linear-gradient(to bottom,#000 0%,#000 74%,transparent 100%);mask-image:linear-gradient(to bottom,#000 0%,#000 74%,transparent 100%);}
+  nav{display:flex;align-items:center;justify-content:space-between;padding:22px 0;}
   .brand{display:flex;align-items:center;gap:12px;font-family:var(--display);font-weight:700;font-size:23px;color:var(--ink);}
   .brand img{width:40px;height:40px;border-radius:9px;}
+  nav .links{display:flex;gap:26px;font-size:14px;font-weight:500;color:var(--ink-dim);}
+  nav .links a{color:var(--ink-dim);transition:color 0.15s;}
+  nav .links a:hover{color:var(--ink);}
+  nav .nav-cta{
+    font-family:var(--sans);font-weight:600;font-size:13.5px;color:#fff;background:var(--ink);
+    padding:9px 18px;border-radius:999px;white-space:nowrap;
+  }
+  nav .nav-cta:hover{opacity:0.85;}
+  @media (max-width:860px){ nav .links{display:none;} }
+
 
   main{padding:24px 0 96px;}
   h1{font-family:var(--display);font-weight:700;letter-spacing:-0.01em;font-size:32px;margin:0 0 8px;color:var(--ink);}
@@ -64,9 +90,22 @@
 </head>
 <body>
 
-<nav>
-  <a class="brand plain" href="index.html"><img src="icon.png" alt="Bridge" />Bridge</a>
-</nav>
+<header class="site-header" id="site-header">
+  <div class="hwrap">
+    <nav>
+      <a class="brand" href="index.html"><img src="icon.png" alt="Bridge" />Bridge</a>
+      <div class="links">
+        <a href="index.html#features">機能</a>
+        <a href="index.html#privacy">プライバシー</a>
+        <a href="index.html#getting-started">はじめかた</a>
+        <a href="index.html#faq">よくある質問</a>
+        <a href="https://github.com/haruhito767676/bridge" target="_blank" rel="noopener">GitHub</a>
+      </div>
+      <a class="nav-cta" href="index.html#download">ダウンロード</a>
+    </nav>
+  </div>
+  <div class="header-glass" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+</header>
 
 <div class="wrap">
 <main>
@@ -132,5 +171,14 @@
   </div>
 </footer>
 
+<script>
+  (function () {
+    var header = document.getElementById('site-header');
+    if (!header) return;
+    function sync() { header.classList.toggle('scrolled', window.scrollY > 8); }
+    sync();
+    window.addEventListener('scroll', sync, { passive: true });
+  })();
+</script>
 </body>
 </html>
