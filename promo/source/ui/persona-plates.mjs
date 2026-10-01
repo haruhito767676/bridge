@@ -79,6 +79,11 @@ for (const [key, P] of Object.entries(PERSONAS)) {
   const dir = path.join(OUT, key); mkdirSync(dir, { recursive: true });
   await open('darwin', '自分のMac');
   await ev(`window.__emit('restore-items', ${JSON.stringify(P.items.map(toSaved))}); window.__emit('shelter-expanded',{focus:false});`); await sleep(1300);
+  if (key === 'creator') {   // ファイルをパネルへドラッグして重ねたときの青いハイライト (実 UI の body.drag-mode)。新しい項目が入る前の並びで撮る
+    await ev(`document.body.classList.add('drag-mode')`); await sleep(450);
+    await shotTo(path.join(dir, 'over.png'), { x: 0, y: 0, width: 320, height: 600 });
+    await ev(`document.body.classList.remove('drag-mode')`); await sleep(300);
+  }
   for (const nw of P.news || []) {
     if (nw.k === 'image') await ev(`window.__emit('clipboard-item', ${JSON.stringify({ type: 'clipboard-image', path: D(nw.name), timestamp: tsOf(nw), sourceApp: app(nw.a) })})`);
     else await ev(`Date.now = () => ${tsOf(nw)}; window.__emit('add-file', ${JSON.stringify({ path: D(nw.name), name: nw.name, timestamp: tsOf(nw) })})`);

@@ -88,6 +88,7 @@ html,body{width:1920px;height:1080px;overflow:hidden;background:#f4f5f8;font-fam
 .panel{position:absolute;left:0;top:0;width:320px;height:600px;overflow:hidden;border-radius:14px 0 0 14px;background:rgba(250,250,251,.86);backdrop-filter:blur(30px) saturate(1.7);box-shadow:inset 0 0 0 .5px rgba(0,0,0,.12),0 26px 64px -20px rgba(20,20,25,.34),0 0 0 1px rgba(0,0,0,.05)}
 .panel img,.pview img{position:absolute;left:0;width:320px;height:auto}
 .pview{position:absolute;left:0;overflow:hidden;width:320px}
+.panel img.overp{top:0;height:600px;opacity:0;pointer-events:none}
 .pill{position:absolute;left:1592px;top:400px;width:6px;height:72px;border-radius:3px;background:rgba(0,0,0,.28);z-index:9}
 .newhl{position:absolute;left:8px;width:304px;border-radius:10px;background:rgba(10,132,255,.2);opacity:0}
 .popglass{position:absolute;width:300px;height:380px;border-radius:14px;overflow:hidden;transform-origin:0 0;z-index:20;background:rgba(250,250,252,.82);backdrop-filter:blur(30px) saturate(1.7);box-shadow:inset 0 0 0 .5px rgba(0,0,0,.16),0 24px 70px rgba(0,0,0,.28)}
@@ -149,10 +150,11 @@ class Panel {
     const v = this.view = document.createElement('div'); v.className = 'pview'; v.style.top = m.dz.top + 'px'; v.style.height = (m.dz.bottom - m.dz.top) + 'px'; el.appendChild(v);
     this.n = m.rows.map((r, i) => r.skipped ? null : { i, top: r.top, h: r.height, img: mk(base + `row${i}.png`, v) });
     this.dzTop = m.dz.top;
+    if (key === 'creator') { const ov = this.over = mk(base + 'over.png', el); ov.className = 'overp'; }
     this.hl = Array.from({ length: m.newCount }, () => { const d = document.createElement('div'); d.className = 'newhl'; el.appendChild(d); return d; });
   }
   rowY(i) { const r = this.m.rows[i]; return 130 + r.top + r.height / 2; }   // 画面座標 (スロットは top:130)
-  update(ps, dim, hls) {
+  update(ps, dim, hls, over = 0) {
     const n = this.n, top = this.dzTop, m = this.m.newCount, sh = [], ys = [];
     for (let j = 1; j <= m; j++) sh[j] = n[j + 1].top - n[j].top;
     n.forEach(r => {
@@ -161,11 +163,13 @@ class Panel {
       for (let j = 1; j <= m; j++) if (r.i > j) y -= sh[j] * (1 - ps[j - 1]);
       if (r.i >= 1 && r.i <= m) { const p = ps[r.i - 1]; o = clamp(p * 1.5); y -= 18 * (1 - p); sc = .96 + .04 * clamp(p); blur = 6 * (1 - clamp(p)); }
       if (dim && dim.i === r.i) o *= dim.o;
+      o *= 1 - over;
       ys[r.i] = y;
       r.img.style.opacity = o.toFixed(3);
       r.img.style.transform = `translate3d(0,${(y - top).toFixed(2)}px,0) scale(${sc.toFixed(4)})`;
       r.img.style.filter = blur > .2 ? `blur(${blur.toFixed(1)}px)` : '';
     });
+    if (this.over) this.over.style.opacity = over.toFixed(3);   // ドラッグして重ねたとき: 青い枠 + リストが薄くなる (実アプリの表示)
     this.hl.forEach((d, k) => { d.style.top = ys[k + 1] + 'px'; d.style.height = (n[k + 1].h + 4) + 'px'; d.style.opacity = ((hls && hls[k]) || 0).toFixed(3); });
   }
 }
@@ -220,7 +224,7 @@ function scene2(u) {
   const drag = u >= 2.6 && u < 4.28;
   $('dic1').classList.toggle('sel', u >= 2.45 && u < 4.1); $('dic1').style.opacity = drag ? .45 : 1;
   const p2 = spring(u - 4.1, 95, 14), p1 = spring(u - 6.2, 95, 14);
-  panels.creator.update([clamp(p1, 0, 1.06), clamp(p2, 0, 1.06)], null, [.95 * P(u, 6.4, 6.7) * (1 - P(u, 7.0, 8.0)), .9 * P(u, 4.3, 4.55) * (1 - P(u, 4.9, 5.7))]);
+  panels.creator.update([clamp(p1, 0, 1.06), clamp(p2, 0, 1.06)], null, [.95 * P(u, 6.4, 6.7) * (1 - P(u, 7.0, 8.0)), .9 * P(u, 4.3, 4.55) * (1 - P(u, 4.9, 5.7))], P(u, 3.3, 3.45) * (1 - P(u, 4.05, 4.18)));
   const pos = path(KF2, u), gp = P(u, 4.05, 4.28);
   setGhost(2, pos, drag ? 1 - E.in(gp) : 0, 1 - .5 * gp);
   $('fgsel').style.display = u >= 5.5 ? '' : 'none';
