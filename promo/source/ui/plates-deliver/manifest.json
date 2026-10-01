@@ -1,0 +1,302 @@
+{
+ "win": {
+  "dz": {
+   "top": 86,
+   "bottom": 559,
+   "left": 0,
+   "right": 299
+  },
+  "rows": [
+   {
+    "cls": "section-header",
+    "top": 86,
+    "height": 18.84375,
+    "text": "今日"
+   },
+   {
+    "cls": "file-item",
+    "top": 106.84375,
+    "height": 66.390625,
+    "text": "デモ撮影_素材.mov"
+   },
+   {
+    "cls": "file-item",
+    "top": 175.234375,
+    "height": 66.390625,
+    "text": "プロジェクト資料"
+   },
+   {
+    "cls": "file-item",
+    "top": 243.625,
+    "height": 66.390625,
+    "text": "提案資料_リニューアル方針.pptx"
+   },
+   {
+    "cls": "file-item",
+    "top": 312.015625,
+    "height": 66.390625,
+    "text": "clipboard_2026-09-30_13-25-20…"
+   },
+   {
+    "cls": "file-item",
+    "top": 380.40625,
+    "height": 66.390625,
+    "text": "次回定例は10/15(木) 14:00"
+   },
+   {
+    "cls": "file-item",
+    "top": 448.796875,
+    "height": 83.9375,
+    "text": "https://github.com/example-team/ec-renew"
+   },
+   {
+    "cls": "file-item",
+    "top": 534.734375,
+    "height": 83.9375,
+    "text": "本日17時までにデザイン差し戻しをお願いします🙏"
+   },
+   {
+    "cls": "file-item",
+    "top": 620.671875,
+    "height": 54,
+    "text": "見積書_ECサイト改修_v2.pdf"
+   },
+   {
+    "cls": "file-item",
+    "top": 676.671875,
+    "height": 64.9375,
+    "text": "在庫アラートのしきい値を10→15に変更してもらえますか？"
+   },
+   {
+    "cls": "file-item",
+    "top": 743.609375,
+    "height": 54,
+    "text": "clipboard_2026-09-14_15-40-00…"
+   },
+   {
+    "cls": "file-item",
+    "top": 799.609375,
+    "height": 66.390625,
+    "text": "検収書_9月分.pdf"
+   },
+   {
+    "cls": "file-item",
+    "top": 868,
+    "height": 54,
+    "text": "ロゴ差分_v3.png"
+   },
+   {
+    "cls": "file-item",
+    "top": 924,
+    "height": 64.9375,
+    "text": "ssh deploy@192.168.1.42 -p 2222"
+   },
+   {
+    "cls": "file-item",
+    "top": 990.9375,
+    "height": 66.390625,
+    "text": "議事録_1010_定例MTG.txt"
+   },
+   {
+    "cls": "file-item",
+    "top": 1059.328125,
+    "height": 83.9375,
+    "text": "会議室Bを10:00〜11:00で予約しました。プロジェクターの予約も忘れずに。"
+   },
+   {
+    "cls": "file-item",
+    "top": 1145.265625,
+    "height": 66.390625,
+    "text": "契約書_業務委託.docx"
+   },
+   {
+    "cls": "file-item",
+    "top": 1213.65625,
+    "height": 83.9375,
+    "text": "npm run build && npm run deploy"
+   },
+   {
+    "cls": "section-header",
+    "top": 1299.59375,
+    "height": 26.84375,
+    "text": "昨日"
+   },
+   {
+    "cls": "file-item",
+    "top": 1328.4375,
+    "height": 54,
+    "text": "経費精算_9月.xlsx"
+   },
+   {
+    "cls": "file-item",
+    "top": 1384.4375,
+    "height": 66.390625,
+    "text": "clipboard_2026-09-13_11-05-00…"
+   },
+   {
+    "cls": "file-item",
+    "top": 1452.828125,
+    "height": 83.9375,
+    "text": "https://www.figma.com/file/abcd1234/EC-R"
+   },
+   {
+    "cls": "file-item",
+    "top": 1538.765625,
+    "height": 66.390625,
+    "text": "納品リスト_10月.xlsx"
+   }
+  ],
+  "sync": {
+   "rows": [
+    {
+     "cls": "section-header",
+     "top": 86,
+     "height": 18.84375,
+     "text": "今日"
+    },
+    {
+     "cls": "file-item syncing entering",
+     "top": 106.84375,
+     "height": 66.390625,
+     "text": "デモ撮影_素材.mov"
+    },
+    {
+     "cls": "file-item",
+     "top": 175.234375,
+     "height": 66.390625,
+     "text": "プロジェクト資料"
+    },
+    {
+     "cls": "file-item",
+     "top": 243.625,
+     "height": 66.390625,
+     "text": "提案資料_リニューアル方針.pptx"
+    },
+    {
+     "cls": "file-item",
+     "top": 312.015625,
+     "height": 66.390625,
+     "text": "clipboard_2026-09-30_13-25-20…"
+    },
+    {
+     "cls": "file-item",
+     "top": 380.40625,
+     "height": 66.390625,
+     "text": "次回定例は10/15(木) 14:00"
+    },
+    {
+     "cls": "file-item",
+     "top": 448.796875,
+     "height": 83.9375,
+     "text": "https://github.com/example-team/ec-renew"
+    },
+    {
+     "cls": "file-item",
+     "top": 534.734375,
+     "height": 83.9375,
+     "text": "本日17時までにデザイン差し戻しをお願いします🙏"
+    },
+    {
+     "cls": "file-item",
+     "top": 620.671875,
+     "height": 54,
+     "text": "見積書_ECサイト改修_v2.pdf"
+    },
+    {
+     "cls": "file-item",
+     "top": 676.671875,
+     "height": 64.9375,
+     "text": "在庫アラートのしきい値を10→15に変更してもらえますか？"
+    },
+    {
+     "cls": "file-item",
+     "top": 743.609375,
+     "height": 54,
+     "text": "clipboard_2026-09-14_15-40-00…"
+    },
+    {
+     "cls": "file-item",
+     "top": 799.609375,
+     "height": 66.390625,
+     "text": "検収書_9月分.pdf"
+    },
+    {
+     "cls": "file-item",
+     "top": 868,
+     "height": 54,
+     "text": "ロゴ差分_v3.png"
+    },
+    {
+     "cls": "file-item",
+     "top": 924,
+     "height": 64.9375,
+     "text": "ssh deploy@192.168.1.42 -p 2222"
+    },
+    {
+     "cls": "file-item",
+     "top": 990.9375,
+     "height": 66.390625,
+     "text": "議事録_1010_定例MTG.txt"
+    },
+    {
+     "cls": "file-item",
+     "top": 1059.328125,
+     "height": 83.9375,
+     "text": "会議室Bを10:00〜11:00で予約しました。プロジェクターの予約も忘れずに。"
+    },
+    {
+     "cls": "file-item",
+     "top": 1145.265625,
+     "height": 66.390625,
+     "text": "契約書_業務委託.docx"
+    },
+    {
+     "cls": "file-item",
+     "top": 1213.65625,
+     "height": 83.9375,
+     "text": "npm run build && npm run deploy"
+    },
+    {
+     "cls": "section-header",
+     "top": 1299.59375,
+     "height": 26.84375,
+     "text": "昨日"
+    },
+    {
+     "cls": "file-item",
+     "top": 1328.4375,
+     "height": 54,
+     "text": "経費精算_9月.xlsx"
+    },
+    {
+     "cls": "file-item",
+     "top": 1384.4375,
+     "height": 66.390625,
+     "text": "clipboard_2026-09-13_11-05-00…"
+    },
+    {
+     "cls": "file-item",
+     "top": 1452.828125,
+     "height": 83.9375,
+     "text": "https://www.figma.com/file/abcd1234/EC-R"
+    },
+    {
+     "cls": "file-item",
+     "top": 1538.765625,
+     "height": 66.390625,
+     "text": "納品リスト_10月.xlsx"
+    }
+   ],
+   "idx": 1,
+   "spinner": {
+    "x": 26.993993759155273,
+    "y": 26.181488037109375,
+    "w": 18.01201057434082,
+    "h": 18.01202392578125,
+    "border": "2px",
+    "track": "rgba(120, 120, 128, 0.24)",
+    "head": "rgba(60, 60, 67, 0.6)"
+   }
+  }
+ }
+}
