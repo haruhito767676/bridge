@@ -178,7 +178,7 @@ const bez = (x1, y1, x2, y2) => x => {
   for (let i = 0; i < 22; i++) { u = (lo + hi) / 2; const bx = 3 * (1 - u) * (1 - u) * u * x1 + 3 * (1 - u) * u * u * x2 + u * u * u; if (bx < x) lo = u; else hi = u; }
   return 3 * (1 - u) * (1 - u) * u * y1 + 3 * (1 - u) * u * u * y2 + u * u * u;
 };
-const E = { out: bez(.16, 1, .3, 1), inOut: bez(.65, 0, .35, 1), in: bez(.5, 0, .75, 0) };
+const E = { out: bez(.16, 1, .3, 1), inOut: bez(.65, 0, .35, 1), in: bez(.5, 0, .75, 0), cur: bez(.4, 0, .25, 1) };   // cur: カーソルの移動 (ゆるやかに出て、ゆるやかに止まる)
 const W0 = 2 * Math.PI / 0.32, crit = dt => dt <= 0 ? 0 : 1 - (1 + W0 * dt) * Math.exp(-W0 * dt);
 class Panel {
   constructor(key, slot, cls) {
@@ -214,7 +214,7 @@ const PW = new Panel('win', $('wslot'), 'fluent');   // 3 章: Windows のパネ
 const ROWY = PW.rowY();
 function path(kf, u) {
   if (u <= kf[0][0]) return [kf[0][1], kf[0][2]];
-  for (let i = 1; i < kf.length; i++) if (u <= kf[i][0]) { const a = kf[i - 1], b = kf[i], p = E.inOut(P(u, a[0], b[0])); return [lerp(a[1], b[1], p), lerp(a[2], b[2], p)]; }
+  for (let i = 1; i < kf.length; i++) if (u <= kf[i][0]) { const a = kf[i - 1], b = kf[i], p = E.cur(P(u, a[0], b[0])); return [lerp(a[1], b[1], p), lerp(a[2], b[2], p)]; }
   const l = kf[kf.length - 1]; return [l[1], l[2]];
 }
 const setOp = (id, v) => { $(id).style.opacity = clamp(v).toFixed(3); };
@@ -336,7 +336,7 @@ function ch3(t) {
   // カーソル
   const a = [L.x - 6, L.y + L.h / 2], b = [L.x + L.w, L.y + L.h / 2], pt = [PB.x + 4, PB.y + 18];
   const mkf = [[0, 1420, 560], [.4, 1420, 560], [.9, a[0], a[1]], [T3.sel0, a[0], a[1]], [T3.sel1, b[0], b[1]], [3.0, b[0] + 70, b[1] + 80], [4.2, 1000, 640]];
-  const wkf = [[0, 1300, 560], [1.6, 1300, 560], [T3.hover - .1, 1591, 436], [4.3, 1591, 436], [T3.click - .4, 1440, ROWY], [T3.click + 1.0, 1440, ROWY], [T3.leave + .8, pt[0] + 60, pt[1] + 50], [T3.wclick, pt[0], pt[1]], [9.0, pt[0], pt[1]]];
+  const wkf = [[0, 1300, 560], [1.6, 1300, 560], [T3.hover - .1, 1591, 436], [4.3, 1591, 436], [T3.click - .4, 1440, ROWY], [T3.click + .9, 1440, ROWY], [T3.wclick - .05, pt[0], pt[1]], [9.0, pt[0], pt[1]]];
   cursorAt('mcur', path(mkf, t), P(t, .3, .5) * (1 - P(t, 3.8, 4.3)), pressed(t, [T3.sel0]));
   cursorAt('wcur', path(wkf, t), P(t, 1.5, 1.8) * (1 - P(t, 9.6, 10.0)), pressed(t, [T3.click, T3.wclick]));
 }

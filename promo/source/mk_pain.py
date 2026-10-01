@@ -121,17 +121,23 @@ const clk = (id, m) => { const e = $(id); if (e) e.textContent = '13:' + String(
 const wait = (u, a, b) => Math.min(1, Math.max(0, (u - a) / (b - a)));
 
 // ---------- 章 1: メールを自分宛てに送る ----------
-const M1 = { attach: [1340, 92], send: [1304, 550], refresh: [B + 903, 308], row: [B + 780, 362], chipB: [B + 1069, 478] };
-const KF1 = [[0.4, 1450, 650], [1.3, M1.attach[0], M1.attach[1], 1500, 500, 1400, 300], [1.9, M1.attach[0], M1.attach[1]], [2.9, M1.send[0], M1.send[1], 1500, 300, 1400, 600], [3.2, M1.send[0], M1.send[1]],
+const M1 = { attach: [1340, 92], send: [1332, 552], refresh: [B + 903, 308], row: [B + 780, 362], chipB: [B + 1069, 478] };
+const KF1 = [[0.4, 1450, 650], [1.3, M1.attach[0], M1.attach[1], 1500, 500, 1400, 300], [1.9, M1.attach[0], M1.attach[1]], [2.9, M1.send[0], M1.send[1], 1500, 300, 1400, 600], [4.3, M1.send[0], M1.send[1]],
   [5.4, B + 1300, 520], [6.0, M1.refresh[0], M1.refresh[1], B + 1100, 400, B + 1000, 330], [6.35, M1.refresh[0], M1.refresh[1]],
   [8.1, M1.row[0], M1.row[1], B + 900, 420, B + 800, 380], [8.5, M1.row[0], M1.row[1]], [9.3, M1.chipB[0], M1.chipB[1]], [9.7, M1.chipB[0], M1.chipB[1]], [10.3, B + 1300, 640]];
 function ch1(u) {
-  const pan = E.soft(P(u, 4.1, 5.1));
-  // A: 添付 → 送信 → 送信中 → 閉じる
-  $('c1_chip').style.opacity = wait(u, 1.9, 2.05).toFixed(3);
-  const sp = P(u, 3.3, 4.0); $('c1_prog').firstElementChild.style.width = (sp * 100).toFixed(1) + '%'; $('c1_prog').style.opacity = (u >= 3.3 && u < 4.1) ? 1 : 0;
-  const closeP = E.in(P(u, 3.95, 4.2)); $('c1_win').style.opacity = (1 - closeP).toFixed(3); $('c1_win').style.transform = `scale(${(1 - .06 * closeP).toFixed(4)})`;
-  clk('c1_clkA', u >= 4.0 ? 27 : 26);
+  const pan = E.soft(P(u, 4.4, 5.4));
+  const pulse = (a, d) => Math.sin(P(u, a, a + d) * Math.PI);   // 押して戻る (0 → 1 → 0)
+  // A: 添付ボタンを押す (丸く光って縮む) → 添付が入る (ぽんと現れる) → 送信を押す (沈む) → 送信中 → 送信済み → 閉じる
+  const cl = pulse(1.25, .3); $('c1_clip').style.background = `rgba(0,0,0,${(.09 * clamp(P(u, 1.0, 1.25)) * (1 - P(u, 1.7, 1.9)) + .06 * cl).toFixed(3)})`; $('c1_clip').style.transform = `scale(${(1 - .14 * cl).toFixed(3)})`;
+  const ch = E.out(P(u, 1.9, 2.25)); $('c1_chip').style.opacity = clamp(ch * 3).toFixed(3); $('c1_chip').style.transform = `translate3d(0,${(10 * (1 - ch)).toFixed(1)}px,0) scale(${(.94 + .06 * ch).toFixed(3)})`;
+  const sd = pulse(2.85, .3), sendOn = u >= 3.85;
+  $('c1_send').style.transform = `scale(${(1 - .07 * sd).toFixed(3)})`; $('c1_send').style.filter = `brightness(${(1 - .12 * sd).toFixed(3)})`;
+  $('c1_send').style.background = sendOn ? '#28a745' : '#0a84ff'; $('c1_send').style.boxShadow = sendOn ? '0 4px 12px rgba(40,167,69,.35)' : '0 4px 12px rgba(10,132,255,.35)';
+  $('c1_sendl').textContent = u < 3.05 ? '送信' : (u < 3.85 ? '送信中…' : '送信済み ✓');
+  const sp = P(u, 3.3, 3.85); $('c1_prog').firstElementChild.style.width = (sp * 100).toFixed(1) + '%'; $('c1_prog').style.opacity = (u >= 3.3 && u < 3.95) ? 1 : 0;
+  const closeP = E.in(P(u, 4.25, 4.5)); $('c1_win').style.opacity = (1 - closeP).toFixed(3); $('c1_win').style.transform = `scale(${(1 - .06 * closeP).toFixed(4)})`;
+  clk('c1_clkA', u >= 4.25 ? 27 : 26);
   // B: 更新 → くるくる → 届く → 開く → 添付を保存
   const spin = u >= 6.35 && u < 8.0; $('c1_spin').style.opacity = spin ? 1 : 0; $('c1_spin').style.transform = `rotate(${(u * 360).toFixed(0)}deg)`;
   const nr = spring(u - 8.0, 130, 16); $('c1_new').style.opacity = clamp(P(u, 8.0, 8.15)).toFixed(3);
@@ -141,7 +147,7 @@ function ch1(u) {
   const dp = P(u, 9.7, 10.35); $('c1_dl').firstElementChild.style.width = (dp * 100).toFixed(1) + '%'; $('c1_dl').style.opacity = u >= 9.7 ? 1 : 0;
   $('c1_saved').style.opacity = wait(u, 10.4, 10.55).toFixed(3);
   clk('c1_clkB', u >= 8.0 ? 31 : 27);
-  return { cam: pan, pos: path(KF1, u), op: wait(u, 0.4, 0.6) * (1 - wait(u, 3.95, 4.2)) + wait(u, 5.2, 5.4), press: (u > 1.28 && u < 1.42) || (u > 2.88 && u < 3.02) || (u > 6.0 && u < 6.14) || (u > 8.1 && u < 8.24) || (u > 9.28 && u < 9.42) };
+  return { cam: pan, pos: path(KF1, u), op: wait(u, 0.4, 0.6) * (1 - wait(u, 4.2, 4.45)) + wait(u, 5.3, 5.5), press: (u > 1.28 && u < 1.42) || (u > 2.88 && u < 3.02) || (u > 6.0 && u < 6.14) || (u > 8.1 && u < 8.24) || (u > 9.28 && u < 9.42) };
 }
 
 // ---------- 章 2: Slack の「自分だけ」へ URL を貼る ----------
@@ -302,13 +308,13 @@ def winpc(clkid, icons, running, body, left=1400, ox=-400, oy=-226):
 
 # ================= 章 1: メール =================
 mailA = ('<div class="win" id="c1_win" style="left:560px;top:70px;width:820px;height:520px"><div class="bar">' + tls() + '<span style="margin-left:14px">新規メッセージ</span>'
-         '<svg style="margin-left:auto;width:20px;height:20px;opacity:.5" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="1.8" stroke-linecap="round"><path d="M20 11.5l-7.7 7.7a5 5 0 0 1-7-7l8.4-8.4a3.3 3.3 0 0 1 4.7 4.7l-8.4 8.4a1.7 1.7 0 0 1-2.4-2.4L15 7.3"/></svg></div>'
+         '<span id="c1_clip" style="margin-left:auto;width:30px;height:30px;border-radius:15px;display:flex;align-items:center;justify-content:center"><svg style="width:20px;height:20px;opacity:.55" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="1.8" stroke-linecap="round"><path d="M20 11.5l-7.7 7.7a5 5 0 0 1-7-7l8.4-8.4a3.3 3.3 0 0 1 4.7 4.7l-8.4 8.4a1.7 1.7 0 0 1-2.4-2.4L15 7.3"/></svg></span></div>'
          '<div style="position:absolute;left:28px;top:56px;display:flex;align-items:center;gap:14px;font:15px var(--display);color:#8a8a90"><b style="font-weight:500;width:44px">宛先</b><span style="display:inline-flex;align-items:center;gap:8px;height:26px;padding:0 12px 0 5px;border-radius:13px;background:rgba(10,132,255,.14);color:#0a63c9;font:600 13.5px var(--display)"><i style="width:17px;height:17px;border-radius:9px;background:#5b8cff;display:block"></i>自分</span></div>'
          '<div style="position:absolute;left:28px;top:96px;display:flex;align-items:center;gap:14px;font:15px var(--display);color:#8a8a90"><b style="font-weight:500;width:44px">件名</b><span style="color:#1d1d1f">資料</span></div>'
          '<div style="position:absolute;left:0;right:0;top:142px;height:1px;background:rgba(0,0,0,.08)"></div>'
          '<div style="position:absolute;left:28px;top:160px;width:300px"><div class="sl" style="width:260px;margin-bottom:12px"></div><div class="sl" style="width:200px"></div></div>'
          '<div style="position:absolute;left:28px;right:28px;top:300px;height:110px;border-radius:12px;box-shadow:inset 0 0 0 1.5px rgba(0,0,0,.1);background:rgba(0,0,0,.02)"><div class="chip" id="c1_chip" style="position:absolute;left:14px;top:14px;opacity:0">' + fsvg('pdf') + '<div>資料.pdf<small>PDF · 212 KB</small></div></div></div>'
-         '<div class="btn" style="position:absolute;right:24px;bottom:20px">送信</div>'
+         '<div class="btn" id="c1_send" style="position:absolute;right:24px;bottom:20px;min-width:104px;gap:6px"><span id="c1_sendl">送信</span></div>'
          '<div id="c1_prog" class="pbar" style="position:absolute;left:0;right:0;bottom:0;height:5px;border-radius:0;opacity:0"><i></i></div></div>')
 scrA1 = mac('c1_clkA', 'メール', 'c1_mb', ['ファイル', '編集', '表示', 'メールボックス', 'メッセージ', 'ウインドウ', 'ヘルプ'], ['Finder', 'Mail', 'Chrome', 'Slack'], ['Finder', 'Mail'], mailA)
 rowsB = ''.join(f'<div style="height:64px;padding:12px 14px;box-shadow:inset 0 -1px 0 rgba(0,0,0,.06)"><div class="sl d" style="width:{w}px;margin-bottom:9px"></div><div class="sl" style="width:{w2}px"></div></div>' for w, w2 in [(90, 200), (120, 170), (70, 220), (100, 150)])
@@ -334,9 +340,10 @@ scrB1 = winpc('c1_clkB', ['Mail', 'Chrome', 'Excel', 'Word'], 'Mail', mailB + sa
 # ================= 章 2: Slack =================
 # 画面の座標 (1200x675) で書く。Mac は左上が (0,0)、Windows も同じ (mac()/winpc() の基準をずらさない: ox=0, oy=0)
 def msgs(items):
+    # 「自分だけ」のチャンネルなので、書いている人は自分ひとり: アイコンは 1 色、名前の長さも同じ
     out = ''
-    for c, w, w2 in items:
-        out += f'<div style="display:flex;gap:12px;height:62px;flex:none"><u style="width:34px;height:34px;border-radius:8px;background:{c};display:block;flex:none"></u><div><div class="sl d" style="width:{w}px;margin-bottom:8px"></div><div class="sl" style="width:{w2}px"></div></div></div>'
+    for _c, _w, w2 in items:
+        out += f'<div style="display:flex;gap:12px;height:62px;flex:none"><u style="width:34px;height:34px;border-radius:8px;background:#0a84ff;display:block;flex:none"></u><div><div class="sl d" style="width:70px;margin-bottom:8px"></div><div class="sl" style="width:{w2}px"></div></div></div>'
     return out
 
 

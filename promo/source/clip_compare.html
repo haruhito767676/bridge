@@ -91,7 +91,7 @@ const bez = (x1, y1, x2, y2) => x => {
   for (let i = 0; i < 22; i++) { u = (lo + hi) / 2; const bx = 3 * (1 - u) * (1 - u) * u * x1 + 3 * (1 - u) * u * u * x2 + u * u * u; if (bx < x) lo = u; else hi = u; }
   return 3 * (1 - u) * (1 - u) * u * y1 + 3 * (1 - u) * u * u * y2 + u * u * u;
 };
-const E = { out: bez(.16, 1, .3, 1), inOut: bez(.65, 0, .35, 1), in: bez(.5, 0, .75, 0) };
+const E = { out: bez(.16, 1, .3, 1), inOut: bez(.65, 0, .35, 1), in: bez(.5, 0, .75, 0), cur: bez(.4, 0, .25, 1) };   // cur: カーソルの移動 (ゆるやかに出て、ゆるやかに止まる)
 const COPROW = 3;   // 履歴の古い項目 (3 行目: 「本日17時までにデザイン差し戻しを…」) をクリックして取り出す
 class Panel {
   constructor(key, slot, cls) {
@@ -119,7 +119,7 @@ const PM = new Panel('mac', $('mslot'), 'glass'), PW = new Panel('win', $('wslot
 const ROWY = PM.rowY(COPROW);
 function path(kf, u) {
   if (u <= kf[0][0]) return [kf[0][1], kf[0][2]];
-  for (let i = 1; i < kf.length; i++) if (u <= kf[i][0]) { const a = kf[i - 1], b = kf[i], p = E.inOut(P(u, a[0], b[0])); return [lerp(a[1], b[1], p), lerp(a[2], b[2], p)]; }
+  for (let i = 1; i < kf.length; i++) if (u <= kf[i][0]) { const a = kf[i - 1], b = kf[i], p = E.cur(P(u, a[0], b[0])); return [lerp(a[1], b[1], p), lerp(a[2], b[2], p)]; }
   const l = kf[kf.length - 1]; return [l[1], l[2]];
 }
 // 時間割 (両 OS で同じ)。開閉は実アプリと同じ臨界減衰のスプリング (応答 0.32 秒・行き過ぎない)
@@ -152,7 +152,7 @@ function side(T, k, PN) {
   $(k + 'caret').style.opacity = (T >= T_PCLICK && T < T_PASTE) ? ((Math.floor(T * 2.2) % 2 === 0) ? 1 : 0) : 0;
   // ---- カーソル ----
   const a = [L.x - 6, L.y + L.h / 2], b = [L.x + L.w, L.y + L.h / 2], pt = [PB.x + 4, PB.y + 18];
-  const kf = [[0.4, 1420, 560], [0.9, a[0], a[1]], [T_SEL0, a[0], a[1]], [T_SEL1, b[0], b[1]], [3.0, b[0] + 70, b[1] + 80], [T_HOVER - .2, 1591, 436], [5.2, 1591, 436], [T_CLICK - .3, 1440, ROWY], [T_CLICK + .9, 1440, ROWY], [T_LEAVE + .9, pt[0] + 40, pt[1] + 26], [T_PCLICK, pt[0], pt[1]], [T_PASTE + 1.2, pt[0], pt[1]]];
+  const kf = [[0.4, 1420, 560], [0.9, a[0], a[1]], [T_SEL0, a[0], a[1]], [T_SEL1, b[0], b[1]], [3.0, b[0] + 70, b[1] + 80], [T_HOVER - .2, 1591, 436], [5.2, 1591, 436], [T_CLICK - .3, 1440, ROWY], [T_CLICK + .9, 1440, ROWY], [T_PCLICK - .05, pt[0], pt[1]], [T_PASTE + 1.2, pt[0], pt[1]]];
   const p = path(kf, T), op = P(T, .4, .6) * (1 - P(T, 10.0, 10.4));
   const press = (T > T_SEL0 - .06 && T < T_SEL0 + .08) || (T > T_CLICK - .06 && T < T_CLICK + .08) || (T > T_PCLICK - .06 && T < T_PCLICK + .08) ? .86 : 1;
   const c = $(k + 'cur'); c.style.transform = `translate3d(${p[0].toFixed(1)}px,${p[1].toFixed(1)}px,0) scale(${press})`; c.style.opacity = op.toFixed(3);
