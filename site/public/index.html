@@ -263,26 +263,8 @@
   .laptop-bridge-dock .brd{height:100%;display:flex;flex-direction:column;}
   .laptop-bridge-dock .drop-zone{flex:1;height:auto;}
 
-  /* ---- features: capture → store → pick → deliver の一連の流れとして見せる。
-     矢印を挟んだ4枚を横一列にし、折り返さないことで「向き」を保つ (2x2にすると
-     折り返し地点で矢印の向きが破綻するため) ---- */
-  .features{display:flex;align-items:stretch;gap:0;}
-  .feature{
-    flex:1;min-width:0;background:var(--panel);border-radius:var(--radius-m);padding:24px 16px;
-    position:relative;display:block;color:inherit;text-decoration:none;
-    transition:transform 0.15s ease, box-shadow 0.15s ease;
-  }
-  .feature:hover{transform:translateY(-2px);box-shadow:0 10px 24px -12px rgba(20,20,25,0.22);}
-  .feature-arrow{
-    position:absolute;right:16px;bottom:18px;width:15px;height:15px;color:var(--ink-faint);
-    transition:transform 0.15s ease,color 0.15s ease;
-  }
-  .feature:hover .feature-arrow{transform:translateX(3px);color:var(--ink-dim);}
-  .flow-arrow{flex:0 0 auto;width:22px;display:flex;align-items:center;justify-content:center;color:var(--ink-faint);}
-  .flow-arrow svg{width:15px;height:15px;}
-  .f-icon{width:40px;height:40px;border-radius:11px;background:#fff;display:flex;align-items:center;justify-content:center;margin-bottom:18px;box-shadow:0 1px 2px rgba(0,0,0,0.06);}
-  .f-icon svg{width:20px;height:20px;stroke:var(--accent);}
-  .feature h3{font-size:16.5px;line-height:1.25;margin-bottom:10px;white-space:nowrap;padding-right:20px;}
+  /* ---- features: 導入の1文だけ。直後の詳細セクション (しまう → 呼ぶ → 届く) へそのまま続く ---- */
+  #features{padding-bottom:0;}
   /* ---- history detail: 職種ごとの履歴を横に並べて「なんでも記録」を具体例で見せる。
      本物の.brd(320×610px相当)をtransform:scaleで縮小コピーする (文字サイズや余白を
      個別に作り直すと「本物の縮小」に見えないため、丸ごと物理的に縮小する) ---- */
@@ -309,15 +291,6 @@
   .persona-tab.active{background:#fff;color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,0.08),0 0 0 1px var(--line);}
   .persona-tab::after{content:"";position:absolute;left:14px;right:14px;bottom:3px;height:2px;border-radius:1px;background:var(--accent);transform:scaleX(var(--p,0));transform-origin:0 50%;opacity:0;}
   .persona-tab.active::after{opacity:.9;}
-  /* .featuresは共有の860pxブレークポイントより広い1000pxで先に縦積みへ切り替える
-     (このカード数だと860〜1000px幅で1行タイトルが収まりきらなくなるため、
-     他セクションと同じブレークポイントを流用せずここだけ独自に早める) */
-  @media (max-width:1000px){
-    .features{flex-direction:column;}
-    .flow-arrow{width:auto;height:28px;}
-    .flow-arrow svg{transform:rotate(90deg);}
-  }
-  .feature p{font-size:14px;line-height:1.6;}
 
   /* ---- privacy: 「あなたの手元で完結する」。図解ではなく、南京錠の動画 (本物の UI) で見せる ---- */
   .privacy{background:var(--panel);border-radius:var(--radius-m);padding:56px 44px 48px;}
@@ -332,7 +305,7 @@
   }
   .privacy-point b{display:block;font-size:14.5px;font-weight:600;color:var(--ink);margin-bottom:4px;line-height:1.4;}
   .privacy-point p{margin:0;font-size:13.5px;line-height:1.6;color:var(--ink-dim);}
-  .privacy-point,.feature p,.faq-item p,.detail-text p,.start-step p{word-break:auto-phrase;}
+  .privacy-point,.faq-item p,.detail-text p,.start-step p{word-break:auto-phrase;}
   @media (max-width:860px){
     .privacy-points{grid-template-columns:1fr 1fr;}
   }
@@ -760,33 +733,8 @@
 <div class="wrap">
 
 <section id="features">
-  <div class="prose" style="margin:0 auto 44px;text-align:center;max-width:760px;">
-    <h2 class="features-heading" style="font-size:36px;">なんでも残る。いつでも呼べる。どこでも届く。</h2>
-  </div>
-  <div class="features">
-    <a class="feature" href="#detail-store">
-      <div class="f-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 4V3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1"/></svg></div>
-      <span class="eyebrow">履歴とファイル棚</span>
-      <h3>なんでも、しまえる。</h3>
-      <p>文字も、画像も、ファイルも。フォルダも。<br>そのまま、積もっていく。<br>「さっきのやつ」は、もう<span style="white-space:nowrap;">どこにもいかない。</span></p>
-      <svg class="feature-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-    </a>
-    <div class="flow-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></div>
-    <a class="feature" href="#detail-pick">
-      <div class="f-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="13" height="10" rx="2.5"/><path d="M7 7h5M7 9.5h3"/><path d="M14 13l2 6 2-4 4-2z"/></svg></div>
-      <span class="eyebrow">クイックペースト</span>
-      <h3>その場でペースト。</h3>
-      <p>呼べば、そこに浮かぶ。選べば、そこに貼りつく。まるで魔法。</p>
-      <svg class="feature-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-    </a>
-    <div class="flow-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></div>
-    <a class="feature" href="#detail-deliver">
-      <div class="f-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="12" r="3"/><circle cx="18" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><path d="M8.6 10.5 15.4 7M8.6 13.5l6.8 3.5"/></svg></div>
-      <span class="eyebrow">デバイス間の同期</span>
-      <h3>どこからでも。</h3>
-      <p>隔てるものは、ない。同じ Wi-Fi にいるだけで、<span style="white-space:nowrap;">もう繋がっている。</span></p>
-      <svg class="feature-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-    </a>
+  <div class="prose" style="margin:0 auto;text-align:center;max-width:760px;">
+    <h2 class="features-heading" style="font-size:36px;">なんでも残る。<br class="sm-only">いつでも呼べる。<br class="sm-only">どこでも届く。</h2>
   </div>
 </section>
 
@@ -808,23 +756,6 @@
   </div>
 </section>
 
-<section id="detail-deliver">
-  <div class="detail-row">
-    <div class="detail-shot">
-    <figure class="clip clip-portrait">
-      <video class="clip-video" muted loop playsinline preload="metadata" poster="media/clip-filter.jpg" aria-label="履歴の各項目に、どのデバイスから来たかのバッジが付いていて、バッジを選ぶと、そのデバイスの項目だけに絞り込まれる">
-        <source src="media/clip-filter.mp4" type="video/mp4">
-      </video>
-    </figure>
-    </div>
-    <div class="detail-text">
-      <span class="eyebrow">デバイス間の同期</span>
-      <h3>「あれ、どっちの<br>　PC だっけ？」<br>　が、なくなる。</h3>
-      <p>　　書斎の PC、リビングの PC、会社の PC。<br>　　あの作業をやったのは、どれだっけ？<br>　　そんなときも、選ぶだけで出身がわかる。</p>
-    </div>
-  </div>
-</section>
-
 <section id="detail-pick">
   <div class="detail-row reverse">
     <div class="detail-text">
@@ -842,6 +773,23 @@
           <source src="media/clip-search.mp4" type="video/mp4">
         </video>
       </figure>
+    </div>
+  </div>
+</section>
+
+<section id="detail-deliver">
+  <div class="detail-row">
+    <div class="detail-shot">
+    <figure class="clip clip-portrait">
+      <video class="clip-video" muted loop playsinline preload="metadata" poster="media/clip-filter.jpg" aria-label="履歴の各項目に、どのデバイスから来たかのバッジが付いていて、バッジを選ぶと、そのデバイスの項目だけに絞り込まれる">
+        <source src="media/clip-filter.mp4" type="video/mp4">
+      </video>
+    </figure>
+    </div>
+    <div class="detail-text">
+      <span class="eyebrow">デバイス間の同期</span>
+      <h3>「あれ、どっちの<br>　PC だっけ？」<br>　が、なくなる。</h3>
+      <p>　　書斎の PC、リビングの PC、会社の PC。<br>　　あの作業をやったのは、どれだっけ？<br>　　そんなときも、選ぶだけで出身がわかる。</p>
     </div>
   </div>
 </section>
