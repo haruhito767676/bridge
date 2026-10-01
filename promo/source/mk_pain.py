@@ -203,13 +203,14 @@ function ch2(u) {
 
 // ---------- 章 3: クラウドに上げて、落とし直す ----------
 const DI3 = [474, 160];
-const KF3 = [[0.5, 1300, 600], [1.2, DI3[0], DI3[1], 1000, 600, 700, 300], [1.4, DI3[0], DI3[1]], [2.6, 1070, 310, 600, 160, 900, 200], [3.0, 1070, 310], [4.4, 1400, 560],
-  [6.8, B + 1200, 500, B + 1300, 600, B + 1100, 350], [7.6, B + 780, 372, B + 1000, 400, B + 900, 380], [8.3, B + 780, 372], [9.3, B + 780, 678, B + 900, 500, B + 800, 600], [9.6, B + 780, 678], [10.6, B + 1300, 700]];
+// A (Mac) と B (Windows) は座標系が違うので、経路を分ける (1 本につなぐと、座標が切り替わる所でカーソルが瞬間移動する)。間 (5.0〜6.3) はカーソルを消す
+const KF3A = [[0.5, 1300, 600], [1.2, DI3[0], DI3[1], 1000, 600, 700, 300], [1.4, DI3[0], DI3[1]], [2.6, 1070, 310, 600, 160, 900, 200], [3.0, 1070, 310], [4.4, 1400, 560]];
+const KF3B = [[6.2, B + 1330, 640], [6.9, B + 780, 372, B + 1250, 500, B + 1000, 380], [8.3, B + 780, 372], [9.3, B + 780, 678, B + 900, 500, B + 800, 600], [9.6, B + 780, 678], [10.6, B + 1300, 700]];
 function ch3(u) {
   const pan = E.soft(P(u, 5.4, 6.4));
   const drag = u >= 1.4 && u < 2.9;
   $('c3_dic').style.opacity = 1;
-  const pos = path(KF3, u);
+  const pos = u < 5.9 ? path(KF3A, u) : path(KF3B, u);
   ghost.style.opacity = (drag ? 1 - E.in(P(u, 2.85, 3.0)) : 0).toFixed(3);
   const gp = conv(pos); ghost.style.transform = `translate3d(${(gp[0] + 6).toFixed(1)}px,${(gp[1] + 8).toFixed(1)}px,0)`;
   const up = P(u, 3.05, 5.3); $('c3_up').style.opacity = u >= 3.05 ? 1 : 0; $('c3_upbar').firstElementChild.style.width = (up * 100).toFixed(1) + '%'; $('c3_uppct').textContent = Math.round(up * 100) + '%';
@@ -222,7 +223,7 @@ function ch3(u) {
   const fs = u >= 9.6; $('c3_bfilehl').style.opacity = fs ? 1 : 0;
   const dl = P(u, 9.7, 10.6); $('c3_bdl').style.opacity = u >= 9.7 ? 1 : 0; $('c3_bdlbar').firstElementChild.style.width = (dl * 100).toFixed(1) + '%';
   clk('c3_clkB', u >= 8.0 ? 33 : 29);
-  return { cam: pan, pos, op: wait(u, 0.5, 0.7) * (u < 5.3 ? 1 : (u < 6.6 ? 0 : 1)), press: (u > 1.38 && u < 1.5) || (u > 7.98 && u < 8.1) || (u > 9.58 && u < 9.7) };
+  return { cam: pan, pos, op: u < 5.9 ? wait(u, 0.5, 0.7) * (1 - wait(u, 4.8, 5.05)) : wait(u, 6.3, 6.55), press: (u > 1.38 && u < 1.5) || (u > 7.98 && u < 8.1) || (u > 9.58 && u < 9.7) };
 }
 
 // ---------- 章 4: ブラウザとドキュメントの往復 ----------
