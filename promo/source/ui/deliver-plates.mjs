@@ -10,7 +10,7 @@ const MIN = 60000, HOUR = 3600000;
 const BASE = (() => { const d = new Date(); d.setHours(13, 26, 0, 0); return d.getTime(); })();
 const mid = new Date(); mid.setHours(0, 0, 0, 0);
 const dataUrl = (p) => 'data:image/png;base64,' + readFileSync(p).toString('base64');
-const FOLDER_ICON = { darwin: dataUrl(path.join(APP, 'site/icons/folder.png')), win32: dataUrl(path.join(APP, 'site/icons/folder-win.png')) };
+const FOLDER_ICON = { darwin: dataUrl(path.join(APP, 'site/public/icons/folder.png')), win32: dataUrl(path.join(APP, 'site/public/icons/folder-win.png')) };
 const ME = '自分のMac', OTHER = '会社用PC';
 const OUT = path.join(DIR, 'plates-deliver'); mkdirSync(OUT, { recursive: true });
 const manifest = {};

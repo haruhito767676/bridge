@@ -352,7 +352,7 @@ fig = ('<div class="win fg" style="left:610px;top:160px;width:640px;height:470px
        '<div class="props"><i style="width:60px"></i><i style="width:80px"></i><i style="width:48px"></i><i style="width:72px"></i></div>'
        '<div class="cv"><div class="abl">バナー</div><div class="ab"><img src="../../assets/demo/バナー案_A案.png"></div>'
        '<div id="fgsel" style="display:none"><i style="left:-5px;top:-5px"></i><i style="right:-5px;top:-5px"></i><i style="left:-5px;bottom:-5px"></i><i style="right:-5px;bottom:-5px"></i></div><div id="fgflash"></div></div></div>')
-ic2 = dicons([('../../assets/demo/ロゴ_v4.png', 'ロゴ_v4.png', True), ('../../assets/demo/アイコンセット.png', 'アイコン.png', True), ('../../site/icons/folder.png', '素材', False)], ids=('dic1',))
+ic2 = dicons([('../../assets/demo/ロゴ_v4.png', 'ロゴ_v4.png', True), ('../../assets/demo/アイコンセット.png', 'アイコン.png', True), ('../../site/public/icons/folder.png', '素材', False)], ids=('dic1',))
 
 # ===== 章 3: ターミナル (アクティブ) + ブラウザ (背後) =====
 back3 = ('<div class="win back cr" style="left:700px;top:112px;width:600px;height:420px"><div class="tabs"><div class="tab">管理画面</div><div class="tab o">ドキュメント</div></div>'

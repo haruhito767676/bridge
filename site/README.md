@@ -4,10 +4,11 @@
 
 ```
 site/
-├── icons/       アイコン素材（下記「埋め込みデモ」参照。site/public から ../icons/ で参照）
-└── public/      一般ユーザー向けの紹介ページ（ライト、機能・FAQ中心）
-    ├── index.html
-    └── *.png
+└── public/      公開するサイト一式 (GitHub Pages には、このフォルダだけを公開する)
+    ├── index.html, privacy.html, support.html   日本語のページ
+    ├── en/      英語版のプライバシーポリシーとサポート
+    ├── icons/   アイコン素材（下記「埋め込みデモ」参照）
+    └── media/   動画とポスター画像
 ```
 
 ## 埋め込みデモ（実際に動く縮小レプリカ）
@@ -15,10 +16,10 @@ site/
 ページの「try it」セクションには、本物の `index.html` / `styles.css` / `renderer.js` から検索欄・セグメントコントロール・リスト行（ピン留め・出身デバイスチップ・コピー元アプリバッジ・クリックコピー時のチェックマーク演出まで）の CSS とロジックをそのまま移植したウィジェットが入っている。モックではなく実物のクラス名・DOM構造・挙動を再現したもの。
 
 - OS 依存で再現できない部分（実ファイルアイコンの動的取得・実クリップボード監視・ドラッグアウト）だけ、あらかじめ書き出した静止画とダミー配列に差し替えている。
-  - コピー元アプリのアイコン（Notion / Chrome / Slack / Figma / ターミナル）と、ファイル種別の汎用アイコン（PDF/テキスト/CSV）は `site/icons/` に実際の `sips` / Electron `app.getFileIcon` で書き出した本物の画像
+  - コピー元アプリのアイコン（Notion / Chrome / Slack / Figma / ターミナル）と、ファイル種別の汎用アイコン（PDF/テキスト/CSV）は `site/public/icons/` に実際の `sips` / Electron `app.getFileIcon` で書き出した本物の画像
   - 画像ファイルのサムネイル（`thumb-logo.png` / `thumb-clipboard.png`）も実際のダミーファイルそのもの
 - 検索・すべて/ファイル/クリップの切り替え・クリックでのクリップボードコピーは全部本物に動く
-- データは `main.js` の `BRIDGE_DEV_SEED` と同じ架空案件の内容を、ページの `<script>` 内 `DATA` 配列にハードコードしている。中身を変えたいときは `DATA` を書き換えること（コピー元アプリ・ファイル種別アイコンを増やす場合は `site/icons/` にも追加）
+- データは `main.js` の `BRIDGE_DEV_SEED` と同じ架空案件の内容を、ページの `<script>` 内 `DATA` 配列にハードコードしている。中身を変えたいときは `DATA` を書き換えること（コピー元アプリ・ファイル種別アイコンを増やす場合は `site/public/icons/` にも追加）
 
 ## プレビュー
 
