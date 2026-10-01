@@ -57,7 +57,7 @@ Sync traffic is encrypted with **AES-256-GCM**, using a key derived from your sy
 ## Getting started
 
 1. Download the macOS DMG or the Windows installer from **[Releases](https://github.com/haruhito767676/bridge/releases)** and launch it. A thin handle appears at the right edge of your screen.
-2. **To sync**, open the settings sheet from the gear icon at the bottom right of the panel, copy the "sync key", and paste it into the settings sheet on your other devices. Devices that share the key find each other automatically on the same LAN.
+2. **To sync**, open the settings sheet from the gear icon at the bottom right of the panel and press "Copy" next to the sync key. Send it to your other device by any means (a chat to yourself, email, and so on), copy it there, and press "Paste" next to the sync key in its settings sheet. Devices that share the key find each other automatically on the same LAN, and the status card at the top of the settings sheet changes to "Connected to 1 device".
 3. Just copy things as usual. Hover over the handle, or press **⌥Space** (**Ctrl+Shift+Space** on Windows), to open the history panel.
 
 > The current builds are not notarized by Apple. If macOS shows a warning on first launch, right-click the app in Finder and choose "Open".
@@ -83,18 +83,18 @@ Sync traffic is encrypted with **AES-256-GCM**, using a key derived from your sy
 - Copied images are converted to PNG and shown as thumbnails
 - Files copied in Finder / Explorer are detected and added too
 - Copying the same content again moves the existing item to the top instead of adding a new one. Clicking an item in the list to copy it does the same, and updates its time
-- History limits are per kind (100 text / 30 images / 100 files). Older items beyond the limit are deleted, and files Bridge generated are also removed from disk. The current counts appear in the settings sheet, for example "Text 82/100 · Images 12/30 · Files 40/100" (pinned items are not counted)
+- History limits are per kind (100 text / 30 images / 100 files). Older items beyond the limit are deleted, and files Bridge generated are also removed from disk. The current counts appear on the "Advanced settings" page of the settings sheet, for example "Text 82/100 · Images 12/30 · Files 40/100" (pinned items are not counted)
 - Copies flagged as "do not keep in history" (Concealed / Transient) by password managers and similar tools are neither recorded nor synced
 - The history is saved in `history.json` and survives restarts. Pin frequently used items (right-click / ⌘P) to keep them at the top, exempt from limit-based deletion and "Clear all"
-- Press **⌥⌘V** (Windows: Ctrl+Alt+Shift+V; configurable in the settings sheet) to open **Quick Paste**, a history popup near the mouse cursor, and paste the chosen item on the spot. Auto-paste can be turned off in settings. On macOS this needs the Accessibility permission
+- Press **⌥⌘V** (Windows: Ctrl+Alt+Shift+V; configurable in the settings sheet) to open **Quick Paste**, a history popup near the mouse cursor, and paste the chosen item on the spot. Auto-paste (the "Auto-paste in Quick Paste" switch in the settings sheet) can be turned off. On macOS this needs the Accessibility permission
 
 #### 3. Automatic sync between devices
 - Each device runs an HTTP server (`node:http`) on port `9095`, and devices talk to each other directly
-- Devices that share the same sync key are discovered automatically over UDP multicast. If that fails, use "Scan now" in the settings sheet (scans the same /24 subnet) or write the peer's IP address into `sync-config.json`
+- Devices that share the same sync key are discovered automatically over UDP multicast. If that fails, use "Scan now" on the status card at the top of the settings sheet (scans the same /24 subnet) or write the peer's IP address into `sync-config.json`
 - New items are sent to peers as soon as they are added. Anything that fails to send is picked up later by a 20-second differential check (timestamp comparison)
 - With three or more devices, items are relayed through intermediate devices to reach ones that are not directly connected
 - Authentication uses the shared sync key. Any request with a mismatched key is rejected with 401 (compared with `timingSafeEqual`)
-- "Clipboard watching" and "Sync with other devices" can each be paused from the menu bar. Connection status, last sync time and failure reasons are shown in the settings sheet, and the activity log is written to `bridge.log`
+- "Clipboard watching" and "Sync with other devices" can each be paused from the menu bar. The status card at the top of the settings sheet shows whether you are connected. The last sync time and failure reasons for each device are listed under "Connected devices" on the "Advanced settings" page, and the activity log is written to `bridge.log`
 - Folders are compressed to `.zip` for sending. The receiving side unpacks them back into folders automatically if they are 1 GB or smaller. Larger ones arrive as a zip and can be unpacked from the right-click menu ("Extract as folder")
 - Items being received from another device appear in the list as "Syncing" before the file body arrives, and are replaced with normal items when done. Order and time follow the time the item was added on the sending side
 - While a large file is being received, progress (%, size received, speed) is shown. If nothing moves for a while, "May be stalled" appears with a retry button. You can cancel anytime with ×
@@ -148,9 +148,9 @@ bridge://add?text=any text                  # Text → saved as .txt and added
 
 ## Sync settings
 
-Open the **settings sheet** from the gear icon at the bottom right of the panel to change the device name, sync key, auto scan, manual peers and launch at login.
+Open the **settings sheet** from the gear icon at the bottom right of the panel. The first page has the connection status, device name, sync key, shortcuts, Quick Paste auto-paste, the source-app icon and launch at login. Auto scan, manual peers, the connected devices list, history usage and the log are on the "Advanced settings" page. Changes are saved automatically.
 
-To sync, use the same sync key on every device. Press "Copy" for the sync key in the settings sheet on the first device, then paste it into the settings sheet on the others. Connected devices are shown in the settings sheet and by the green dot in the footer.
+To sync, use the same sync key on every device. Press "Copy" for the sync key in the settings sheet on the first device, move it to the other device by any means outside Bridge, and press "Paste" in the settings sheet there. Bridge does not carry the key for you, because nothing is shared between the devices until they have the same key. Connected devices are shown on the status card, under "Connected devices" on the "Advanced settings" page, and by the green dot in the footer.
 
 Settings are stored in `sync-config.json`, created in the `userData` directory on first launch. To change `port`, edit this file directly and restart the app.
 
