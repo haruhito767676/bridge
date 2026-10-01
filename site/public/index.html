@@ -830,7 +830,7 @@
     <ul class="privacy-points">
       <li class="privacy-point"><b>サーバーを通さない</b><p>コピーしたものは、あなたの端末同士だけでやり取りする。</p></li>
       <li class="privacy-point"><b>暗号化して運ぶ</b><p>同期キーから作った鍵で、内容もファイルも暗号化する。</p></li>
-      <li class="privacy-point"><b>キーが合う端末だけ</b><p>同じ同期キーを持つ端末としか、つながらない。</p></li>
+      <li class="privacy-point"><b>キーが合う端末だけ</b><p>同期キーが同じ端末とだけ、つながる。</p></li>
       <li class="privacy-point"><b>コードは、すべて公開</b><p>動きは、自分の目で確かめられる。</p></li>
     </ul>
     <a class="privacy-policy-link" href="privacy.html">
@@ -848,27 +848,27 @@
   <div class="faq">
     <details class="faq-item">
       <summary><h4>インターネットに繋がっていなくても使えますか？</h4></summary>
-      <p>履歴も、ファイル棚も、それだけならオフラインで動きます。他のデバイスと同期するときだけ、同じ Wi-Fi / LAN が必要です。</p>
+      <p>はい。Bridge はインターネットを使いません。同期するときに、同じ Wi-Fi / LAN につながっていれば足ります。</p>
     </details>
     <details class="faq-item">
       <summary><h4>料金はかかりますか？</h4></summary>
-      <p>無料で、ソースコードも MIT ライセンスで公開しています。外部サービスへの課金や登録も一切ありません。</p>
+      <p>無料です。ソースコードも MIT ライセンスで公開していて、課金や登録も一切ありません。</p>
     </details>
     <details class="faq-item">
       <summary><h4>何台まで、どの組み合わせで繋げられますか？</h4></summary>
-      <p>台数の上限はありません。Mac 同士でも、Windows 同士でも、Mac と Windows の混在でも、同じ同期キーを使っている端末なら繋がります。</p>
+      <p>上限はありません。Mac 同士でも、Windows 同士でも、Mac と Windows が混ざっていても、同期キーが同じ端末なら繋がります。</p>
     </details>
     <details class="faq-item">
       <summary><h4>ファイルサイズの制限はありますか？</h4></summary>
-      <p>基本的に上限はありません。ストリーミングで転送するので、数GBのファイルでも問題なく送れます。フォルダだけは1GBを超えると自動では展開されず、zipのまま届きます（右クリックで手動展開できます）。</p>
+      <p>基本的にありません。ストリーミングで転送するので、数GBのファイルでも送れます。ただしフォルダは、1GB を超えると自動では展開されず、zip のまま届きます（右クリックで手動展開できます）。</p>
     </details>
     <details class="faq-item">
-      <summary><h4>1 台の PC でしか使いませんが、意味ありますか？</h4></summary>
-      <p>あります。履歴も、ファイル棚も、クイックペーストも、1 台だけでそのまま使えます。</p>
+      <summary><h4>1 台しかなくても使えますか？</h4></summary>
+      <p>使えます。履歴も、ファイル棚も、クイックペーストも、1 台だけで使えます。同期は、台数が増えたときに足せば大丈夫です。</p>
     </details>
     <details class="faq-item">
       <summary><h4>Universal Clipboard や類似ツールと何が違いますか？</h4></summary>
-      <p>Mac / Windows のどちらでも動き、OS が違う PC 同士も繋げられます。クラウドを経由せず、通信を暗号化していて、無料で、オープンソースです。</p>
+      <p>Universal Clipboard は Apple 製品どうしのための機能です。Bridge は Mac と Windows のどちらでも動き、OS が違う PC 同士も繋げられます。クラウドを経由せず、通信は暗号化されていて、無料のオープンソースです。</p>
     </details>
   </div>
 </section>
