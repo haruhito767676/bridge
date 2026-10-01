@@ -1883,10 +1883,10 @@
     }
   });
 })();
-/* 職種ごとの動画: 章 (10.4 秒ずつ) のボタンで頭出し。再生位置に合わせてボタンと進み具合を更新する */
+/* 職種ごとの動画: 章 (11.4 秒ずつ) のボタンで頭出し。再生位置に合わせてボタンと進み具合を更新する */
 (function(){
   var v=document.getElementById('personaVideo'); if(!v) return;
-  var CH=10.4, tabs=[].slice.call(document.querySelectorAll('.persona-tab'));
+  var CH=11.4, tabs=[].slice.call(document.querySelectorAll('.persona-tab'));
   function paint(){
     var t=v.currentTime||0, c=Math.min(tabs.length-1,Math.floor(t/CH));
     tabs.forEach(function(b,i){var on=i===c; b.classList.toggle('active',on); b.setAttribute('aria-selected',on?'true':'false'); b.style.setProperty('--p',on?Math.min(1,(t-c*CH)/CH).toFixed(3):0);});

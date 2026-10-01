@@ -95,7 +95,7 @@ const bez = (x1, y1, x2, y2) => x => {
   for (let i = 0; i < 22; i++) { u = (lo + hi) / 2; const bx = 3 * (1 - u) * (1 - u) * u * x1 + 3 * (1 - u) * u * u * x2 + u * u * u; if (bx < x) lo = u; else hi = u; }
   return 3 * (1 - u) * (1 - u) * u * y1 + 3 * (1 - u) * u * u * y2 + u * u * u;
 };
-const E = { out: bez(.16, 1, .3, 1), inOut: bez(.65, 0, .35, 1), soft: bez(.45, 0, .2, 1), in: bez(.5, 0, .75, 0) };
+const E = { out: bez(.16, 1, .3, 1), inOut: bez(.65, 0, .35, 1), soft: bez(.45, 0, .2, 1), in: bez(.5, 0, .75, 0), cur: bez(.4, 0, .25, 1) };   // cur: カーソルの移動 (ゆるやかに出て、ゆるやかに止まる)
 function spring(dt, k = 140, c = 22) {
   if (dt <= 0) return 0;
   const w0 = Math.sqrt(k), z = c / (2 * w0);
@@ -105,7 +105,7 @@ function spring(dt, k = 140, c = 22) {
 function path(kf, u) {
   if (u <= kf[0][0]) return [kf[0][1], kf[0][2]];
   for (let i = 1; i < kf.length; i++) if (u <= kf[i][0]) {
-    const a = kf[i - 1], b = kf[i], p = E.inOut(P(u, a[0], b[0]));
+    const a = kf[i - 1], b = kf[i], p = E.cur(P(u, a[0], b[0]));
     if (b.length > 3) { const q = 1 - p; return [q * q * q * a[1] + 3 * q * q * p * b[3] + 3 * q * p * p * b[5] + p * p * p * b[1], q * q * q * a[2] + 3 * q * q * p * b[4] + 3 * q * p * p * b[6] + p * p * p * b[2]]; }
     return [lerp(a[1], b[1], p), lerp(a[2], b[2], p)];
   }
@@ -138,14 +138,17 @@ function ch1(u) {
   const sp = P(u, 3.3, 3.85); $('c1_prog').firstElementChild.style.width = (sp * 100).toFixed(1) + '%'; $('c1_prog').style.opacity = (u >= 3.3 && u < 3.95) ? 1 : 0;
   const closeP = E.in(P(u, 4.25, 4.5)); $('c1_win').style.opacity = (1 - closeP).toFixed(3); $('c1_win').style.transform = `scale(${(1 - .06 * closeP).toFixed(4)})`;
   clk('c1_clkA', u >= 4.25 ? 27 : 26);
-  // B: 更新 → くるくる → 届く → 開く → 添付を保存
+  // B: 更新 (押して光る) → くるくる → 届く → 行を選ぶ → 開く → 添付を押して保存 (沈む) → デスクトップに現れる
+  const rp = pulse(5.95, .3); $('c1_rbtn').style.background = `rgba(0,0,0,${(.09 * clamp(P(u, 5.8, 5.98)) * (1 - P(u, 6.4, 6.65)) + .06 * rp).toFixed(3)})`; $('c1_rbtn').style.transform = `scale(${(1 - .14 * rp).toFixed(3)})`;
   const spin = u >= 6.35 && u < 8.0; $('c1_spin').style.opacity = spin ? 1 : 0; $('c1_spin').style.transform = `rotate(${(u * 360).toFixed(0)}deg)`;
   const nr = spring(u - 8.0, 130, 16); $('c1_new').style.opacity = clamp(P(u, 8.0, 8.15)).toFixed(3);
+  const rs = clamp(P(u, 8.1, 8.28)); $('c1_new').style.background = `rgba(10,132,255,${(.08 + .1 * rs).toFixed(3)})`;
   $('c1_rows').style.transform = `translate3d(0,${(64 * clamp(nr, 0, 1.03)).toFixed(1)}px,0)`;
   $('c1_new').style.transform = `translate3d(0,${(-64 * (1 - nr)).toFixed(1)}px,0)`;
   $('c1_read').style.opacity = clamp(P(u, 8.55, 8.75)).toFixed(3); $('c1_empty').style.opacity = 1 - clamp(P(u, 8.5, 8.6));
+  const cb = pulse(9.25, .3); $('c1_chipB').style.transform = `scale(${(1 - .06 * cb).toFixed(3)})`; $('c1_chipB').style.filter = `brightness(${(1 - .06 * cb).toFixed(3)})`;
   const dp = P(u, 9.7, 10.35); $('c1_dl').firstElementChild.style.width = (dp * 100).toFixed(1) + '%'; $('c1_dl').style.opacity = u >= 9.7 ? 1 : 0;
-  $('c1_saved').style.opacity = wait(u, 10.4, 10.55).toFixed(3);
+  const sv = E.out(P(u, 10.4, 10.8)); $('c1_saved').style.opacity = clamp(sv * 3).toFixed(3); $('c1_saved').style.transform = `translate3d(0,${(10 * (1 - sv)).toFixed(1)}px,0) scale(${(.85 + .15 * sv).toFixed(3)})`;
   clk('c1_clkB', u >= 8.0 ? 31 : 27);
   return { cam: pan, pos: path(KF1, u), op: wait(u, 0.4, 0.6) * (1 - wait(u, 4.2, 4.45)) + wait(u, 5.3, 5.5), press: (u > 1.28 && u < 1.42) || (u > 2.88 && u < 3.02) || (u > 6.0 && u < 6.14) || (u > 8.1 && u < 8.24) || (u > 9.28 && u < 9.42) };
 }
@@ -157,11 +160,11 @@ let M2 = null;
 function measure2() {
   const bm = $('c2_bmsgs'), prev = bm.style.transform; bm.style.transform = 'translate3d(0,-' + SC2 + 'px,0)';   // スクロールし終わった位置で測る
   const R = id => camRect(id), C = r => [r.x + r.w / 2, r.y + r.h / 2];
-  M2 = { addr: R('c2_addrtxt'), dkSlack: R('c2_dkSlack'), input: R('c2_input'), tbSlack: R('c2_tbSlack'), bch: R('c2_bch'), blist: R('c2_bview'), blink: R('c2_blink'), tbChrome: R('c2_tbChrome'), baddr: R('c2_baddr') };
+  M2 = { addr: R('c2_addrtxt'), dkSlack: R('c2_dkSlack'), input: R('c2_input'), sendbtn: R('c2_sendbtn'), tbSlack: R('c2_tbSlack'), bch: R('c2_bch'), blist: R('c2_bview'), blink: R('c2_blink'), tbChrome: R('c2_tbChrome'), baddr: R('c2_baddr') };
   bm.style.transform = prev; M2.C = C;
 }
 const SC2 = 306;   // 向こうの Slack の履歴をスクロールする量
-const TM = { sel0: 1.5, sel1: 2.1, dock: 3.55, inp: 4.75, paste: 5.15, enter: 5.85 };
+const TM = { sel0: 1.5, sel1: 2.1, dock: 3.55, inp: 4.75, paste: 5.15, enter: 5.95 };
 const TW = { tb: 7.85, ch: 8.85, scr0: 9.2, scr1: 10.1, sel0: 10.45, sel1: 11.05, tbc: 12.05, ad: 13.05, paste: 13.4, enter: 13.9 };
 function ch2(u) {
   if (!M2) measure2();
@@ -172,6 +175,7 @@ function ch2(u) {
   $('c2_chrome').classList.toggle('inact', front); $('c2_slack').style.zIndex = front ? 5 : 2;
   $('c2_mbname').textContent = front ? 'Slack' : 'Chrome';
   const pasted = u >= TM.paste && u < TM.enter; $('c2_ph').style.opacity = pasted ? 0 : 1; $('c2_ptxt').style.opacity = pasted ? 1 : 0;
+  const sb = Math.sin(P(u, TM.enter - .05, TM.enter + .25) * Math.PI); $('c2_sendbtn').style.opacity = (pasted ? 1 : .28).toFixed(2); $('c2_sendbtn').style.transform = `scale(${(1 - .12 * sb).toFixed(3)})`;
   const sent = E.out(P(u, TM.enter, TM.enter + .4)); $('c2_sent').style.height = (62 * sent).toFixed(1) + 'px'; $('c2_sent').style.opacity = clamp(sent * 1.4).toFixed(3);
   clk('c2_clkA', u >= TM.enter ? 27 : 26);
   // ---- B: タスクバーの Slack → チャンネル → スクロール → リンクを選ぶ → Chrome → アドレス欄に貼る → 開く ----
@@ -187,20 +191,20 @@ function ch2(u) {
   $('c2_bpage').style.opacity = wait(u, TW.enter, TW.enter + .25).toFixed(3);
   clk('c2_clkB', u >= TW.tbc ? 30 : u >= TW.tb ? 29 : 28);
   // ---- カーソル (どれも、測った位置へ) ----
-  const aS = [M2.addr.x - 4, M2.addr.y + M2.addr.h / 2], aE = [M2.addr.x + M2.addr.w, aS[1]], dk = C(M2.dkSlack), inp = [M2.input.x + 70, M2.input.y + M2.input.h / 2];
-  const kfA = [[0.4, aS[0] + 300, aS[1] + 260], [1.35, aS[0], aS[1]], [TM.sel0, aS[0], aS[1]], [TM.sel1, aE[0], aE[1]], [2.7, aE[0] + 20, aE[1] + 8], [TM.dock - .15, dk[0], dk[1]], [TM.dock + .1, dk[0], dk[1]], [TM.inp - .1, inp[0], inp[1]], [6.0, inp[0], inp[1]]];
+  const aS = [M2.addr.x - 4, M2.addr.y + M2.addr.h / 2], aE = [M2.addr.x + M2.addr.w, aS[1]], dk = C(M2.dkSlack), inp = [M2.input.x + 70, M2.input.y + M2.input.h / 2], sbc = C(M2.sendbtn);
+  const kfA = [[0.4, aS[0] + 300, aS[1] + 260], [1.35, aS[0], aS[1]], [TM.sel0, aS[0], aS[1]], [TM.sel1, aE[0], aE[1]], [2.7, aE[0] + 20, aE[1] + 8], [TM.dock - .15, dk[0], dk[1]], [TM.dock + .1, dk[0], dk[1]], [TM.inp - .1, inp[0], inp[1]], [5.4, inp[0], inp[1]], [TM.enter - .12, sbc[0], sbc[1]], [6.1, sbc[0], sbc[1]]];
   const tbS = C(M2.tbSlack), ch = C(M2.bch), lk = [M2.blink.x - 4, M2.blink.y + M2.blink.h / 2], le = [M2.blink.x + M2.blink.w, lk[1]], tbC = C(M2.tbChrome), ad = [M2.baddr.x + 70, M2.baddr.y + M2.baddr.h / 2], lc = C(M2.blist);
   const kfB = [[6.9, tbS[0] + 300, tbS[1] - 280], [TW.tb - .15, tbS[0], tbS[1]], [TW.tb + .1, tbS[0], tbS[1]], [TW.ch - .1, ch[0], ch[1]], [TW.ch + .2, ch[0], ch[1]], [TW.scr0 + .3, lc[0], lc[1]], [TW.scr1, lc[0], lc[1] + 30], [TW.sel0 - .1, lk[0], lk[1]], [TW.sel0, lk[0], lk[1]], [TW.sel1, le[0], le[1]], [11.4, le[0] + 20, le[1] + 14],
     [TW.tbc - .15, tbC[0], tbC[1]], [TW.tbc + .1, tbC[0], tbC[1]], [TW.ad - .1, ad[0], ad[1]], [TW.ad + .2, ad[0], ad[1]], [14.6, ad[0] + 4, ad[1]]];
   const onA = u < 6.4, pos = onA ? path(kfA, u) : path(kfB, u);
-  const press = [1.4, TM.dock, TM.inp, TW.tb, TW.ch, TW.sel0 - .05, TW.tbc, TW.ad].some(c => u > c - .02 && u < c + .12);
-  return { raw: true, cam: pan, pos, op: onA ? wait(u, 0.4, 0.6) * (1 - wait(u, 6.0, 6.35)) : wait(u, 7.0, 7.2), press };
+  const press = [1.4, TM.dock, TM.inp, TM.enter, TW.tb, TW.ch, TW.sel0 - .05, TW.tbc, TW.ad].some(c => u > c - .02 && u < c + .12);
+  return { raw: true, cam: pan, pos, op: onA ? wait(u, 0.4, 0.6) * (1 - wait(u, 6.15, 6.4)) : wait(u, 7.0, 7.2), press };
 }
 
 // ---------- 章 3: クラウドに上げて、落とし直す ----------
 const DI3 = [474, 160];
 const KF3 = [[0.5, 1300, 600], [1.2, DI3[0], DI3[1], 1000, 600, 700, 300], [1.4, DI3[0], DI3[1]], [2.6, 1070, 310, 600, 160, 900, 200], [3.0, 1070, 310], [4.4, 1400, 560],
-  [6.8, B + 1200, 500, B + 1300, 600, B + 1100, 350], [7.6, B + 780, 372, B + 1000, 400, B + 900, 380], [8.0, B + 780, 372], [9.2, B + 780, 678, B + 900, 500, B + 800, 600], [9.6, B + 780, 678], [10.6, B + 1300, 700]];
+  [6.8, B + 1200, 500, B + 1300, 600, B + 1100, 350], [7.6, B + 780, 372, B + 1000, 400, B + 900, 380], [8.3, B + 780, 372], [9.3, B + 780, 678, B + 900, 500, B + 800, 600], [9.6, B + 780, 678], [10.6, B + 1300, 700]];
 function ch3(u) {
   const pan = E.soft(P(u, 5.4, 6.4));
   const drag = u >= 1.4 && u < 2.9;
@@ -212,8 +216,9 @@ function ch3(u) {
   $('c3_upok').style.opacity = wait(u, 5.3, 5.4);
   clk('c3_clkA', u >= 5.3 ? 28 : 27);
   // B: 資料フォルダ → 探す → ダウンロード
-  const dirsel = u >= 8.0; $('c3_bfolders').style.opacity = dirsel ? 0 : 1; $('c3_bfiles').style.opacity = dirsel ? 1 : 0;
-  const sc = E.inOut(P(u, 8.1, 8.9)); $('c3_bfiles').firstElementChild.style.transform = `translate3d(0,${(-140 * sc).toFixed(1)}px,0)`;
+  $('c3_bfhl').style.opacity = (clamp(P(u, 7.98, 8.1)) * (1 - 0)).toFixed(3);
+  const dirsel = u >= 8.22; $('c3_bfolders').style.opacity = dirsel ? 0 : 1; $('c3_bfiles').style.opacity = dirsel ? 1 : 0;
+  const sc = E.inOut(P(u, 8.35, 9.1)); $('c3_bfiles').firstElementChild.style.transform = `translate3d(0,${(-140 * sc).toFixed(1)}px,0)`;
   const fs = u >= 9.6; $('c3_bfilehl').style.opacity = fs ? 1 : 0;
   const dl = P(u, 9.7, 10.6); $('c3_bdl').style.opacity = u >= 9.7 ? 1 : 0; $('c3_bdlbar').firstElementChild.style.width = (dl * 100).toFixed(1) + '%';
   clk('c3_clkB', u >= 8.0 ? 33 : 29);
@@ -325,7 +330,7 @@ mailB = ('<div class="wn" style="left:480px;top:250px;width:1000px;height:580px"
          '<div style="position:absolute;left:0;top:36px;width:150px;bottom:0;background:#f5f6fa;box-shadow:inset -1px 0 0 rgba(0,0,0,.07)">' + ''.join(f'<div class="sl" style="width:{w}px;margin:18px 16px 0"></div>' for w in (70, 96, 60, 84)) + '</div>'
          '<div style="position:absolute;left:150px;top:36px;width:300px;bottom:0;box-shadow:inset -1px 0 0 rgba(0,0,0,.07)">'
          '<div style="height:44px;display:flex;align-items:center;padding:0 14px;gap:10px;box-shadow:inset 0 -1px 0 rgba(0,0,0,.07)"><b style="font:700 15px var(--display)">受信トレイ</b>'
-         '<span style="margin-left:auto;width:26px;height:26px;position:relative"><svg id="c1_refresh" viewBox="0 0 24 24" fill="none" stroke="#444" stroke-width="2" stroke-linecap="round" style="position:absolute;inset:0;width:26px;height:26px;padding:3px"><path d="M20 12a8 8 0 1 1-2.5-5.8M20 4v5h-5"/></svg>'
+         '<span id="c1_rbtn" style="margin-left:auto;width:26px;height:26px;position:relative;border-radius:13px"><svg id="c1_refresh" viewBox="0 0 24 24" fill="none" stroke="#444" stroke-width="2" stroke-linecap="round" style="position:absolute;inset:0;width:26px;height:26px;padding:3px"><path d="M20 12a8 8 0 1 1-2.5-5.8M20 4v5h-5"/></svg>'
          '<span class="spin" id="c1_spin" style="position:absolute;left:4px;top:4px;opacity:0"></span></span></div>'
          '<div style="position:absolute;left:0;right:0;top:44px;bottom:0;overflow:hidden"><div id="c1_rows">' + rowsB + '</div>' + newrow + '</div></div>'
          '<div style="position:absolute;left:450px;top:36px;right:0;bottom:0;background:#fff">'
@@ -361,7 +366,8 @@ slackA = ('<div class="win" id="c2_slack" style="left:200px;top:96px;width:860px
           '<div style="position:absolute;left:24px;right:24px;top:46px;bottom:100px;display:flex;flex-direction:column;justify-content:flex-end;gap:14px;padding-bottom:10px;overflow:hidden">'
           + msgs([('#a66cff', 100, 260), ('#ff8f4a', 90, 300), ('#3ccf5e', 120, 220)])
           + '<div id="c2_sent" style="display:flex;gap:12px;flex:none;overflow:hidden;height:0;opacity:0"><u style="width:34px;height:34px;border-radius:8px;background:#0a84ff;display:block;flex:none"></u><div><div class="sl d" style="width:70px;margin-bottom:8px"></div><div style="font:13px var(--mono);color:#1264a3;white-space:nowrap">' + URL + '</div></div></div></div>'
-          '<div id="c2_input" style="position:absolute;left:24px;right:24px;bottom:22px;height:64px;border-radius:10px;box-shadow:inset 0 0 0 1.5px rgba(0,0,0,.2);padding:14px 16px;font:13px var(--display)"><span id="c2_ph" style="color:#aaa">メッセージを入力</span><span id="c2_ptxt" style="opacity:0;position:absolute;left:16px;top:14px;font:13px var(--mono);color:#1264a3;white-space:nowrap">' + URL + '</span></div></div></div>')
+          '<div id="c2_input" style="position:absolute;left:24px;right:24px;bottom:22px;height:64px;border-radius:10px;box-shadow:inset 0 0 0 1.5px rgba(0,0,0,.2);padding:14px 16px;font:13px var(--display)"><span id="c2_ph" style="color:#aaa">メッセージを入力</span><span id="c2_ptxt" style="opacity:0;position:absolute;left:16px;top:14px;font:13px var(--mono);color:#1264a3;white-space:nowrap">' + URL + '</span>'
+          '<span id="c2_sendbtn" style="position:absolute;right:12px;bottom:12px;width:34px;height:30px;border-radius:8px;background:#0a84ff;display:flex;align-items:center;justify-content:center;opacity:.28"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 8h10M8.5 3.5L13 8l-4.5 4.5"/></svg></span></div></div></div>')
 scrA2 = mac('c2_clkA', 'Chrome', 'c2_mbname', ['ファイル', '編集', '表示', '履歴', 'ブックマーク', 'ウインドウ', 'ヘルプ'], ['Finder', 'Chrome', 'Slack', 'Notion', 'Figma', 'Numbers', 'Pages', 'Word'], ['Finder', 'Chrome', 'Slack'], chromeA + slackA, ox=0)
 slackB = ('<div class="wn" id="c2_bslack" style="left:100px;top:30px;width:1000px;height:570px;opacity:0"><div class="cap dark" style="background:#4a154b;color:#fff">Slack' + capbtn() + '</div>'
           '<div style="position:absolute;left:0;top:36px;width:230px;bottom:0;background:#3f0e40;color:#fff;padding:14px">' + SIDEBAR
@@ -387,7 +393,7 @@ scrA3 = mac('c3_clkA', 'Chrome', 'c3_mb', ['ファイル', '編集', '表示', '
 folders = ''.join(f'<div style="display:flex;align-items:center;gap:14px;height:56px;padding:0 24px;box-shadow:inset 0 -1px 0 rgba(0,0,0,.06)"><svg width="28" height="28" viewBox="0 0 24 24" fill="#8ab4f8"><path d="M3 6a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><div class="sl d" style="width:{w}px"></div></div>' for w in (120, 90, 140, 100))
 files = ''.join(f'<div style="display:flex;align-items:center;gap:14px;height:56px;padding:0 24px;box-shadow:inset 0 -1px 0 rgba(0,0,0,.06)"><span style="width:30px;height:30px;display:block">{fsvg("txt")}</span><div class="sl d" style="width:{w}px"></div></div>' for w in (140, 110, 160, 100, 130, 120, 150, 90))
 target = f'<div style="display:flex;align-items:center;gap:14px;height:56px;padding:0 24px;box-shadow:inset 0 -1px 0 rgba(0,0,0,.06);background:rgba(10,132,255,.08)"><span style="width:30px;height:30px;display:block">{fsvg("zip")}</span><b style="font:600 14px var(--display)">資料一式.zip</b></div>'
-driveB = ('<div id="c3_bfolders" style="position:absolute;left:0;right:0;top:96px">' + folders + '</div>'
+driveB = ('<div id="c3_bfolders" style="position:absolute;left:0;right:0;top:96px"><div id="c3_bfhl" style="position:absolute;left:0;right:0;top:0;height:56px;background:rgba(10,132,255,.1);opacity:0"></div>' + folders + '</div>'
           '<div id="c3_bfiles" style="position:absolute;left:0;right:0;top:96px;bottom:0;overflow:hidden;opacity:0"><div>' + files + target + files[:0] + '</div></div>'
           '<div id="c3_bfilehl" style="position:absolute;left:0;right:0;top:400px;height:56px;background:rgba(10,132,255,.1);opacity:0"></div>'
           '<div id="c3_bdl" style="position:absolute;left:20px;bottom:18px;width:300px;padding:12px 16px;border-radius:10px;background:#fff;box-shadow:0 0 0 1px rgba(0,0,0,.14),0 10px 24px rgba(0,0,0,.14);opacity:0"><div style="display:flex;align-items:center;gap:10px;margin-bottom:10px"><span style="width:26px;height:26px;display:block">' + fsvg('zip') + '</span><b style="font:600 13px var(--display)">資料一式.zip</b></div><div id="c3_bdlbar" class="pbar"><i></i></div></div>')

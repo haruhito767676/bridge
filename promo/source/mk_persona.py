@@ -6,8 +6,8 @@
      章 3 エンジニア       … 呼び出す: ターミナルで ⌥⌘V → 「ssh」 → Enter で貼る、もう一度「doc」で docker のコマンドを貼る
    画角: 広い画面 (デスクトップ・Dock・背後のウィンドウごと) → アクティブなウィンドウ + 右端のパネルへ寄る → 引く。
    パネル/ポップアップは実アプリの UI (ui/persona-plates.mjs を SCHEME=light で撮ったもの)。
-   1 章 = 10.4 秒。章の頭出しはサイト側のボタン。1920x1080 で書き出す。"""
-CH, N = 10.4, 3
+   1 章 = 11.4 秒。章の頭出しはサイト側のボタン。1920x1080 で書き出す。"""
+CH, N = 11.4, 3   # 章の最後 (引いた絵) で 1.5 秒は止まる
 DUR = round(CH * N, 3)
 
 PAGE = r'''<!doctype html>
@@ -135,7 +135,7 @@ const bez = (x1, y1, x2, y2) => x => {
   for (let i = 0; i < 22; i++) { u = (lo + hi) / 2; const bx = 3 * (1 - u) * (1 - u) * u * x1 + 3 * (1 - u) * u * u * x2 + u * u * u; if (bx < x) lo = u; else hi = u; }
   return 3 * (1 - u) * (1 - u) * u * y1 + 3 * (1 - u) * u * u * y2 + u * u * u;
 };
-const E = { out: bez(.16, 1, .3, 1), inOut: bez(.65, 0, .35, 1), soft: bez(.45, 0, .2, 1), in: bez(.5, 0, .75, 0) };
+const E = { out: bez(.16, 1, .3, 1), inOut: bez(.65, 0, .35, 1), soft: bez(.45, 0, .2, 1), in: bez(.5, 0, .75, 0), cur: bez(.4, 0, .25, 1) };   // cur: カーソルの移動
 function spring(dt, k = 140, c = 22) {
   if (dt <= 0) return 0;
   const w0 = Math.sqrt(k), z = c / (2 * w0);
@@ -187,7 +187,7 @@ const panels = { office: new Panel('office', $('slot1')), creator: new Panel('cr
 function path(kf, u) {
   if (u <= kf[0][0]) return [kf[0][1], kf[0][2]];
   for (let i = 1; i < kf.length; i++) if (u <= kf[i][0]) {
-    const a = kf[i - 1], b = kf[i], p = E.inOut(P(u, a[0], b[0]));
+    const a = kf[i - 1], b = kf[i], p = E.cur(P(u, a[0], b[0]));
     if (b.length > 3) { const q = 1 - p; return [q * q * q * a[1] + 3 * q * q * p * b[3] + 3 * q * p * p * b[5] + p * p * p * b[1], q * q * q * a[2] + 3 * q * q * p * b[4] + 3 * q * p * p * b[6] + p * p * p * b[2]]; }
     return [lerp(a[1], b[1], p), lerp(a[2], b[2], p)];
   }
