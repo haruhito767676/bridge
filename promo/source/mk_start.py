@@ -150,7 +150,7 @@ html,body{width:1920px;height:1080px;overflow:hidden;background:#eceef5;font-fam
         <div style="padding:22px 30px 0"><div style="display:flex;align-items:center;gap:14px;height:38px;border-bottom:1px solid rgba(0,0,0,.08)"><b style="font:500 13px var(--display);color:#8a8a90;width:40px">宛先</b><span class="sl" style="width:150px"></span></div>
           <div style="display:flex;align-items:center;gap:14px;height:38px;border-bottom:1px solid rgba(0,0,0,.08)"><b style="font:500 13px var(--display);color:#8a8a90;width:40px">件名</b><span class="sl" style="width:200px"></span></div></div>
         <div class="memo" style="padding-top:30px"><span class="sl" style="width:260px;margin-bottom:14px"></span><span class="sl" style="width:200px;margin-bottom:26px"></span>
-          <div class="pblock" id="wpb" style="margin-top:0"><span class="pt" id="wtxt">明日の会議は10:00、会議室B</span><i class="caret" id="wcaret"></i></div>
+          <div class="pblock" id="wmail" style="margin-top:0"><span class="pt" id="wtxt">明日の会議は10:00、会議室B</span><i class="caret" id="wcaret"></i></div>
           <span class="sl" style="width:300px;margin-top:12px"></span><span class="sl" style="width:240px;margin-top:14px"></span></div></div>
     </div>
     <div class="halo" id="whalo"></div>
@@ -225,7 +225,7 @@ const pressed = (t, list) => list.some(c => t > c - .05 && t < c + .1) ? .86 : 1
 let M3 = null;   // 画面座標 (x 800〜1600 が映る) で測った、コピーする文・貼り付け位置
 const measure3 = () => {
   const box = id => { const r = $(id).getBoundingClientRect(), f = $(id).closest('.half').getBoundingClientRect(); return { x: (r.left - f.left) / S + 800, y: (r.top - f.top) / S, w: r.width / S, h: r.height / S }; };
-  M3 = { m: box('mln'), w: box('wpb') };
+  M3 = { m: box('mln'), w: box('wmail') };
 };
 
 // ---------------------------------------------------------------- 1 インストール
@@ -268,9 +268,17 @@ function ch1(t) {
 }
 
 // ---------------------------------------------------------------- 2 同期キーを合わせる
-const T2 = { open: .4, copy: 1.9, toastOff: 3.6, paste: 3.5, send: 4.9, arrive: 5.6, sel: 6.4, wclick: 7.7, connect: 9.0 };
+const T2 = { open: .4, copy: 1.9, toastOff: 3.6, mclick: 3.25, paste: 3.5, send: 4.9, arrive: 5.6, sel: 6.45, wclick: 7.9, connect: 9.2 };
 const MCOPYBTN = [1459, 336], WPASTEBTN = [1526, 336];
+let M2 = null;   // 画面座標 (x 800〜1600 が映る) で測った、入力欄・送信ボタン・キーの文字
+const measure2 = () => {
+  const box = id => { const r = $(id).getBoundingClientRect(), f = $(id).closest('.half').getBoundingClientRect(); return { x: (r.left - f.left) / S + 800, y: (r.top - f.top) / S, w: r.width / S, h: r.height / S }; };
+  $('wb1').style.transform = 'none'; $('mb1').style.transform = 'none';   // 届く動きの途中でも、最終位置で測る
+  $('wbt').textContent = KEY;
+  M2 = { inp: box('minp'), send: box('msend'), key: box('wbt') };
+};
 function ch2(t) {
+  if (!M2) measure2();
   $('mclk').textContent = $('wclk').textContent = '13:23';
   const op = crit(t - T2.open);
   slideX('mslot', op); slideX('wslot', op);
@@ -285,23 +293,25 @@ function ch2(t) {
   setOp('me', 0); setOp('we', 0);
   setOp('ms0', 1 - onM); setOp('ms1', toast * (1 - onM)); setOp('ms2', onM);
   // Mac: チャット欄にキーを貼る → 送信 → 吹き出し
-  const inpOn = t >= T2.paste && t < T2.send;
+  const inpOn = t >= T2.paste && t < T2.send;   // 入力欄をクリックして (mclick)、貼り付け
   $('minp').textContent = inpOn ? KEY.slice(0, 26) + '…' : ''; $('mph').style.display = inpOn ? 'none' : 'inline';
   $('msend').style.opacity = inpOn ? 1 : .25;
   $('mbt').textContent = KEY; $('wbt').textContent = KEY;
   const mb = E.out(P(t, T2.send, T2.send + .35)); setOp('mb1', mb); $('mb1').style.transform = `translate3d(0,${(14 * (1 - mb)).toFixed(1)}px,0)`;
   // Windows: 吹き出しが届く → キーを選ぶ → 「貼り付け」
   const wb = E.out(P(t, T2.arrive, T2.arrive + .4)); setOp('wb1', wb); $('wb1').style.transform = `translate3d(0,${(14 * (1 - wb)).toFixed(1)}px,0)`;
-  const sel = t >= T2.sel && t < T2.wclick + .1;
+  const sel = t >= T2.sel + .28 && t < T2.wclick + .1;
   $('wbt').innerHTML = sel ? '<mark>' + KEY + '</mark>' : KEY;
   const wt = E.out(P(t, T2.wclick, T2.wclick + .12)) * (1 - E.in(P(t, T2.wclick + 1.3, T2.wclick + 1.55)));
   const onW = P(t, T2.connect, T2.connect + .12);
   setOp('ws0', 1 - onW); setOp('ws1', wt * (1 - onW)); setOp('ws2', onW);
   // カーソル
-  const mkf = [[0, 1150, 560], [.9, 1150, 560], [1.7, MCOPYBTN[0] + 4, MCOPYBTN[1] + 6], [2.4, MCOPYBTN[0] + 4, MCOPYBTN[1] + 6], [3.2, 1040, 685], [3.5, 1040, 685], [4.7, 1214, 692], [5.1, 1214, 692], [5.9, 1060, 480]];
-  const wkf = [[0, 1500, 600], [5.4, 1500, 600], [6.0, 1090, 428], [6.9, 1090, 428], [7.5, WPASTEBTN[0] + 4, WPASTEBTN[1] + 6], [8.6, WPASTEBTN[0] + 4, WPASTEBTN[1] + 6], [9.5, 1180, 640]];
-  cursorAt('mcur', path(mkf, t), P(t, .6, .9) * (1 - P(t, 5.6, 6.0)), pressed(t, [T2.copy, T2.send]));
-  cursorAt('wcur', path(wkf, t), P(t, 5.2, 5.5) * (1 - P(t, 9.3, 9.7)), pressed(t, [T2.wclick]));
+  const IN = [M2.inp.x + 90, M2.inp.y + M2.inp.h / 2], SD = [M2.send.x + M2.send.w / 2, M2.send.y + M2.send.h / 2], KY = [M2.key.x + 70, M2.key.y + 11];
+  const mkf = [[0, 1150, 560], [.9, 1150, 560], [1.7, MCOPYBTN[0] + 4, MCOPYBTN[1] + 6], [2.4, MCOPYBTN[0] + 4, MCOPYBTN[1] + 6], [3.1, IN[0], IN[1]], [3.6, IN[0], IN[1]], [4.7, SD[0], SD[1]], [5.1, SD[0], SD[1]], [5.9, 1060, 480]];
+  const wkf = [[0, 1500, 600], [5.4, 1500, 600], [6.3, KY[0], KY[1]], [T2.sel + .4, KY[0], KY[1]], [7.6, WPASTEBTN[0] + 4, WPASTEBTN[1] + 6], [8.8, WPASTEBTN[0] + 4, WPASTEBTN[1] + 6], [9.7, 1180, 640]];
+  const wsel = [T2.sel, T2.sel + .14, T2.sel + .28];   // 3 回クリックで、キーの段落をまるごと選ぶ
+  cursorAt('mcur', path(mkf, t), P(t, .6, .9) * (1 - P(t, 5.6, 6.0)), pressed(t, [T2.copy, T2.mclick, T2.send]));
+  cursorAt('wcur', path(wkf, t), P(t, 5.2, 5.5) * (1 - P(t, 9.5, 9.9)), pressed(t, [...wsel, T2.wclick]));
 }
 
 // ---------------------------------------------------------------- 3 コピーして、試す
