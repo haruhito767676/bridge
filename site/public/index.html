@@ -325,7 +325,6 @@
   .detail-row{display:grid;grid-template-columns:1fr 1fr;gap:52px;align-items:center;}
   .detail-row.reverse .detail-shot{order:2;}
   .detail-solo{max-width:640px;margin:0 auto;text-align:center;}
-  .eyebrow{display:block;font-size:12.5px;font-weight:600;letter-spacing:.06em;color:var(--accent);margin-bottom:8px;line-height:1.3;}
   .detail-solo h3{font-size:34px;margin-bottom:12px;}
   .detail-text h3{font-size:34px;margin-bottom:12px;}
   .detail-text p{font-size:15.5px;line-height:1.7;}
@@ -740,7 +739,6 @@
 
 <section id="detail-store">
   <div class="detail-solo">
-    <span class="eyebrow">履歴とファイル棚</span>
     <h3>どんな仕事でも、ちゃんと残る。</h3>
     <p>テキストでも、ファイルでも。<br class="sm-only">形を問わず、そのまま残っていく。<br>ファイルは本物のファイルとして<br class="sm-only">返ってくるから、開き直すときに迷わない。</p>
   </div>
@@ -759,7 +757,6 @@
 <section id="detail-pick">
   <div class="detail-row reverse">
     <div class="detail-text">
-      <span class="eyebrow">クイックペースト</span>
       <h3>呼び出せば、<br>その場で貼り付け。<br>マウスいらず。</h3>
       <p>あっちに行ったり、こっちに行ったり。<br>目の回るような往復に、さよならを。<br>いつでも、どこでも。あなたのそばに。</p>
       <ul class="checklist">
@@ -779,7 +776,6 @@
 
 <section id="detail-sync">
   <div class="detail-solo detail-solo-compare">
-    <span class="eyebrow">デバイス間の同期</span>
     <h3>入れたら、<br class="sm-only">もう、届いている。</h3>
     <p>文字も、画像も、ファイルも。<br class="sm-only">フォルダだって、そのまま。</p>
     <figure class="clip compare-clip">
@@ -855,40 +851,20 @@
       <p>履歴も、ファイル棚も、それだけならオフラインで動きます。他のデバイスと同期するときだけ、同じ Wi-Fi / LAN が必要です。</p>
     </details>
     <details class="faq-item">
-      <summary><h4>スマートフォンには対応していますか？</h4></summary>
-      <p>今のところは macOS と Windows に対応しています。iPhone や Android のスマートフォンには、現在対応していません。</p>
-    </details>
-    <details class="faq-item">
-      <summary><h4>対応 OS はなんですか？</h4></summary>
-      <p>macOS 12 以降と Windows 10 以降に対応しています。Linux 動作はしますが、公式サポートの対象外です。</p>
-    </details>
-    <details class="faq-item">
       <summary><h4>料金はかかりますか？</h4></summary>
       <p>無料で、ソースコードも MIT ライセンスで公開しています。外部サービスへの課金や登録も一切ありません。</p>
     </details>
     <details class="faq-item">
-      <summary><h4>何台まで同時に繋げられますか？</h4></summary>
-      <p>台数の上限は設けていません。同じ同期キーを使っている端末であれば、いくつでも繋げることができます。</p>
+      <summary><h4>何台まで、どの組み合わせで繋げられますか？</h4></summary>
+      <p>台数の上限はありません。Mac 同士でも、Windows 同士でも、Mac と Windows の混在でも、同じ同期キーを使っている端末なら繋がります。</p>
     </details>
     <details class="faq-item">
       <summary><h4>ファイルサイズの制限はありますか？</h4></summary>
       <p>基本的に上限はありません。ストリーミングで転送するので、数GBのファイルでも問題なく送れます。フォルダだけは1GBを超えると自動では展開されず、zipのまま届きます（右クリックで手動展開できます）。</p>
     </details>
     <details class="faq-item">
-      <summary><h4>Mac 同士や Windows 同士でも使えますか？</h4></summary>
-      <p>使えます。台数も OS の組み合わせも問いません。Mac 同士でも、Windows 同士でも、Mac と Windows の混在でも、同じ同期キーであれば繋がります。</p>
-    </details>
-    <details class="faq-item">
       <summary><h4>1 台の PC でしか使いませんが、意味ありますか？</h4></summary>
-      <p>あります。履歴も、ファイルのしまい場所も、クイックペーストも、1 台だけでそのまま使えます。</p>
-    </details>
-    <details class="faq-item">
-      <summary><h4>コピーした内容はどこかに送信されますか？</h4></summary>
-      <p>同じ Wi-Fi / LAN 上の、同じ「同期キー」を持つデバイスにしか送られません。開発者を含む外部のサーバーやクラウドは経由しません。</p>
-    </details>
-    <details class="faq-item">
-      <summary><h4>通信は暗号化されていますか？</h4></summary>
-      <p>されています。同期キーから作った鍵で、メタデータもファイル本体もまとめて暗号化しています。同期キーを知らない相手には、同じ Wi-Fi / LAN にいても中身を読み取れません。</p>
+      <p>あります。履歴も、ファイル棚も、クイックペーストも、1 台だけでそのまま使えます。</p>
     </details>
     <details class="faq-item">
       <summary><h4>Universal Clipboard や類似ツールと何が違いますか？</h4></summary>
