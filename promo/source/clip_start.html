@@ -1,0 +1,340 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><title>Bridge clip: start</title>
+<style>
+:root{--display:-apple-system,BlinkMacSystemFont,"SF Pro Display","Hiragino Sans","Noto Sans JP",sans-serif;--mono:ui-monospace,"SF Mono",Menlo,monospace;--S:1.13778}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:1920px;height:1080px;overflow:hidden;background:#eceef5;font-family:var(--display);-webkit-font-smoothing:antialiased;color:#1d1d1f}
+#stage{position:absolute;left:0;top:0;width:1920px;height:1080px;overflow:hidden}
+.half{position:absolute;top:28px;width:911px;height:1024px;overflow:hidden;border-radius:22px;box-shadow:0 0 0 1px rgba(20,30,60,.1),0 22px 54px -18px rgba(20,30,60,.3)}
+#hm{left:33px}#hw{left:976px}
+.cam{position:absolute;left:0;top:0;width:1600px;height:900px;transform-origin:0 0;transform:translate3d(-910.2px,0,0) scale(var(--S))}   /* 画面の右半分 (x 800〜1600) を 911px に */
+.scr{position:absolute;left:0;top:0;width:1600px;height:900px;overflow:hidden}
+.scr.mac{background:radial-gradient(70% 60% at 92% 96%,#ffd9a0 0%,rgba(255,217,160,0) 62%),radial-gradient(70% 60% at 6% 8%,#9fe8d3 0%,rgba(159,232,211,0) 62%),radial-gradient(60% 50% at 50% 50%,#b9d3ff 0%,rgba(185,211,255,0) 64%),linear-gradient(160deg,#e3f4ff,#e8e4ff)}
+.scr.win{background:radial-gradient(60% 70% at 18% 12%,#9fc4ff 0%,rgba(159,196,255,0) 62%),radial-gradient(70% 70% at 88% 88%,#e2b6ff 0%,rgba(226,182,255,0) 62%),radial-gradient(50% 50% at 55% 45%,#c9e6ff 0%,rgba(201,230,255,0) 64%),linear-gradient(135deg,#dbe8ff,#f4ecff)}
+.ch{position:absolute;left:0;top:0;width:1600px;height:900px}
+.menubar{position:absolute;left:0;right:0;top:0;height:28px;z-index:30;background:rgba(255,255,255,.52);backdrop-filter:blur(20px) saturate(1.6);display:flex;align-items:center;justify-content:flex-end;padding:0 14px;font:500 13.5px var(--display);color:#1d1d1f;gap:14px}
+.menubar svg{width:16px;height:16px;fill:none;stroke:#1d1d1f;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.menubar .clk{font-weight:600;font-size:17px}
+.taskbar{position:absolute;left:0;right:0;bottom:0;height:52px;z-index:30;background:rgba(244,246,252,.8);backdrop-filter:blur(30px) saturate(1.5);box-shadow:inset 0 .5px 0 rgba(0,0,0,.1)}
+.taskbar .tray{position:absolute;right:18px;top:0;height:52px;display:flex;align-items:center;gap:14px;font:12px/1.25 var(--display);color:#222;text-align:right}
+.taskbar .tray svg{width:17px;height:17px;stroke:#222;fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.taskbar .tray .clk{font-weight:600;font-size:16px}
+.win{position:absolute;border-radius:12px;overflow:hidden;background:#fff;box-shadow:0 0 0 .5px rgba(0,0,0,.2),0 30px 80px rgba(20,30,60,.3);z-index:4}
+.win .bar{height:40px;display:flex;align-items:center;gap:8px;padding:0 14px;font:600 13px var(--display);color:rgba(0,0,0,.6);background:#f3f3f5;box-shadow:inset 0 -1px 0 rgba(0,0,0,.08)}
+.tl{width:12px;height:12px;border-radius:6px;background:#ff5f57;flex:none}.tl.y{background:#febc2e}.tl.g{background:#28c840}
+.wn{position:absolute;border-radius:8px;overflow:hidden;background:#fff;box-shadow:0 0 0 1px rgba(0,0,0,.16),0 24px 60px rgba(20,30,60,.3);z-index:4}
+.wn .cap{height:36px;display:flex;align-items:center;padding:0 0 0 14px;font:12px var(--display);color:#333;background:#eef0f6;position:relative}
+.wn .cap .cb{position:absolute;right:0;top:0;display:flex;height:36px}
+.wn .cap .cb i{width:46px;display:flex;align-items:center;justify-content:center}
+.wn .cap .cb svg{width:11px;height:11px;stroke:#333;fill:none;stroke-width:1.1}
+.sl{height:9px;border-radius:5px;background:rgba(0,0,0,.1)}
+.txt{position:absolute;left:130px;top:92px;font:21px/1.7 var(--display);color:#222;white-space:nowrap}
+.memo{padding:34px 34px 0;font:21px/1.6 var(--display);color:#222}
+.memo .sl{display:block}
+.ln{position:relative;display:inline-block;white-space:nowrap}
+.ln .t{position:relative;z-index:1}
+.selbar{position:absolute;left:-3px;top:2px;bottom:2px;width:0;background:rgba(10,132,255,.28);border-radius:3px}
+.pblock{position:relative;min-height:40px;margin-top:22px}
+.pblock .pt{display:block;opacity:0;white-space:normal}
+.caret{position:absolute;left:0;top:5px;width:2px;height:28px;background:#222;opacity:0}
+/* Bridge パネル */
+.pslot{position:absolute;left:1280px;top:150px;width:320px;height:600px;z-index:10}
+.panel{position:absolute;left:0;top:0;width:320px;height:600px;overflow:hidden}
+.panel.glass{border-radius:14px 0 0 14px;background:rgba(250,250,251,.86);backdrop-filter:blur(30px) saturate(1.7);box-shadow:inset 0 0 0 .5px rgba(0,0,0,.12),0 26px 64px -20px rgba(20,20,25,.34),0 0 0 1px rgba(0,0,0,.05)}
+.panel.fluent{border-radius:8px 0 0 8px;background:#fbfbfc;box-shadow:inset 0 0 0 1px rgba(0,0,0,.1),0 26px 64px -20px rgba(20,20,25,.34)}
+.panel img,.pview img{position:absolute;left:0;width:320px;height:auto}
+.panel .full{top:0;height:600px}
+.pview{position:absolute;left:0;overflow:hidden;width:320px}
+.pill{position:absolute;left:1592px;top:400px;width:6px;height:72px;border-radius:3px;background:rgba(0,0,0,.28);z-index:9}
+.halo{position:absolute;left:1586px;top:392px;width:18px;height:88px;border-radius:9px;border:2px solid rgba(10,132,255,.55);z-index:8;opacity:0}
+/* 状態アイコン (同期の進み具合) */
+.stat{position:relative;width:20px;height:20px;display:inline-block}
+.stat svg{position:absolute;inset:0;width:20px;height:20px;stroke:none;fill:none}
+.cursor{position:absolute;left:0;top:0;width:28px;height:36px;filter:drop-shadow(0 3px 6px rgba(0,0,0,.35));z-index:50}
+#fade{position:absolute;left:0;top:0;width:1920px;height:1080px;background:#eceef5;opacity:1;pointer-events:none;z-index:99}
+/* --- 1: インストール --- */
+.dmg{left:860px;top:230px;width:520px;height:360px}
+.dmg .body{position:absolute;left:0;top:40px;right:0;bottom:0;background:linear-gradient(#fff,#f6f6f9)}
+.dmg .ic{position:absolute;width:100px;text-align:center;font:500 13px var(--display);color:#333}
+.dmg .ic img,.dmg .ic svg{width:100px;height:100px;display:block;margin-bottom:6px;filter:drop-shadow(0 6px 10px rgba(0,0,0,.16))}
+.dmg .arrow{position:absolute;left:222px;top:118px;width:76px;height:36px}
+.ghost{position:absolute;width:100px;height:100px;z-index:20;filter:drop-shadow(0 12px 18px rgba(0,0,0,.28));opacity:0;left:0;top:0}
+.copysheet{position:absolute;left:890px;top:312px;width:460px;height:128px;border-radius:12px;background:rgba(250,250,252,.98);box-shadow:0 0 0 .5px rgba(0,0,0,.2),0 24px 60px rgba(20,30,60,.3);z-index:12;padding:22px 26px;font:13.5px/1.5 var(--display);color:#222}
+.copysheet .pb{margin-top:16px;height:7px;border-radius:4px;background:rgba(0,0,0,.1);overflow:hidden}
+.copysheet .pb i{display:block;height:100%;width:0;background:#0a84ff;border-radius:4px}
+.copysheet small{display:block;margin-top:10px;color:rgba(0,0,0,.5);font-size:12px}
+.setup{left:900px;top:330px;width:460px;height:230px}
+.setup .body{padding:26px 30px;display:flex;gap:22px;align-items:center;height:194px}
+.setup .body img{width:84px;height:84px;flex:none}
+.setup .t1{font:600 17px var(--display);color:#1a1a1a;margin-bottom:6px}
+.setup .t2{font:13px var(--display);color:rgba(0,0,0,.55);margin-bottom:18px}
+.setup .pb{height:8px;border-radius:2px;background:rgba(0,0,0,.1);overflow:hidden;width:270px}
+.setup .pb i{display:block;height:100%;width:0;background:#0a6cd6}
+/* --- 2: チャット (Bridge の外) --- */
+.chat{left:830px;top:170px;width:420px;height:560px}
+.chat .head{height:46px;display:flex;align-items:center;justify-content:center;font:600 14px var(--display);color:#222;border-bottom:1px solid rgba(0,0,0,.08);background:#fafafb}
+.chat .msgs{position:absolute;left:0;right:0;top:0;bottom:64px;padding:0 18px}
+.chat .in{position:absolute;left:14px;right:14px;bottom:12px;height:42px;border-radius:21px;background:#f0f1f5;display:flex;align-items:center;padding:0 16px;font:12px var(--mono);color:#222;white-space:nowrap;overflow:hidden}
+.chat .in .ph{color:rgba(0,0,0,.35);font:13px var(--display)}
+.chat .in .send{position:absolute;right:6px;top:6px;width:30px;height:30px;border-radius:15px;background:#0a84ff;display:flex;align-items:center;justify-content:center;opacity:.25}
+.chat .in .send svg{width:14px;height:14px;fill:none;stroke:#fff;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.bub{position:absolute;max-width:340px;padding:11px 14px;border-radius:16px;font:12.5px/1.55 var(--mono);word-break:break-all;opacity:0}
+.bub.me{right:18px;background:#0a84ff;color:#fff;border-bottom-right-radius:5px}
+.bub.you{left:18px;background:#eceef3;color:#222;border-bottom-left-radius:5px}
+.bub mark{background:rgba(10,132,255,.32);color:inherit;border-radius:2px}
+.bub.you mark{color:#0a3d80}
+.bub .tm{display:block;margin-top:5px;font:10.5px var(--display);opacity:.6;text-align:right}
+</style></head>
+<body>
+<div id="stage">
+  <div class="half" id="hm"><div class="cam"><div class="scr mac">
+    <div class="menubar"><svg viewBox="0 0 24 24"><path d="M2.5 9a14 14 0 0 1 19 0M6 12.5a9 9 0 0 1 12 0M9.5 16a4.2 4.2 0 0 1 5 0"/></svg><svg viewBox="0 0 26 24" style="width:22px"><rect x="2" y="7" width="19" height="10" rx="2.5"/><path d="M23 10.5v3"/><rect x="4" y="9" width="14" height="6" rx="1" fill="#1d1d1f" stroke="none"/></svg>
+      <span class="stat" id="mstat"><svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="7" stroke="rgba(0,0,0,.18)" stroke-width="2.4"/><circle id="mring" cx="10" cy="10" r="7" stroke="#0a84ff" stroke-width="2.4" stroke-linecap="round" stroke-dasharray="44" stroke-dashoffset="44" transform="rotate(-90 10 10)"/><path id="mtick" d="M6.5 10.3l2.4 2.4 4.6-5" stroke="#1f9d4a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" opacity="0"/></svg></span>
+      <span>100%</span><span class="clk" id="mclk">13:21</span></div>
+    <!-- 1: ディスクイメージ -->
+    <div class="ch" id="m1">
+      <div class="win dmg" id="mdmg"><div class="bar"><i class="tl"></i><i class="tl y"></i><i class="tl g"></i><span style="margin-left:12px">Bridge</span></div><div class="body">
+        <div class="ic" id="mapp" style="left:80px;top:88px"><img src="../../icon.png" alt=""><span>Bridge</span></div>
+        <svg class="arrow" viewBox="0 0 76 36" fill="none" stroke="rgba(0,0,0,.28)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="1 8"><path d="M4 18h62M54 6l14 12-14 12"/></svg>
+        <div class="ic" id="mfold" style="left:340px;top:88px"><svg viewBox="0 0 100 100"><defs><linearGradient id="fg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7cc4ff"/><stop offset="1" stop-color="#2f8cf0"/></linearGradient></defs><path d="M8 26a7 7 0 0 1 7-7h20l9 9h41a7 7 0 0 1 7 7v45a7 7 0 0 1-7 7H15a7 7 0 0 1-7-7z" fill="url(#fg)"/><path d="M8 38h84v40a7 7 0 0 1-7 7H15a7 7 0 0 1-7-7z" fill="#5aaef8" opacity=".55"/></svg><span>Applications</span></div>
+      </div></div>
+      <img class="ghost" id="mghost" src="../../icon.png" alt="">
+      <div class="copysheet" id="mcopy" style="opacity:0"><div>「Bridge」を「Applications」にコピーしています…</div><div class="pb"><i id="mpb"></i></div><small>Finder</small></div>
+    </div>
+    <!-- 2: チャット (Bridge の外) -->
+    <div class="ch" id="m2">
+      <div class="win chat"><div class="bar"><i class="tl"></i><i class="tl y"></i><i class="tl g"></i><span style="margin-left:12px">メッセージ</span></div>
+        <div class="head" style="height:40px;font-size:13px">自分</div>
+        <div class="msgs" style="top:80px"><div class="bub me" id="mb1" style="top:230px"><span id="mbt"></span><span class="tm">13:23</span></div></div>
+        <div class="in"><span id="minp"></span><span class="ph" id="mph">メッセージ</span><i class="send" id="msend"><svg viewBox="0 0 16 16"><path d="M8 13V3M3.5 7.5L8 3l4.5 4.5"/></svg></i></div>
+      </div>
+    </div>
+    <!-- 3: 会議メモ (コピー元) -->
+    <div class="ch" id="m3">
+      <div class="win" style="left:830px;top:70px;width:420px;height:740px"><div class="bar"><i class="tl"></i><i class="tl y"></i><i class="tl g"></i><span style="margin-left:12px">会議メモ</span></div>
+        <div class="memo"><span class="sl d" style="width:210px;height:16px;margin-bottom:26px"></span><span class="sl" style="width:300px;margin-bottom:14px"></span><span class="sl" style="width:250px;margin-bottom:26px"></span><span class="ln" id="mln"><i class="selbar" id="msel"></i><span class="t">明日の会議は10:00、会議室B</span></span><span class="sl" style="width:320px;margin-top:26px"></span><span class="sl" style="width:270px;margin-top:14px"></span><span class="sl" style="width:290px;margin-top:14px"></span><span class="sl" style="width:190px;margin-top:14px"></span></div></div>
+    </div>
+    <div class="halo" id="mhalo"></div>
+    <div class="pill" id="mpill"></div>
+    <div class="pslot" id="mslot"><div class="panel glass" id="mset"><img class="full" id="ms0" src="ui/plates-light/settings/mac-off.png"><img class="full" id="ms1" src="ui/plates-light/settings/mac-copied.png"><img class="full" id="ms2" src="ui/plates-light/settings/mac-on.png"><img class="full" id="me" src="ui/plates-light/settings/empty-mac.png"></div></div>
+    <svg class="cursor" id="mcur" viewBox="0 0 34 44"><path d="M3 2v34l9-8 6 14 7-3-6-14 12-1z" fill="#fff" stroke="#000" stroke-width="2.4" stroke-linejoin="round"/></svg>
+  </div></div></div>
+
+  <div class="half" id="hw"><div class="cam"><div class="scr win">
+    <!-- 1: インストーラー -->
+    <div class="ch" id="w1">
+      <div class="wn setup" id="wsetup"><div class="cap">Bridge Setup<span class="cb"><i><svg viewBox="0 0 10 10"><path d="M1 1l8 8M9 1l-8 8"/></svg></i></span></div><div class="body"><img src="../../icon.png" alt=""><div><div class="t1">Bridge をインストールしています</div><div class="t2">しばらくお待ちください</div><div class="pb"><i id="wpb"></i></div></div></div></div>
+    </div>
+    <!-- 2: チャット (Bridge の外) -->
+    <div class="ch" id="w2">
+      <div class="wn chat"><div class="cap">メッセージ<span class="cb"><i><svg viewBox="0 0 10 10"><path d="M1 5h8"/></svg></i><i><svg viewBox="0 0 10 10"><rect x="1.5" y="1.5" width="7" height="7"/></svg></i><i><svg viewBox="0 0 10 10"><path d="M1 1l8 8M9 1l-8 8"/></svg></i></span></div>
+        <div class="head" style="height:40px;font-size:13px">自分</div>
+        <div class="msgs" style="top:76px"><div class="bub you" id="wb1" style="top:230px"><span id="wbt"></span><span class="tm">13:23</span></div></div>
+        <div class="in"><span class="ph">メッセージ</span><i class="send"><svg viewBox="0 0 16 16"><path d="M8 13V3M3.5 7.5L8 3l4.5 4.5"/></svg></i></div>
+      </div>
+    </div>
+    <!-- 3: メール (貼り付け先) -->
+    <div class="ch" id="w3">
+      <div class="wn" style="left:830px;top:50px;width:420px;height:740px"><div class="cap">新しいメール<span class="cb"><i><svg viewBox="0 0 10 10"><path d="M1 5h8"/></svg></i><i><svg viewBox="0 0 10 10"><rect x="1.5" y="1.5" width="7" height="7"/></svg></i><i><svg viewBox="0 0 10 10"><path d="M1 1l8 8M9 1l-8 8"/></svg></i></span></div>
+        <div style="padding:22px 30px 0"><div style="display:flex;align-items:center;gap:14px;height:38px;border-bottom:1px solid rgba(0,0,0,.08)"><b style="font:500 13px var(--display);color:#8a8a90;width:40px">宛先</b><span class="sl" style="width:150px"></span></div>
+          <div style="display:flex;align-items:center;gap:14px;height:38px;border-bottom:1px solid rgba(0,0,0,.08)"><b style="font:500 13px var(--display);color:#8a8a90;width:40px">件名</b><span class="sl" style="width:200px"></span></div></div>
+        <div class="memo" style="padding-top:30px"><span class="sl" style="width:260px;margin-bottom:14px"></span><span class="sl" style="width:200px;margin-bottom:26px"></span>
+          <div class="pblock" id="wpb" style="margin-top:0"><span class="pt" id="wtxt">明日の会議は10:00、会議室B</span><i class="caret" id="wcaret"></i></div>
+          <span class="sl" style="width:300px;margin-top:12px"></span><span class="sl" style="width:240px;margin-top:14px"></span></div></div>
+    </div>
+    <div class="halo" id="whalo"></div>
+    <div class="pill" id="wpill"></div>
+    <div class="pslot" id="wslot"><div class="panel fluent" id="wset"><img class="full" id="ws0" src="ui/plates-light/settings/win-off.png"><img class="full" id="ws1" src="ui/plates-light/settings/win-pasted.png"><img class="full" id="ws2" src="ui/plates-light/settings/win-on.png"><img class="full" id="we" src="ui/plates-light/settings/empty-win.png"></div></div>
+    <div class="taskbar"><div class="tray"><svg viewBox="0 0 24 24"><path d="M2.5 9a14 14 0 0 1 19 0M6 12.5a9 9 0 0 1 12 0M9.5 16a4.2 4.2 0 0 1 5 0"/></svg>
+      <span class="stat" id="wstat" style="width:22px;height:22px"><svg viewBox="0 0 20 20" style="width:22px;height:22px"><circle cx="10" cy="10" r="7" stroke="rgba(0,0,0,.18)" stroke-width="2.4"/><circle id="wring" cx="10" cy="10" r="7" stroke="#0a84ff" stroke-width="2.4" stroke-linecap="round" stroke-dasharray="44" stroke-dashoffset="44" transform="rotate(-90 10 10)"/><path id="wtick" d="M6.5 10.3l2.4 2.4 4.6-5" stroke="#1f9d4a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" opacity="0"/></svg></span>
+      <div><div class="clk" id="wclk">13:21</div><div>2026/09/30</div></div></div></div>
+    <svg class="cursor" id="wcur" viewBox="0 0 34 44"><path d="M3 2v34l9-8 6 14 7-3-6-14 12-1z" fill="#fff" stroke="#000" stroke-width="2.4" stroke-linejoin="round"/></svg>
+  </div></div></div>
+  <div id="fade"></div>
+</div>
+<script src="ui/plates-start/manifest.js"></script>
+<script>
+'use strict';
+const CHS = [10.8, 11.6, 10.4], DUR = 32.8, S = 1024 / 900;
+const KEY = 'a3f9c2e17b48d0562e9ca41f7d83b60c5e12f8a9047bd63c1e5a7f20984d3b6c';
+const $ = id => document.getElementById(id);
+const clamp = (v, a = 0, b = 1) => v < a ? a : v > b ? b : v;
+const P = (t, a, b) => clamp((t - a) / (b - a));
+const lerp = (a, b, p) => a + (b - a) * p;
+const bez = (x1, y1, x2, y2) => x => {
+  if (x <= 0) return 0; if (x >= 1) return 1;
+  let lo = 0, hi = 1, u = x;
+  for (let i = 0; i < 22; i++) { u = (lo + hi) / 2; const bx = 3 * (1 - u) * (1 - u) * u * x1 + 3 * (1 - u) * u * u * x2 + u * u * u; if (bx < x) lo = u; else hi = u; }
+  return 3 * (1 - u) * (1 - u) * u * y1 + 3 * (1 - u) * u * u * y2 + u * u * u;
+};
+const E = { out: bez(.16, 1, .3, 1), inOut: bez(.65, 0, .35, 1), in: bez(.5, 0, .75, 0) };
+const W0 = 2 * Math.PI / 0.32, crit = dt => dt <= 0 ? 0 : 1 - (1 + W0 * dt) * Math.exp(-W0 * dt);
+class Panel {
+  constructor(key, slot, cls) {
+    const m = this.m = MANIFEST[key]; const base = `ui/plates-start/${key}/`;
+    const el = this.el = document.createElement('div'); el.className = 'panel ' + cls; slot.appendChild(el);
+    const mk = (src, par) => { const i = new Image(); i.src = src; i.decoding = 'sync'; par.appendChild(i); return i; };
+    mk(base + 'chrome.png', el).style.top = '0';
+    const v = document.createElement('div'); v.className = 'pview'; v.style.top = m.dz.top + 'px'; v.style.height = (m.dz.bottom - m.dz.top) + 'px'; el.appendChild(v);
+    this.n = m.rows.map((r, i) => r.skipped ? null : { i, top: r.top, h: r.height, img: mk(base + `row${i}.png`, v) });
+    this.sel = mk(base + 'new-selected.png', v); this.sel.style.opacity = 0;
+    this.cop = mk(base + 'new-copied.png', v); this.cop.style.opacity = 0;
+    this.dzTop = m.dz.top;
+  }
+  rowY() { const r = this.m.rows[1]; return 150 + r.top + r.height / 2; }
+  update(ins, cop) {
+    const n = this.n, top = this.dzTop, sh = n[2].top - n[1].top;
+    n.forEach(r => {
+      if (!r) return;
+      let y = r.top - 2, o = 1, blur = 0, sc = 1;
+      if (r.i >= 2) y -= sh * (1 - ins);
+      if (r.i === 1) { o = clamp(ins * 1.5); y -= 18 * (1 - ins); sc = .96 + .04 * clamp(ins); blur = 6 * (1 - clamp(ins)); }
+      const tr = `translate3d(0,${(y - top).toFixed(2)}px,0) scale(${sc.toFixed(4)})`, fl = blur > .2 ? `blur(${blur.toFixed(1)}px)` : '';
+      if (r.i === 1) {
+        r.img.style.opacity = (o * (1 - cop)).toFixed(3);
+        this.cop.style.opacity = (cop * clamp(ins * 1.5)).toFixed(3);
+        this.cop.style.transform = tr;
+      } else r.img.style.opacity = o.toFixed(3);
+      r.img.style.transform = tr; r.img.style.filter = fl;
+    });
+  }
+}
+const PW = new Panel('win', $('wslot'), 'fluent');   // 3 章: Windows のパネル (履歴)
+const ROWY = PW.rowY();
+function path(kf, u) {
+  if (u <= kf[0][0]) return [kf[0][1], kf[0][2]];
+  for (let i = 1; i < kf.length; i++) if (u <= kf[i][0]) { const a = kf[i - 1], b = kf[i], p = E.inOut(P(u, a[0], b[0])); return [lerp(a[1], b[1], p), lerp(a[2], b[2], p)]; }
+  const l = kf[kf.length - 1]; return [l[1], l[2]];
+}
+const setOp = (id, v) => { $(id).style.opacity = clamp(v).toFixed(3); };
+const bounce = (t, a, d = .4) => { const p = P(t, a, a + d); return p <= 0 ? 0 : E.out(p); };
+const slideX = (slot, openP) => { $(slot).style.transform = `translate3d(${(340 * (1 - clamp(openP))).toFixed(1)}px,0,0)`; $(slot).style.opacity = openP > .002 ? 1 : 0; };
+const cursorAt = (id, p, op, press) => { const c = $(id); c.style.transform = `translate3d(${p[0].toFixed(1)}px,${p[1].toFixed(1)}px,0) scale(${press})`; c.style.opacity = op.toFixed(3); };
+const pressed = (t, list) => list.some(c => t > c - .05 && t < c + .1) ? .86 : 1;
+let M3 = null;   // 画面座標 (x 800〜1600 が映る) で測った、コピーする文・貼り付け位置
+const measure3 = () => {
+  const box = id => { const r = $(id).getBoundingClientRect(), f = $(id).closest('.half').getBoundingClientRect(); return { x: (r.left - f.left) / S + 800, y: (r.top - f.top) / S, w: r.width / S, h: r.height / S }; };
+  M3 = { m: box('mln'), w: box('wpb') };
+};
+
+// ---------------------------------------------------------------- 1 インストール
+const COPY1 = [7.1, 2.0];
+function ch1(t) {
+  $('mclk').textContent = $('wclk').textContent = '13:21';
+  // Mac: ディスクイメージの窓 → アイコンを Applications へドラッグ → コピー → 窓が閉じる
+  const pop = bounce(t, .3, .45), closeP = P(t, 6.2, 6.5);
+  const wo = pop * (1 - E.in(closeP)), sc = .965 + .035 * pop - .03 * closeP;
+  $('mdmg').style.opacity = wo.toFixed(3); $('mdmg').style.transform = `scale(${sc.toFixed(4)})`;
+  const APP = [990, 410], FOLD = [1250, 410];
+  const dragKF = [[0, 1180, 640], [1.0, 1180, 640], [1.9, APP[0] + 6, APP[1] + 10], [2.0, APP[0] + 6, APP[1] + 10], [3.3, FOLD[0] + 4, FOLD[1] + 8], [3.5, FOLD[0] + 4, FOLD[1] + 8], [4.6, 1120, 700], [7.2, 1300, 560], [8.3, 1591, 436], [9.0, 1591, 436], [9.6, 1470, 330]];
+  const cp = path(dragKF, t);
+  const dragging = t >= 2.0 && t < 3.4;
+  const gx = dragging ? cp[0] - 6 - 50 : FOLD[0] - 50, gy = dragging ? cp[1] - 10 - 50 : FOLD[1] - 50;
+  const gOn = t >= 2.0 && t < 3.75, shrink = P(t, 3.4, 3.75);
+  $('mghost').style.opacity = gOn ? (1 - shrink).toFixed(3) : 0;
+  $('mghost').style.transform = `translate3d(${gx.toFixed(1)}px,${gy.toFixed(1)}px,0) scale(${(1 - .45 * shrink).toFixed(3)})`;
+  $('mapp').style.opacity = t >= 2.0 ? (t < 3.4 ? .28 : .28) : 1;
+  const over = P(t, 3.0, 3.2) * (1 - P(t, 3.5, 3.7));
+  $('mfold').style.transform = `scale(${(1 + .08 * over).toFixed(3)})`;
+  // コピー中のシート → 完了
+  const so = P(t, 3.75, 3.95) * (1 - P(t, 5.7, 5.95));
+  $('mcopy').style.opacity = so.toFixed(3);
+  $('mpb').style.width = (100 * E.inOut(P(t, 3.9, 5.6))).toFixed(1) + '%';
+  cursorAt('mcur', cp, clamp(P(t, .6, .9) * (1 - P(t, 4.4, 4.8)) + P(t, 7.2, 7.5)), pressed(t, [2.0, 3.4]));
+  // Windows: インストーラーが進む → 閉じる
+  const wp = bounce(t, .3, .45), wc = P(t, 6.2, 6.5);
+  $('wsetup').style.opacity = (wp * (1 - E.in(wc))).toFixed(3); $('wsetup').style.transform = `scale(${(.965 + .035 * wp - .03 * wc).toFixed(4)})`;
+  $('wpb').style.width = (100 * E.inOut(P(t, 1.6, 5.6))).toFixed(1) + '%';
+  // 起動 → 右端につまみ
+  const pl = E.out(P(t, 6.9, 7.3)), pulse = P(t, 7.1, 8.2);
+  const opn = crit(t - 8.4); slideX('mslot', opn); slideX('wslot', opn);
+  ['m', 'w'].forEach(k => {
+    $(k + 'pill').style.opacity = (pl * (1 - clamp(opn * 3))).toFixed(3); $(k + 'pill').style.transform = `translate3d(${(6 * (1 - pl)).toFixed(1)}px,0,0)`;
+    const h = $(k + 'halo'); h.style.opacity = (pulse > 0 && pulse < 1 ? .9 * (1 - pulse) : 0).toFixed(3); h.style.transform = `scale(${(1 + 1.6 * E.out(pulse)).toFixed(3)})`;
+  });
+  cursorAt('wcur', path([[0, 1300, 560], [7.2, 1300, 560], [8.3, 1591, 436], [9.0, 1591, 436], [9.6, 1470, 330]], t), P(t, 7.2, 7.5), 1);
+  ['ms0', 'ms1', 'ms2', 'ws0', 'ws1', 'ws2'].forEach(id => setOp(id, 0)); setOp('me', 1); setOp('we', 1);
+}
+
+// ---------------------------------------------------------------- 2 同期キーを合わせる
+const T2 = { open: .4, copy: 1.9, toastOff: 3.6, paste: 3.5, send: 4.9, arrive: 5.6, sel: 6.4, wclick: 7.7, connect: 9.0 };
+const MCOPYBTN = [1459, 336], WPASTEBTN = [1526, 336];
+function ch2(t) {
+  $('mclk').textContent = $('wclk').textContent = '13:23';
+  const op = crit(t - T2.open);
+  slideX('mslot', op); slideX('wslot', op);
+  $('mset').style.display = $('wset').style.display = 'block'; PW.el.style.display = 'none';
+  ['mpill', 'wpill'].forEach(id => setOp(id, 1 - clamp(op * 3)));
+  $('mhalo').style.opacity = $('whalo').style.opacity = 0;
+  // チャット (両 OS で同じ会話)
+  const co = P(t, .25, .6); $('m2').style.opacity = $('w2').style.opacity = co.toFixed(3);
+  // Mac: 「コピー」→ トースト
+  const toast = E.out(P(t, T2.copy, T2.copy + .12)) * (1 - E.in(P(t, T2.toastOff, T2.toastOff + .25)));
+  const onM = P(t, T2.connect, T2.connect + .12);
+  setOp('me', 0); setOp('we', 0);
+  setOp('ms0', 1 - onM); setOp('ms1', toast * (1 - onM)); setOp('ms2', onM);
+  // Mac: チャット欄にキーを貼る → 送信 → 吹き出し
+  const inpOn = t >= T2.paste && t < T2.send;
+  $('minp').textContent = inpOn ? KEY.slice(0, 26) + '…' : ''; $('mph').style.display = inpOn ? 'none' : 'inline';
+  $('msend').style.opacity = inpOn ? 1 : .25;
+  $('mbt').textContent = KEY; $('wbt').textContent = KEY;
+  const mb = E.out(P(t, T2.send, T2.send + .35)); setOp('mb1', mb); $('mb1').style.transform = `translate3d(0,${(14 * (1 - mb)).toFixed(1)}px,0)`;
+  // Windows: 吹き出しが届く → キーを選ぶ → 「貼り付け」
+  const wb = E.out(P(t, T2.arrive, T2.arrive + .4)); setOp('wb1', wb); $('wb1').style.transform = `translate3d(0,${(14 * (1 - wb)).toFixed(1)}px,0)`;
+  const sel = t >= T2.sel && t < T2.wclick + .1;
+  $('wbt').innerHTML = sel ? '<mark>' + KEY + '</mark>' : KEY;
+  const wt = E.out(P(t, T2.wclick, T2.wclick + .12)) * (1 - E.in(P(t, T2.wclick + 1.3, T2.wclick + 1.55)));
+  const onW = P(t, T2.connect, T2.connect + .12);
+  setOp('ws0', 1 - onW); setOp('ws1', wt * (1 - onW)); setOp('ws2', onW);
+  // カーソル
+  const mkf = [[0, 1150, 560], [.9, 1150, 560], [1.7, MCOPYBTN[0] + 4, MCOPYBTN[1] + 6], [2.4, MCOPYBTN[0] + 4, MCOPYBTN[1] + 6], [3.2, 1040, 685], [3.5, 1040, 685], [4.7, 1214, 692], [5.1, 1214, 692], [5.9, 1060, 480]];
+  const wkf = [[0, 1500, 600], [5.4, 1500, 600], [6.0, 1090, 428], [6.9, 1090, 428], [7.5, WPASTEBTN[0] + 4, WPASTEBTN[1] + 6], [8.6, WPASTEBTN[0] + 4, WPASTEBTN[1] + 6], [9.5, 1180, 640]];
+  cursorAt('mcur', path(mkf, t), P(t, .6, .9) * (1 - P(t, 5.6, 6.0)), pressed(t, [T2.copy, T2.send]));
+  cursorAt('wcur', path(wkf, t), P(t, 5.2, 5.5) * (1 - P(t, 9.3, 9.7)), pressed(t, [T2.wclick]));
+}
+
+// ---------------------------------------------------------------- 3 コピーして、試す
+const T3 = { sel0: 1.0, sel1: 1.75, copy: 2.0, s0: 2.3, s1: 3.7, hover: 2.6, ins: 3.8, click: 5.3, leave: 6.5, wclick: 7.4, paste: 7.8 };
+function ch3(t) {
+  if (!M3) measure3();
+  $('mclk').textContent = $('wclk').textContent = '13:26';
+  $('mhalo').style.opacity = $('whalo').style.opacity = 0; $('mslot').style.opacity = 0;
+  // Mac: 文をドラッグで選ぶ → コピー。メニューバー / タスクトレイの状態アイコンに同期の進み具合
+  const L = M3.m, PB = M3.w;
+  $('msel').style.width = ((L.w + 6) * E.inOut(P(t, T3.sel0, T3.sel1)) * (t < T3.s1 + 1.3 ? 1 : 1 - P(t, T3.s1 + 1.3, T3.s1 + 1.4))).toFixed(1) + 'px';
+  const pr = E.inOut(P(t, T3.s0, T3.s1)), done = P(t, T3.s1, T3.s1 + .2), gone = P(t, T3.s1 + 1.0, T3.s1 + 1.4);
+  ['m', 'w'].forEach(k => { $(k + 'stat').style.opacity = (P(t, T3.s0 - .25, T3.s0) * (1 - gone)).toFixed(3); $(k + 'ring').setAttribute('stroke-dashoffset', (44 * (1 - pr)).toFixed(2)); $(k + 'ring').style.opacity = (1 - done).toFixed(3); $(k + 'tick').style.opacity = (done * (1 - gone)).toFixed(3); });
+  // Windows: つまみに重ねる → パネルが開く → 届いた項目 → 選ぶ (✓) → 閉じる → メール本文に貼る
+  const op = t < T3.leave ? crit(t - T3.hover) : 1 - crit(t - T3.leave);
+  slideX('wslot', op); setOp('wpill', 1 - clamp(op * 3)); setOp('mpill', 1);
+  const ins = 1 - Math.exp(-(t - T3.ins) * 9) * (1 + (t - T3.ins) * 9), insV = t < T3.ins ? 0 : clamp(ins);
+  const cop = E.out(P(t, T3.click, T3.click + .08));
+  PW.update(insV, cop);
+  const pp = E.out(P(t, T3.paste, T3.paste + .35)); $('wtxt').style.opacity = pp.toFixed(3); $('wtxt').style.transform = `translate3d(0,${(8 * (1 - pp)).toFixed(1)}px,0)`;
+  $('wcaret').style.opacity = (t >= T3.wclick && t < T3.paste) ? ((Math.floor(t * 2.2) % 2 === 0) ? 1 : 0) : 0;
+  // カーソル
+  const a = [L.x - 6, L.y + L.h / 2], b = [L.x + L.w, L.y + L.h / 2], pt = [PB.x + 4, PB.y + 18];
+  const mkf = [[0, 1420, 560], [.4, 1420, 560], [.9, a[0], a[1]], [T3.sel0, a[0], a[1]], [T3.sel1, b[0], b[1]], [3.0, b[0] + 70, b[1] + 80], [4.2, 1000, 640]];
+  const wkf = [[0, 1300, 560], [1.6, 1300, 560], [T3.hover - .1, 1591, 436], [4.3, 1591, 436], [T3.click - .4, 1440, ROWY], [T3.click + 1.0, 1440, ROWY], [T3.leave + .8, pt[0] + 60, pt[1] + 50], [T3.wclick, pt[0], pt[1]], [9.0, pt[0], pt[1]]];
+  cursorAt('mcur', path(mkf, t), P(t, .3, .5) * (1 - P(t, 3.8, 4.3)), pressed(t, [T3.sel0]));
+  cursorAt('wcur', path(wkf, t), P(t, 1.5, 1.8) * (1 - P(t, 9.6, 10.0)), pressed(t, [T3.click, T3.wclick]));
+}
+
+let t = 0;
+function render(T) {
+  t = T;
+  let k = 0, acc = 0; while (k < 2 && T >= acc + CHS[k]) { acc += CHS[k]; k++; }
+  const lt = T - acc, CH = CHS[k];
+  ['m1', 'w1'].forEach(id => $(id).style.display = k === 0 ? 'block' : 'none');
+  ['m2', 'w2'].forEach(id => $(id).style.display = k === 1 ? 'block' : 'none');
+  ['m3', 'w3'].forEach(id => $(id).style.display = k === 2 ? 'block' : 'none');
+  $('mset').style.display = $('wset').style.display = k < 2 ? 'block' : 'none'; PW.el.style.display = k === 2 ? 'block' : 'none';
+  $('mslot').style.opacity = 1; $('wslot').style.opacity = 1;
+  $('mstat').style.opacity = $('wstat').style.opacity = 0;
+  if (k === 0) ch1(lt);
+  else if (k === 1) ch2(lt); else ch3(lt);
+  $('fade').style.opacity = Math.max(1 - P(lt, 0, .35), P(lt, CH - .4, CH)).toFixed(3);
+}
+window.renderAt = T => render(clamp(T, 0, DUR - 1e-3));
+window.__ready = (async () => { await Promise.all([...document.images].map(i => i.complete ? 0 : new Promise(r => { i.onload = i.onerror = r; }))); await document.fonts.ready; render(0); return true; })();
+</script></body></html>

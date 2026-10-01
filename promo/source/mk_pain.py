@@ -6,7 +6,7 @@
    ch4 ブラウザとドキュメントの往復       … 1 台の画面で、コピーして貼る、を何度も行き来する
    メニューバー / タスクバーの時計を進めて「時間がかかった」ことを、文字なしで見せる。
    4 章を 1 本の HTML にして書き出し、章ごとに mp4 へ切り出す (render-pain.sh)。"""
-CHS = [10.6, 10.8, 10.6, 9.0]
+CHS = [12.5, 12.7, 12.5, 9.4]   # どの章も、最後の動きのあと 1.5 秒は止まった絵を見せてから暗転する
 STARTS = [round(sum(CHS[:i]), 3) for i in range(4)]
 DUR = round(sum(CHS), 3)
 
@@ -55,6 +55,7 @@ html,body{width:1920px;height:1080px;overflow:hidden;background:#eceef5;font-fam
 .wn .cap .cb{position:absolute;right:0;top:0;display:flex;height:36px}
 .wn .cap .cb i{width:46px;display:flex;align-items:center;justify-content:center}
 .wn .cap .cb svg{width:11px;height:11px;stroke:#333;fill:none;stroke-width:1.1}
+.wn .cap.dark .cb svg{stroke:#fff}
 .sl{height:9px;border-radius:5px;background:rgba(0,0,0,.1)}
 .sl.d{background:rgba(0,0,0,.18)}
 .dicon{position:absolute;width:88px;z-index:1;text-align:center;font:500 11.5px/1.3 var(--display);color:#23262e;text-shadow:0 0 5px rgba(255,255,255,.85)}
@@ -148,8 +149,8 @@ function ch2(u) {
   const KF2 = KF2f();
   const pan = E.soft(P(u, 6.0, 7.0));
   $('c2_sel').style.opacity = wait(u, 1.7, 1.75);
-  const appB = u >= 3.5;   // 背後の Slack をクリックして前面へ
-  $('c2_chrome').style.opacity = appB ? .0 : 1; $('c2_slack').style.zIndex = appB ? 5 : 2;
+  const appB = u >= 3.5;   // 背後の Slack をクリックして前面へ (Chrome は背面に残る)
+  $('c2_chrome').classList.toggle('inact', appB); $('c2_slack').style.zIndex = appB ? 5 : 2;
   $('c2_mbname').textContent = appB ? 'Slack' : 'Chrome';
   const paste = u >= 5.0; $('c2_paste').style.opacity = paste ? 1 : 0; $('c2_placeholder').style.opacity = paste ? 0 : 1;
   const sent = u >= 5.5; $('c2_paste').style.opacity = sent ? 0 : (paste ? 1 : 0); $('c2_sentmsg').style.opacity = sent ? 1 : 0;
@@ -158,7 +159,7 @@ function ch2(u) {
   const chsel = u >= 7.4; $('c2_bch').style.background = chsel ? 'rgba(10,132,255,.14)' : 'transparent';
   const sc = E.inOut(P(u, 7.7, 8.5)); $('c2_bmsgs').style.transform = `translate3d(0,${(-300 * sc).toFixed(1)}px,0)`; $('c2_bmsgs').style.opacity = chsel ? 1 : 0.0;
   $('c2_blinksel').style.opacity = wait(u, 8.9, 8.95); $('c2_bempty').style.opacity = chsel ? 0 : 1;
-  const chromeB = u >= 10.0; $('c2_bchrome').style.opacity = wait(u, 10.0, 10.2); $('c2_bslack').style.opacity = chromeB ? .0 : 1;
+  $('c2_bchrome').style.opacity = wait(u, 10.0, 10.2);
   $('c2_baddr').style.opacity = u >= 10.5 ? 1 : 0; $('c2_bpage').style.opacity = wait(u, 10.6, 10.75);
   clk('c2_clkB', u >= 7.4 ? 29 : 28);
   return { cam: pan, pos: path(KF2, u), op: wait(u, 0.5, 0.7) * (u < 5.9 ? 1 : (u < 6.9 ? 0 : 1)), press: (u > 1.18 && u < 1.3) || (u > 2.98 && u < 3.1) || (u > 4.98 && u < 5.1) || (u > 7.38 && u < 7.5) || (u > 8.88 && u < 9.0) || (u > 9.98 && u < 10.1) };
@@ -171,7 +172,7 @@ const KF3 = [[0.5, 1300, 600], [1.2, DI3[0], DI3[1], 1000, 600, 700, 300], [1.4,
 function ch3(u) {
   const pan = E.soft(P(u, 5.4, 6.4));
   const drag = u >= 1.4 && u < 2.9;
-  $('c3_dic').style.opacity = drag ? .4 : 1;
+  $('c3_dic').style.opacity = 1;
   const pos = path(KF3, u);
   ghost.style.opacity = (drag ? 1 - E.in(P(u, 2.85, 3.0)) : 0).toFixed(3);
   const gp = conv(pos); ghost.style.transform = `translate3d(${(gp[0] + 6).toFixed(1)}px,${(gp[1] + 8).toFixed(1)}px,0)`;
@@ -189,7 +190,7 @@ function ch3(u) {
 
 // ---------- 章 4: ブラウザとドキュメントの往復 ----------
 const LINES = [[470, 204], [470, 284], [470, 364]];   // ブラウザの中の行 (画面座標)
-const DOCP = [[1046, 152], [1046, 196], [1046, 240]];
+const DOCP = [[1046, 188], [1046, 234], [1046, 280]];
 const T4 = [1.0, 3.3, 5.6];
 function ch4(u) {
   let k = 0; T4.forEach((t, i) => { if (u >= t) k = i + 1; });
@@ -245,8 +246,8 @@ CLOUD = '<svg viewBox="0 0 64 64"><path d="M20 46h26a10 10 0 0 0 1-19.9A14 14 0 
 
 def fsvg(ext, cls=''):
     c, t = COLS[ext]
-    return (f'<svg class="{cls}" viewBox="0 0 64 64"><defs><linearGradient id="fg_g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#f2f3f7"/></linearGradient></defs>'
-            f'<path d="M12 4h28l14 14v38a4 4 0 0 1-4 4H12a4 4 0 0 1-4-4V8a4 4 0 0 1 4-4z" fill="url(#fg_g)" stroke="#b4b8c4" stroke-width="1.6"/><path d="M40 4l14 14H44a4 4 0 0 1-4-4z" fill="#dfe2ea" stroke="#b4b8c4" stroke-width="1.6" stroke-linejoin="round"/>'
+    return (f'<svg class="{cls}" viewBox="0 0 64 64">'
+            f'<path d="M12 4h28l14 14v38a4 4 0 0 1-4 4H12a4 4 0 0 1-4-4V8a4 4 0 0 1 4-4z" fill="#ffffff" stroke="#b4b8c4" stroke-width="1.6"/><path d="M40 4l14 14H44a4 4 0 0 1-4-4z" fill="#dfe2ea" stroke="#b4b8c4" stroke-width="1.6" stroke-linejoin="round"/>'
             f'<rect x="8" y="34" width="34" height="16" rx="3" fill="{c}"/><text x="25" y="46.2" font-family="-apple-system,Helvetica,sans-serif" font-size="11" font-weight="800" fill="#fff" text-anchor="middle">{t}</text></svg>')
 
 
@@ -310,8 +311,8 @@ def msgs(items, cls=''):
     return out
 
 chromeA = ('<div class="win" id="c2_chrome" style="left:540px;top:60px;width:860px;height:520px"><div class="bar" style="background:#e6e7ec;height:40px">' + tls() + '<span style="margin-left:16px;flex:1;height:26px;border-radius:13px;background:#fff;display:flex;align-items:center;padding:0 14px;font:13px var(--display);color:#555;position:relative"><mark class="sel" id="c2_sel" style="opacity:0;padding:2px 4px">https://www.example.com/blog/2026/clipboard-sync</mark></span></div>'
-           '<div style="position:absolute;left:60px;top:76px;right:60px"><div class="sl d" style="width:340px;height:16px;margin-bottom:24px"></div>' + ''.join('<div class="sl" style="margin-bottom:14px;width:%dpx"></div>' % w for w in (820, 780, 800, 560, 790, 700)) + '</div></div>')
-slackA = ('<div class="win" id="c2_slack" style="left:640px;top:90px;width:860px;height:500px;z-index:2"><div class="bar" style="background:#4a154b;color:#fff">' + tls() + '<span style="margin-left:14px;color:#fff">Slack</span></div>'
+           '<div style="position:absolute;left:60px;top:76px;right:60px"><div class="sl d" style="width:340px;height:16px;margin-bottom:24px"></div>' + ''.join('<div class="sl" style="margin-bottom:14px;width:%dpx"></div>' % w for w in (700, 660, 680, 470, 670, 590)) + '</div></div>')
+slackA = ('<div class="win" id="c2_slack" style="left:660px;top:96px;width:860px;height:484px;z-index:2"><div class="bar" style="background:#4a154b;color:#fff">' + tls() + '<span style="margin-left:14px;color:#fff">Slack</span></div>'
           '<div style="position:absolute;left:0;top:40px;width:220px;bottom:0;background:#3f0e40;color:#fff;padding:14px"><div style="font:700 15px var(--display);margin-bottom:16px">ワークスペース</div>'
           '<div style="font:13px var(--display);opacity:.7;line-height:30px"># general<br># デザイン<br># 開発</div><div style="font:13px var(--display);line-height:30px;background:rgba(255,255,255,.18);border-radius:6px;padding:0 8px;margin:4px -8px"># 自分だけ</div></div>'
           '<div style="position:absolute;left:220px;top:40px;right:0;bottom:0;background:#fff"><div style="height:46px;box-shadow:inset 0 -1px 0 rgba(0,0,0,.08);display:flex;align-items:center;padding:0 20px;font:700 15px var(--display)"># 自分だけ</div>'
@@ -319,7 +320,7 @@ slackA = ('<div class="win" id="c2_slack" style="left:640px;top:90px;width:860px
           '<div id="c2_sentmsg" style="display:flex;gap:12px;height:62px;opacity:0"><u style="width:34px;height:34px;border-radius:8px;background:#0a84ff;display:block;flex:none"></u><div><div class="sl d" style="width:70px;margin-bottom:8px"></div><div style="font:13px var(--mono);color:#1264a3">https://www.example.com/blog/2026/clipboard-sync</div></div></div></div>'
           '<div style="position:absolute;left:24px;right:24px;bottom:22px;height:64px;border-radius:10px;box-shadow:inset 0 0 0 1.5px rgba(0,0,0,.2);padding:12px 14px;font:13px var(--display)"><span id="c2_placeholder" style="color:#aaa">メッセージを入力</span><span id="c2_paste" style="opacity:0;font:13px var(--mono);color:#1264a3">https://www.example.com/blog/2026/clipboard-sync</span></div></div></div>')
 scrA2 = mac('c2_clkA', 'Chrome', 'c2_mbname', ['ファイル', '編集', '表示', '履歴', 'ブックマーク', 'ウインドウ', 'ヘルプ'], ['Finder', 'Chrome', 'Slack', 'Notion', 'Figma', 'Numbers', 'Pages', 'Word'], ['Finder', 'Chrome', 'Slack'], chromeA + slackA)
-slackB = ('<div class="wn" id="c2_bslack" style="left:480px;top:250px;width:1000px;height:580px"><div class="cap" style="background:#4a154b;color:#fff">Slack' + capbtn().replace('#333', '#fff') + '</div>'
+slackB = ('<div class="wn" id="c2_bslack" style="left:480px;top:250px;width:1000px;height:580px"><div class="cap dark" style="background:#4a154b;color:#fff">Slack' + capbtn() + '</div>'
           '<div style="position:absolute;left:0;top:36px;width:230px;bottom:0;background:#3f0e40;color:#fff;padding:14px"><div style="font:700 15px var(--display);margin-bottom:16px">ワークスペース</div>'
           '<div style="font:13px var(--display);opacity:.7;line-height:30px"># general<br># デザイン<br># 開発</div><div id="c2_bch" style="font:13px var(--display);line-height:30px;border-radius:6px;padding:0 8px;margin:4px -8px;background:transparent;color:#fff"># 自分だけ</div></div>'
           '<div style="position:absolute;left:230px;top:36px;right:0;bottom:0;background:#fff;overflow:hidden"><div style="height:46px;box-shadow:inset 0 -1px 0 rgba(0,0,0,.08);display:flex;align-items:center;padding:0 20px;font:700 15px var(--display)"># 自分だけ</div>'
@@ -354,9 +355,9 @@ scrB3 = winpc('c3_clkB', ['Chrome', 'Slack', 'Notion', 'Excel'], 'Chrome', drive
 web = ('<div class="win" id="c4_web" style="left:430px;top:70px;width:560px;height:520px"><div class="bar" style="background:#e6e7ec">' + tls() + '<span style="margin-left:16px;flex:1;height:26px;border-radius:13px;background:#fff;display:flex;align-items:center;padding:0 14px;font:13px var(--display);color:#555">www.example.com/report</span></div>'
        '<div style="position:absolute;left:36px;right:36px;top:64px"><div class="sl d" style="width:240px;height:16px;margin-bottom:24px"></div>'
        + ''.join(f'<div style="position:relative;height:80px"><div class="sl" style="position:absolute;top:8px;width:470px"></div><i id="c4_sel{i}" style="position:absolute;left:-4px;top:24px;height:21px;width:0;background:rgba(10,132,255,.3);border-radius:3px"></i><div class="sl d" style="position:absolute;top:30px;width:300px"></div><div class="sl" style="position:absolute;top:56px;width:400px"></div></div>' for i in range(3)) + '</div></div>')
-docsl = ''.join(f'<div id="c4_d{i}" style="position:absolute;left:36px;top:{72 + i * 44}px;opacity:0;width:300px"><div class="sl d" style="width:300px;height:12px"></div></div>' for i in range(3))
+docsl = ''.join(f'<div id="c4_d{i}" style="position:absolute;left:36px;top:{112 + i * 46}px;opacity:0;width:300px"><div class="sl d" style="width:300px;height:12px"></div></div>' for i in range(3))
 doc = ('<div class="win inact" id="c4_doc" style="left:1010px;top:70px;width:560px;height:520px"><div class="bar" style="background:#f3f3f5">' + tls() + '<span style="margin-left:14px">レポート — Pages</span></div>'
-       '<div style="position:absolute;left:36px;top:60px;width:300px"><div class="sl d" style="width:220px;height:16px"></div></div>' + docsl + '</div>')
+       '<div style="position:absolute;left:36px;top:62px;width:300px"><div class="sl d" style="width:220px;height:16px"></div></div>' + docsl + '</div>')
 scrA4 = mac('c4_clk', 'Chrome', 'c4_mbname', ['ファイル', '編集', '表示', '履歴', 'ブックマーク', 'ウインドウ', 'ヘルプ'], ['Finder', 'Chrome', 'Pages', 'Slack', 'Notion', 'Numbers'], ['Finder', 'Chrome', 'Pages'], web + doc)
 
 chaps = ''.join(f'<div class="chap" id="chap{i + 1}">{s}</div>' for i, s in enumerate([scrA1 + scrB1, scrA2 + scrB2, scrA3 + scrB3, scrA4]))

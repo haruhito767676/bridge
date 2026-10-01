@@ -18,13 +18,14 @@ const DEVS = {
   imac: { me: '自宅iMac', platform: 'darwin', skin: 'darwin' },
   win: { me: '会社用PC', platform: 'win32', skin: 'win32' },
 };
-const NEW_TEXT = '次回定例は10/15(木) 14:00';
+const NEW_TEXT = process.env.NEW_TEXT || '次回定例は10/15(木) 14:00';
+const NEW_APP = process.env.NEW_APP || 'Notion';
 const OWNER = { mac: '自分のMac', imac: '自宅iMac', win: '会社用PC' };
 const PLAT = { '自分のMac': 'darwin', '自宅iMac': 'darwin', '会社用PC': 'win32' };
 // id, kind, payload, origin device name, ago, app
 const DATA = [
   // ---- 今日 ----
-  { id: 'new', k: 'text', text: NEW_TEXT, o: '自分のMac', ago: 0.2 * MIN, app: 'Notion' },
+  { id: 'new', k: 'text', text: NEW_TEXT, o: '自分のMac', ago: 0.2 * MIN, app: NEW_APP },
   { id: 't1', k: 'text', text: 'https://github.com/example-team/ec-renewal/pull/42', o: '自分のMac', ago: 8 * MIN, app: 'Chrome' },
   { id: 't2', k: 'text', text: '本日17時までにデザイン差し戻しをお願いします🙏', o: '自宅iMac', ago: 35 * MIN, app: 'Slack' },
   { id: 'f1', k: 'file', name: '見積書_ECサイト改修_v2.pdf', o: '会社用PC', ago: 40 * MIN, app: 'Excel' },
@@ -48,7 +49,7 @@ const DATA = [
   { id: 't9', k: 'text', text: '来週の定例は10/22(木) 14:00〜でお願いします', o: '自宅iMac', y: 16 * HOUR, app: 'Teams' },
 ];
 
-const OUT = path.join(DIR, process.env.SCHEME === 'light' ? 'plates-light' : 'plates'); mkdirSync(OUT, { recursive: true });   // SCHEME=light → plates-light/
+const OUT = path.join(DIR, process.env.PLATES_OUT || (process.env.SCHEME === 'light' ? 'plates-light' : 'plates')); mkdirSync(OUT, { recursive: true });   // SCHEME=light → plates-light/
 const manifest = {};
 
 async function emitAll(devKey, upTo) {
@@ -58,7 +59,7 @@ async function emitAll(devKey, upTo) {
   const tsOf = (d) => d.y != null ? mid.getTime() - d.y : now - d.ago;
   const saved = items.filter((d) => d.id !== 'new').map((d) => {
     const remote = d.o !== dev.me;
-    const base = { timestamp: tsOf(d), sourceApp: { name: d.app, icon: icon(d.app) }, fromDevice: remote ? d.o : null, fromPlatform: remote ? PLAT[d.o] : null };
+    const base = { timestamp: tsOf(d), sourceApp: dev.skin === 'win32' ? null : { name: d.app, icon: icon(d.app) }, fromDevice: remote ? d.o : null, fromPlatform: remote ? PLAT[d.o] : null };
     if (d.k === 'file') return { kind: 'file', path: D(d.name), name: d.name, ...base };
     if (d.k === 'image') return { kind: 'clip-image', path: D(d.name), name: d.name, isImage: true, ...base };
     return { kind: 'clip-text', text: d.text, name: d.text.replace(/\s+/g, ' '), ...base };
@@ -68,7 +69,7 @@ async function emitAll(devKey, upTo) {
   await sleep(1300);
   if (nw) {
     const remote = nw.o !== dev.me;
-    await ev(`window.__emit('clipboard-item', ${JSON.stringify({ type: 'clipboard-text', text: nw.text, timestamp: tsOf(nw), sourceApp: { name: nw.app, icon: icon(nw.app) }, ...(remote ? { fromDevice: nw.o, fromPlatform: PLAT[nw.o] } : {}) })})`);
+    await ev(`window.__emit('clipboard-item', ${JSON.stringify({ type: 'clipboard-text', text: nw.text, timestamp: tsOf(nw), sourceApp: dev.skin === 'win32' ? null : { name: nw.app, icon: icon(nw.app) }, ...(remote ? { fromDevice: nw.o, fromPlatform: PLAT[nw.o] } : {}) })})`);
     await sleep(1300);
   }
 }
@@ -106,6 +107,16 @@ for (const [key, dev] of Object.entries(DEVS)) {
     await shotTo(path.join(dir, `new-${st}.png`), clipOf(g.rows[idx]));
   }
   await ev(`(()=>{const li=itemElements.get(items.find(x=>x.text===${JSON.stringify(NEW_TEXT)})); li.classList.remove('selected','copied'); li.querySelectorAll('.copied-mark').forEach(m=>m.remove());})()`);
+  // 2.5) 先頭以外の項目をクリックしたときの ✓ (行ごとに撮る)。✓ を消すタイマー (resetSelectionAndFocus) は止めておく
+  await ev(`window.resetSelectionAndFocus=()=>{}`);
+  for (let i = 0; i < g.rows.length; i++) {
+    const r = g.rows[i];
+    if (M.rows[i].skipped || !/file-item/.test(r.cls) || i === idx) continue;
+    await ev(`(()=>{const li=document.querySelectorAll('#file-list > li')[${i}]; const it=[...itemElements.entries()].find(([k,v])=>v===li)[0]; showCopiedFeedback(it);})()`);
+    await sleep(170);
+    await shotTo(path.join(dir, `row${i}-copied.png`), clipOf(r));
+    await ev(`(()=>{const li=document.querySelectorAll('#file-list > li')[${i}]; li.classList.remove('selected','copied','has-copied'); li.querySelectorAll('.copied-mark').forEach(m=>m.remove());})()`);
+  }
   // 3) chrome (リスト非表示)
   await ev(`document.getElementById('file-list').style.setProperty('visibility','hidden')`);
   await sleep(300);

@@ -859,7 +859,7 @@
     
 
     <figure class="clip compare-clip">
-      <video class="clip-video compare-video" muted loop playsinline preload="metadata" poster="media/clip-compare.jpg" aria-label="左が Mac、右が Windows。同じショートカットでパネルを開くと、Mac はバネのように滑らかに、Windows はフライアウトがスッと出る。コピーすると先頭に項目が入り、メニューバーとトレイに進捗が出る。">
+      <video class="clip-video compare-video" muted loop playsinline preload="metadata" poster="media/clip-compare.jpg" aria-label="左が Mac、右が Windows。メモの文をコピーすると、メニューバーとタスクトレイに同期の進み具合が出る。右端のつまみにマウスを重ねるとパネルが開き、履歴の項目を選ぶとコピーされて、メモに貼り付けられる。">
         <source src="media/clip-compare.mp4" type="video/mp4">
       </video>
     </figure>
@@ -1898,10 +1898,10 @@
     var p=v.play(); if(p&&p.catch)p.catch(function(){});
   });});
 })();
-/* はじめかた: 3 章 (10.8 / 11.6 / 10.8 秒) のステップで頭出し。再生位置に合わせて、今のステップと進み具合を更新する */
+/* はじめかた: 3 章 (10.8 / 11.6 / 10.4 秒) のステップで頭出し。再生位置に合わせて、今のステップと進み具合を更新する */
 (function(){
   var v=document.getElementById('startVideo'); if(!v) return;
-  var LEN=[10.8,11.6,10.8], ST=[0,10.8,22.4], steps=[].slice.call(document.querySelectorAll('.start-step'));
+  var LEN=[10.8,11.6,10.4], ST=[0,10.8,22.4], steps=[].slice.call(document.querySelectorAll('.start-step'));
   function paint(){
     var t=v.currentTime||0, c=t>=ST[2]?2:(t>=ST[1]?1:0);
     steps.forEach(function(b,i){var on=i===c; b.classList.toggle('active',on); b.setAttribute('aria-selected',on?'true':'false'); b.style.setProperty('--p',on?Math.min(1,(t-ST[i])/LEN[i]).toFixed(3):0);});

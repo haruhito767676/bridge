@@ -6,23 +6,22 @@
      3 コピーして、試す   … Mac でテキストをコピー → Windows のパネルに届く → 選んで貼り付け
    各章とも、最後の状態のまま 1.5 秒待ってから次の章へ (タブで章を選んだときも、締めの絵が残る)。
    設定画面は実アプリ (ui/settings-plates.mjs が撮った plates-light/settings)、パネルは ui/plates-light/{mac,win}。"""
-CHS = [10.8, 11.6, 10.8]
+CHS = [10.8, 11.6, 10.4]
 DUR = sum(CHS)
 
 PAGE = r'''<!doctype html>
 <html lang="ja"><head><meta charset="utf-8"><title>Bridge clip: start</title>
 <style>
-:root{--display:-apple-system,BlinkMacSystemFont,"SF Pro Display","Hiragino Sans","Noto Sans JP",sans-serif;--mono:ui-monospace,"SF Mono",Menlo,monospace}
+:root{--display:-apple-system,BlinkMacSystemFont,"SF Pro Display","Hiragino Sans","Noto Sans JP",sans-serif;--mono:ui-monospace,"SF Mono",Menlo,monospace;--S:1.13778}
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{width:1920px;height:1080px;overflow:hidden;background:#eceef5;font-family:var(--display);-webkit-font-smoothing:antialiased;color:#1d1d1f}
 #stage{position:absolute;left:0;top:0;width:1920px;height:1080px;overflow:hidden}
-.half{position:absolute;top:0;width:960px;height:1080px;overflow:hidden}
-#hm{left:0}#hw{left:960px}
-.cam{position:absolute;left:0;top:0;width:1600px;height:900px;transform-origin:0 0;transform:translate3d(-960px,0,0) scale(1.2)}
+.half{position:absolute;top:28px;width:911px;height:1024px;overflow:hidden;border-radius:22px;box-shadow:0 0 0 1px rgba(20,30,60,.1),0 22px 54px -18px rgba(20,30,60,.3)}
+#hm{left:33px}#hw{left:976px}
+.cam{position:absolute;left:0;top:0;width:1600px;height:900px;transform-origin:0 0;transform:translate3d(-910.2px,0,0) scale(var(--S))}   /* 画面の右半分 (x 800〜1600) を 911px に */
 .scr{position:absolute;left:0;top:0;width:1600px;height:900px;overflow:hidden}
 .scr.mac{background:radial-gradient(70% 60% at 92% 96%,#ffd9a0 0%,rgba(255,217,160,0) 62%),radial-gradient(70% 60% at 6% 8%,#9fe8d3 0%,rgba(159,232,211,0) 62%),radial-gradient(60% 50% at 50% 50%,#b9d3ff 0%,rgba(185,211,255,0) 64%),linear-gradient(160deg,#e3f4ff,#e8e4ff)}
 .scr.win{background:radial-gradient(60% 70% at 18% 12%,#9fc4ff 0%,rgba(159,196,255,0) 62%),radial-gradient(70% 70% at 88% 88%,#e2b6ff 0%,rgba(226,182,255,0) 62%),radial-gradient(50% 50% at 55% 45%,#c9e6ff 0%,rgba(201,230,255,0) 64%),linear-gradient(135deg,#dbe8ff,#f4ecff)}
-#divider{position:absolute;left:959px;top:0;width:2px;height:1080px;background:rgba(255,255,255,.75);z-index:60;box-shadow:0 0 0 .5px rgba(0,0,0,.06)}
 .ch{position:absolute;left:0;top:0;width:1600px;height:900px}
 .menubar{position:absolute;left:0;right:0;top:0;height:28px;z-index:30;background:rgba(255,255,255,.52);backdrop-filter:blur(20px) saturate(1.6);display:flex;align-items:center;justify-content:flex-end;padding:0 14px;font:500 13.5px var(--display);color:#1d1d1f;gap:14px}
 .menubar svg{width:16px;height:16px;fill:none;stroke:#1d1d1f;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
@@ -41,7 +40,14 @@ html,body{width:1920px;height:1080px;overflow:hidden;background:#eceef5;font-fam
 .wn .cap .cb svg{width:11px;height:11px;stroke:#333;fill:none;stroke-width:1.1}
 .sl{height:9px;border-radius:5px;background:rgba(0,0,0,.1)}
 .txt{position:absolute;left:130px;top:92px;font:21px/1.7 var(--display);color:#222;white-space:nowrap}
-.txt mark{background:rgba(10,132,255,.28);color:inherit;border-radius:3px;padding:1px 0}
+.memo{padding:34px 34px 0;font:21px/1.6 var(--display);color:#222}
+.memo .sl{display:block}
+.ln{position:relative;display:inline-block;white-space:nowrap}
+.ln .t{position:relative;z-index:1}
+.selbar{position:absolute;left:-3px;top:2px;bottom:2px;width:0;background:rgba(10,132,255,.28);border-radius:3px}
+.pblock{position:relative;min-height:40px;margin-top:22px}
+.pblock .pt{display:block;opacity:0;white-space:normal}
+.caret{position:absolute;left:0;top:5px;width:2px;height:28px;background:#222;opacity:0}
 /* Bridge パネル */
 .pslot{position:absolute;left:1280px;top:150px;width:320px;height:600px;z-index:10}
 .panel{position:absolute;left:0;top:0;width:320px;height:600px;overflow:hidden}
@@ -101,7 +107,7 @@ html,body{width:1920px;height:1080px;overflow:hidden;background:#eceef5;font-fam
       <div class="win dmg" id="mdmg"><div class="bar"><i class="tl"></i><i class="tl y"></i><i class="tl g"></i><span style="margin-left:12px">Bridge</span></div><div class="body">
         <div class="ic" id="mapp" style="left:80px;top:88px"><img src="../../icon.png" alt=""><span>Bridge</span></div>
         <svg class="arrow" viewBox="0 0 76 36" fill="none" stroke="rgba(0,0,0,.28)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="1 8"><path d="M4 18h62M54 6l14 12-14 12"/></svg>
-        <div class="ic" id="mfold" style="left:340px;top:88px"><svg viewBox="0 0 100 100"><defs><linearGradient id="fg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7cc4ff"/><stop offset="1" stop-color="#2f8cf0"/></linearGradient></defs><path d="M8 26a7 7 0 0 1 7-7h20l9 9h41a7 7 0 0 1 7 7v45a7 7 0 0 1-7 7H15a7 7 0 0 1-7-7z" fill="url(#fg)"/><path d="M8 38h84v40a7 7 0 0 1-7 7H15a7 7 0 0 1-7-7z" fill="#5aaef8" opacity=".55"/><path d="M42 74l8-18 8 18M45 68h10" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg><span>Applications</span></div>
+        <div class="ic" id="mfold" style="left:340px;top:88px"><svg viewBox="0 0 100 100"><defs><linearGradient id="fg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7cc4ff"/><stop offset="1" stop-color="#2f8cf0"/></linearGradient></defs><path d="M8 26a7 7 0 0 1 7-7h20l9 9h41a7 7 0 0 1 7 7v45a7 7 0 0 1-7 7H15a7 7 0 0 1-7-7z" fill="url(#fg)"/><path d="M8 38h84v40a7 7 0 0 1-7 7H15a7 7 0 0 1-7-7z" fill="#5aaef8" opacity=".55"/></svg><span>Applications</span></div>
       </div></div>
       <img class="ghost" id="mghost" src="../../icon.png" alt="">
       <div class="copysheet" id="mcopy" style="opacity:0"><div>「Bridge」を「Applications」にコピーしています…</div><div class="pb"><i id="mpb"></i></div><small>Finder</small></div>
@@ -114,9 +120,10 @@ html,body{width:1920px;height:1080px;overflow:hidden;background:#eceef5;font-fam
         <div class="in"><span id="minp"></span><span class="ph" id="mph">メッセージ</span><i class="send" id="msend"><svg viewBox="0 0 16 16"><path d="M8 13V3M3.5 7.5L8 3l4.5 4.5"/></svg></i></div>
       </div>
     </div>
-    <!-- 3: メモ (コピー元) -->
+    <!-- 3: 会議メモ (コピー元) -->
     <div class="ch" id="m3">
-      <div class="win" style="left:700px;top:60px;width:570px;height:790px"><div class="bar"><i class="tl"></i><i class="tl y"></i><i class="tl g"></i><span style="margin-left:12px">メモ</span></div><div class="txt"><span class="sl" style="display:block;width:300px;margin-bottom:16px"></span><span class="sl" style="display:block;width:240px;margin-bottom:22px"></span><span id="mtxt">次回定例は10/15(木) 14:00</span><span class="sl" style="display:block;width:330px;margin-top:26px"></span><span class="sl" style="display:block;width:280px;margin-top:14px"></span><span class="sl" style="display:block;width:310px;margin-top:14px"></span><span class="sl" style="display:block;width:200px;margin-top:14px"></span></div></div>
+      <div class="win" style="left:830px;top:70px;width:420px;height:740px"><div class="bar"><i class="tl"></i><i class="tl y"></i><i class="tl g"></i><span style="margin-left:12px">会議メモ</span></div>
+        <div class="memo"><span class="sl d" style="width:210px;height:16px;margin-bottom:26px"></span><span class="sl" style="width:300px;margin-bottom:14px"></span><span class="sl" style="width:250px;margin-bottom:26px"></span><span class="ln" id="mln"><i class="selbar" id="msel"></i><span class="t">明日の会議は10:00、会議室B</span></span><span class="sl" style="width:320px;margin-top:26px"></span><span class="sl" style="width:270px;margin-top:14px"></span><span class="sl" style="width:290px;margin-top:14px"></span><span class="sl" style="width:190px;margin-top:14px"></span></div></div>
     </div>
     <div class="halo" id="mhalo"></div>
     <div class="pill" id="mpill"></div>
@@ -137,9 +144,14 @@ html,body{width:1920px;height:1080px;overflow:hidden;background:#eceef5;font-fam
         <div class="in"><span class="ph">メッセージ</span><i class="send"><svg viewBox="0 0 16 16"><path d="M8 13V3M3.5 7.5L8 3l4.5 4.5"/></svg></i></div>
       </div>
     </div>
-    <!-- 3: メモ帳 (貼り付け先) -->
+    <!-- 3: メール (貼り付け先) -->
     <div class="ch" id="w3">
-      <div class="wn" style="left:700px;top:40px;width:570px;height:780px"><div class="cap">メモ帳<span class="cb"><i><svg viewBox="0 0 10 10"><path d="M1 5h8"/></svg></i><i><svg viewBox="0 0 10 10"><rect x="1.5" y="1.5" width="7" height="7"/></svg></i><i><svg viewBox="0 0 10 10"><path d="M1 1l8 8M9 1l-8 8"/></svg></i></span></div><div class="txt" style="top:60px"><span class="sl" style="display:block;width:300px;margin-bottom:16px"></span><span class="sl" style="display:block;width:240px;margin-bottom:22px"></span><span style="position:relative;display:inline-block;min-width:8px"><span id="wtxt" style="opacity:0;display:inline-block">次回定例は10/15(木) 14:00</span><i id="wcaret" style="position:absolute;left:0;top:5px;width:2px;height:30px;background:#222;opacity:0"></i></span><span class="sl" style="display:block;width:330px;margin-top:26px"></span><span class="sl" style="display:block;width:280px;margin-top:14px"></span><span class="sl" style="display:block;width:310px;margin-top:14px"></span><span class="sl" style="display:block;width:200px;margin-top:14px"></span></div></div>
+      <div class="wn" style="left:830px;top:50px;width:420px;height:740px"><div class="cap">新しいメール<span class="cb"><i><svg viewBox="0 0 10 10"><path d="M1 5h8"/></svg></i><i><svg viewBox="0 0 10 10"><rect x="1.5" y="1.5" width="7" height="7"/></svg></i><i><svg viewBox="0 0 10 10"><path d="M1 1l8 8M9 1l-8 8"/></svg></i></span></div>
+        <div style="padding:22px 30px 0"><div style="display:flex;align-items:center;gap:14px;height:38px;border-bottom:1px solid rgba(0,0,0,.08)"><b style="font:500 13px var(--display);color:#8a8a90;width:40px">宛先</b><span class="sl" style="width:150px"></span></div>
+          <div style="display:flex;align-items:center;gap:14px;height:38px;border-bottom:1px solid rgba(0,0,0,.08)"><b style="font:500 13px var(--display);color:#8a8a90;width:40px">件名</b><span class="sl" style="width:200px"></span></div></div>
+        <div class="memo" style="padding-top:30px"><span class="sl" style="width:260px;margin-bottom:14px"></span><span class="sl" style="width:200px;margin-bottom:26px"></span>
+          <div class="pblock" id="wpb" style="margin-top:0"><span class="pt" id="wtxt">明日の会議は10:00、会議室B</span><i class="caret" id="wcaret"></i></div>
+          <span class="sl" style="width:300px;margin-top:12px"></span><span class="sl" style="width:240px;margin-top:14px"></span></div></div>
     </div>
     <div class="halo" id="whalo"></div>
     <div class="pill" id="wpill"></div>
@@ -149,13 +161,12 @@ html,body{width:1920px;height:1080px;overflow:hidden;background:#eceef5;font-fam
       <div><div class="clk" id="wclk">13:21</div><div>2026/09/30</div></div></div></div>
     <svg class="cursor" id="wcur" viewBox="0 0 34 44"><path d="M3 2v34l9-8 6 14 7-3-6-14 12-1z" fill="#fff" stroke="#000" stroke-width="2.4" stroke-linejoin="round"/></svg>
   </div></div></div>
-  <div id="divider"></div>
   <div id="fade"></div>
 </div>
-<script src="ui/plates-light/manifest.js"></script>
+<script src="ui/plates-start/manifest.js"></script>
 <script>
 'use strict';
-const CHS = __CHS__, DUR = __DUR__;
+const CHS = __CHS__, DUR = __DUR__, S = 1024 / 900;
 const KEY = 'a3f9c2e17b48d0562e9ca41f7d83b60c5e12f8a9047bd63c1e5a7f20984d3b6c';
 const $ = id => document.getElementById(id);
 const clamp = (v, a = 0, b = 1) => v < a ? a : v > b ? b : v;
@@ -171,7 +182,7 @@ const E = { out: bez(.16, 1, .3, 1), inOut: bez(.65, 0, .35, 1), in: bez(.5, 0, 
 const W0 = 2 * Math.PI / 0.32, crit = dt => dt <= 0 ? 0 : 1 - (1 + W0 * dt) * Math.exp(-W0 * dt);
 class Panel {
   constructor(key, slot, cls) {
-    const m = this.m = MANIFEST[key]; const base = `ui/plates-light/${key}/`;
+    const m = this.m = MANIFEST[key]; const base = `ui/plates-start/${key}/`;
     const el = this.el = document.createElement('div'); el.className = 'panel ' + cls; slot.appendChild(el);
     const mk = (src, par) => { const i = new Image(); i.src = src; i.decoding = 'sync'; par.appendChild(i); return i; };
     mk(base + 'chrome.png', el).style.top = '0';
@@ -211,8 +222,11 @@ const bounce = (t, a, d = .4) => { const p = P(t, a, a + d); return p <= 0 ? 0 :
 const slideX = (slot, openP) => { $(slot).style.transform = `translate3d(${(340 * (1 - clamp(openP))).toFixed(1)}px,0,0)`; $(slot).style.opacity = openP > .002 ? 1 : 0; };
 const cursorAt = (id, p, op, press) => { const c = $(id); c.style.transform = `translate3d(${p[0].toFixed(1)}px,${p[1].toFixed(1)}px,0) scale(${press})`; c.style.opacity = op.toFixed(3); };
 const pressed = (t, list) => list.some(c => t > c - .05 && t < c + .1) ? .86 : 1;
-let M3 = null;
-const measure3 = () => { const r = $('mtxt').getBoundingClientRect(); const q = $('wtxt').getBoundingClientRect(); M3 = { m: [(r.left + 960) / 1.2, (r.top + r.height / 2) / 1.2, r.width / 1.2], w: [(q.left) / 1.2 + 800 - 800 + 0, 0, 0] }; };
+let M3 = null;   // 画面座標 (x 800〜1600 が映る) で測った、コピーする文・貼り付け位置
+const measure3 = () => {
+  const box = id => { const r = $(id).getBoundingClientRect(), f = $(id).closest('.half').getBoundingClientRect(); return { x: (r.left - f.left) / S + 800, y: (r.top - f.top) / S, w: r.width / S, h: r.height / S }; };
+  M3 = { m: box('mln'), w: box('wpb') };
+};
 
 // ---------------------------------------------------------------- 1 インストール
 const COPY1 = [7.1, 2.0];
@@ -291,33 +305,30 @@ function ch2(t) {
 }
 
 // ---------------------------------------------------------------- 3 コピーして、試す
-const T3 = { sel0: 1.0, sel1: 1.7, copy: 1.9, s0: 2.3, s1: 3.6, ins: 3.7, hover: 2.5, click: 5.5, leave: 6.5, wclick: 7.3, paste: 7.7 };
+const T3 = { sel0: 1.0, sel1: 1.75, copy: 2.0, s0: 2.3, s1: 3.7, hover: 2.6, ins: 3.8, click: 5.3, leave: 6.5, wclick: 7.4, paste: 7.8 };
 function ch3(t) {
   if (!M3) measure3();
   $('mclk').textContent = $('wclk').textContent = '13:26';
-  $('mset').style.display = $('wset').style.display = 'none'; PW.el.style.display = 'block';
-  $('mhalo').style.opacity = $('whalo').style.opacity = 0;
-  // Mac: テキストを選ぶ → コピー。メニューバー / タスクトレイの状態アイコンに同期の進み具合
-  $('mslot').style.opacity = 0;
-  const on = t >= T3.sel1 - .3 && t < 5.2;
-  $('mtxt').innerHTML = on ? '<mark>次回定例は10/15(木) 14:00</mark>' : '次回定例は10/15(木) 14:00';
+  $('mhalo').style.opacity = $('whalo').style.opacity = 0; $('mslot').style.opacity = 0;
+  // Mac: 文をドラッグで選ぶ → コピー。メニューバー / タスクトレイの状態アイコンに同期の進み具合
+  const L = M3.m, PB = M3.w;
+  $('msel').style.width = ((L.w + 6) * E.inOut(P(t, T3.sel0, T3.sel1)) * (t < T3.s1 + 1.3 ? 1 : 1 - P(t, T3.s1 + 1.3, T3.s1 + 1.4))).toFixed(1) + 'px';
   const pr = E.inOut(P(t, T3.s0, T3.s1)), done = P(t, T3.s1, T3.s1 + .2), gone = P(t, T3.s1 + 1.0, T3.s1 + 1.4);
   ['m', 'w'].forEach(k => { $(k + 'stat').style.opacity = (P(t, T3.s0 - .25, T3.s0) * (1 - gone)).toFixed(3); $(k + 'ring').setAttribute('stroke-dashoffset', (44 * (1 - pr)).toFixed(2)); $(k + 'ring').style.opacity = (1 - done).toFixed(3); $(k + 'tick').style.opacity = (done * (1 - gone)).toFixed(3); });
-  // Windows: つまみに重ねる → パネルが開く → 届いた項目 → 選ぶ → 閉じる → メモ帳に貼る
+  // Windows: つまみに重ねる → パネルが開く → 届いた項目 → 選ぶ (✓) → 閉じる → メール本文に貼る
   const op = t < T3.leave ? crit(t - T3.hover) : 1 - crit(t - T3.leave);
-  slideX('wslot', op); setOp('wpill', 1 - clamp(op * 3)); setOp('mpill', 1); $('mpill').style.opacity = 1;
+  slideX('wslot', op); setOp('wpill', 1 - clamp(op * 3)); setOp('mpill', 1);
   const ins = 1 - Math.exp(-(t - T3.ins) * 9) * (1 + (t - T3.ins) * 9), insV = t < T3.ins ? 0 : clamp(ins);
-  const cop = E.out(P(t, T3.click, T3.click + .08)) * (1 - E.in(P(t, T3.click + .9, T3.click + 1.1)));
+  const cop = E.out(P(t, T3.click, T3.click + .08));
   PW.update(insV, cop);
   const pp = E.out(P(t, T3.paste, T3.paste + .35)); $('wtxt').style.opacity = pp.toFixed(3); $('wtxt').style.transform = `translate3d(0,${(8 * (1 - pp)).toFixed(1)}px,0)`;
-  $('wcaret').style.opacity = (t >= T3.wclick && t < T3.paste) ? ((Math.floor(t * 2.2) % 2 === 0) ? 1 : 0) : (t >= T3.paste ? 0 : 0);
+  $('wcaret').style.opacity = (t >= T3.wclick && t < T3.paste) ? ((Math.floor(t * 2.2) % 2 === 0) ? 1 : 0) : 0;
   // カーソル
-  const a = [M3.m[0] - 6, M3.m[1]], b = [M3.m[0] + M3.m[2], M3.m[1]];
-  const mkf = [[0, 1300, 520], [.4, 1300, 520], [.9, a[0], a[1]], [T3.sel0, a[0], a[1]], [T3.sel1, b[0], b[1]], [3.0, b[0] + 60, b[1] + 60], [4.2, 1000, 640]];
-  const NP = [1010, 230];   // メモ帳の貼り付け位置 (行の先頭付近)
-  const wkf = [[0, 1300, 560], [1.6, 1300, 560], [T3.hover - .1, 1591, 436], [4.0, 1591, 436], [4.9, 1440, ROWY], [T3.click + 1.0, 1440, ROWY], [T3.leave + .8, 1200, 400], [T3.wclick, NP[0], NP[1]], [8.6, NP[0], NP[1]]];
+  const a = [L.x - 6, L.y + L.h / 2], b = [L.x + L.w, L.y + L.h / 2], pt = [PB.x + 4, PB.y + 18];
+  const mkf = [[0, 1420, 560], [.4, 1420, 560], [.9, a[0], a[1]], [T3.sel0, a[0], a[1]], [T3.sel1, b[0], b[1]], [3.0, b[0] + 70, b[1] + 80], [4.2, 1000, 640]];
+  const wkf = [[0, 1300, 560], [1.6, 1300, 560], [T3.hover - .1, 1591, 436], [4.3, 1591, 436], [T3.click - .4, 1440, ROWY], [T3.click + 1.0, 1440, ROWY], [T3.leave + .8, pt[0] + 60, pt[1] + 50], [T3.wclick, pt[0], pt[1]], [9.0, pt[0], pt[1]]];
   cursorAt('mcur', path(mkf, t), P(t, .3, .5) * (1 - P(t, 3.8, 4.3)), pressed(t, [T3.sel0]));
-  cursorAt('wcur', path(wkf, t), P(t, 1.5, 1.8) * (1 - P(t, 8.4, 8.9)), pressed(t, [T3.click, T3.wclick]));
+  cursorAt('wcur', path(wkf, t), P(t, 1.5, 1.8) * (1 - P(t, 9.6, 10.0)), pressed(t, [T3.click, T3.wclick]));
 }
 
 let t = 0;
