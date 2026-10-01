@@ -758,13 +758,42 @@ function clampTrayImage(image) {
   });
 }
 
-function createTray() {
-  const iconPath = path.join(__dirname, 'assets', 'tray', 'iconTemplate.png');
-  let image = nativeImage.createFromPath(iconPath);
+// Windows: タスクバーが明るいテーマか (レジストリの SystemUsesLightTheme)。
+// Windows のトレイアイコンには macOS の Template Image のような自動着色が無いため、
+// 暗いタスクバーでは白い線画、明るいタスクバーでは黒い線画を自分で選ぶ。
+// 取れないときは Electron の nativeTheme (アプリ側のテーマ) にフォールバックする
+function isWindowsTaskbarLight() {
+  try {
+    const { execFileSync } = require('child_process');
+    const out = execFileSync(
+      'reg',
+      ['query', 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize', '/v', 'SystemUsesLightTheme'],
+      { encoding: 'utf8', windowsHide: true, timeout: 2000 }
+    );
+    const m = out.match(/SystemUsesLightTheme\s+REG_DWORD\s+0x([0-9a-f]+)/i);
+    if (m) return parseInt(m[1], 16) !== 0;
+  } catch {
+    // 取れなければ下のフォールバック
+  }
+  return !nativeTheme.shouldUseDarkColors;
+}
+
+function loadTrayImage() {
+  const file = process.platform === 'win32' && !isWindowsTaskbarLight() ? 'iconWhite.png' : 'iconTemplate.png';
+  let image = nativeImage.createFromPath(path.join(__dirname, 'assets', 'tray', file));
   image = clampTrayImage(image);
   if (process.platform === 'darwin') image.setTemplateImage(true);
+  return image;
+}
 
-  tray = new Tray(image);
+function createTray() {
+  tray = new Tray(loadTrayImage());
+  // Windows のテーマが切り替わったら、アイコンの白黒も追従させる
+  if (process.platform === 'win32') {
+    nativeTheme.on('updated', () => {
+      if (tray && !tray.isDestroyed()) tray.setImage(loadTrayImage());
+    });
+  }
   tray.setToolTip('Bridge');
   tray.on('click', () => {
     if (!winAlive()) return;

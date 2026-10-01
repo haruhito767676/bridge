@@ -45,8 +45,14 @@
     },
     "mac": {
       "category": "public.app-category.utilities",
-      "target": "dmg",
-      "hardenedRuntime": true,
+      "target": {
+        "target": "dmg",
+        "arch": [
+          "universal"
+        ]
+      },
+      "identity": "-",
+      "hardenedRuntime": false,
       "gatekeeperAssess": false,
       "notarize": false,
       "extendInfo": {
