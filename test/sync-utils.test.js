@@ -68,3 +68,12 @@ test('syncMetadata: フォルダ由来の zip は originKind と folderName を�
   assert.equal(plain.originKind, null);
   assert.equal(plain.folderName, null);
 });
+
+test('clipboardHistoryFlagExcludes: 値 0 だけが「載せない」、1 は載せてよい、読めなければ安全側', () => {
+  assert.equal(S.clipboardHistoryFlagExcludes(Buffer.from([0, 0, 0, 0])), true);
+  assert.equal(S.clipboardHistoryFlagExcludes(Buffer.from([1, 0, 0, 0])), false);
+  assert.equal(S.clipboardHistoryFlagExcludes(Buffer.from([2, 0, 0, 0])), false);
+  assert.equal(S.clipboardHistoryFlagExcludes(Buffer.alloc(0)), true);
+  assert.equal(S.clipboardHistoryFlagExcludes(null), true);
+  assert.equal(S.clipboardHistoryFlagExcludes(Buffer.from([1])), true);
+});
