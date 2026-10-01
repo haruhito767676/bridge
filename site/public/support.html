@@ -172,12 +172,15 @@
     </div>
     <p>Bridge は個人開発の無料ソフトのため、Apple / Microsoft による署名・審査を受けていません。そのため以下のような警告が出ますが、ソフト自体の問題ではありません。</p>
 
-    <p class="os-tag"><img src="icons/finder.png" alt="" />macOS: 「開発元が未確認のため開けません」</p>
+    <p class="os-tag"><img src="icons/finder.png" alt="" />macOS: 「Mac に損害を与える可能性のあるソフトウェアがないことを Apple が検証できない」</p>
     <ol>
-      <li>Finder で Bridge のアイコンを<strong>右クリック(または Control+クリック)</strong>し、「開く」を選択</li>
-      <li>表示されるダイアログでもう一度「開く」を選択</li>
+      <li>Bridge をダブルクリックして、警告が出たら、いったん閉じる</li>
+      <li>「システム設定」→「プライバシーとセキュリティ」を開き、下へスクロールする</li>
+      <li>「“Bridge” は…ブロックされました」の横の<strong>「このまま開く」</strong>を選択</li>
+      <li>Touch ID またはパスワードで確認すると、開く</li>
     </ol>
-    <p class="note"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 16v-5"/><path d="M12 8h.01"/></svg><span>一度この方法で開けば、次回からは通常通りダブルクリックで起動できます。</span></p>
+    <p class="note"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 16v-5"/><path d="M12 8h.01"/></svg><span>一度この方法で開けば、次回からは通常通りダブルクリックで起動できます。macOS 14 以前では、Finder で Bridge を右クリック(または Control+クリック)して「開く」を選んでも開けます。</span></p>
+    <p class="note"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 16v-5"/><path d="M12 8h.01"/></svg><span>ターミナルに慣れている場合は、<code>xattr -dr com.apple.quarantine /Applications/Bridge.app</code> を実行しても、同じように開けるようになります。</span></p>
 
     <p class="os-tag"><img src="icons/windows.png" alt="" />Windows: 「WindowsによってPCが保護されました」</p>
     <ol>

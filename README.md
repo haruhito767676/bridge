@@ -60,7 +60,7 @@ Sync traffic is encrypted with **AES-256-GCM**, using a key derived from your sy
 2. **To sync**, open the settings sheet from the gear icon at the bottom right of the panel and press "Copy" next to the sync key. Send it to your other device by any means (a chat to yourself, email, and so on), copy it there, and press "Paste" next to the sync key in its settings sheet. Devices that share the key find each other automatically on the same LAN, and the status card at the top of the settings sheet changes to "Connected to 1 device".
 3. Just copy things as usual. Hover over the handle, or press **⌥Space** (**Ctrl+Shift+Space** on Windows), to open the history panel.
 
-> The current builds are not notarized by Apple. If macOS shows a warning on first launch, right-click the app in Finder and choose "Open".
+> The current builds are not notarized by Apple. If macOS shows a warning on first launch, open System Settings → Privacy & Security and choose "Open Anyway" (on macOS 14 or earlier, right-clicking the app and choosing "Open" also works).
 
 ---
 
