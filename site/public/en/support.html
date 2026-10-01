@@ -1,13 +1,13 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>サポート | Bridge</title>
-<meta name="description" content="Bridge の「見つからない」「起動時に警告が出る」など、よくあるつまずきと対処法。">
-<link rel="icon" href="icon.png" type="image/png">
-<link rel="alternate" hreflang="en" href="en/support.html">
-<link rel="alternate" hreflang="ja" href="support.html">
+<title>Support | Bridge</title>
+<meta name="description" content="Common problems with Bridge, and how to fix them.">
+<link rel="icon" href="../icon.png" type="image/png">
+<link rel="alternate" hreflang="en" href="support.html">
+<link rel="alternate" hreflang="ja" href="../support.html">
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
 
@@ -129,20 +129,19 @@
   footer.site .flinks{display:flex;gap:20px;font-size:13.5px;font-weight:500;}
 </style>
 </head>
+
+
 <body>
 
 <header class="site-header" id="site-header">
   <div class="hwrap">
     <nav>
-      <a class="brand" href="index.html"><img src="icon.png" alt="Bridge" />Bridge</a>
+      <a class="brand" href="../index.html"><img src="../icon.png" alt="Bridge" />Bridge</a>
       <div class="links">
-        <a href="index.html#features">機能</a>
-        <a href="index.html#privacy">プライバシー</a>
-        <a href="index.html#faq">よくある質問</a>
-        <a href="index.html#getting-started">はじめかた</a>
         <a href="https://github.com/haruhito767676/bridge" target="_blank" rel="noopener">GitHub</a>
+        <a href="../support.html" hreflang="ja" lang="ja">日本語</a>
       </div>
-      <a class="nav-cta" href="index.html#download">ダウンロード</a>
+      <a class="nav-cta" href="../index.html#download">Download</a>
     </nav>
   </div>
   <div class="header-glass" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
@@ -150,103 +149,104 @@
 
 <div class="wrap">
 <main>
-  <h1>サポート</h1>
-  <p class="updated">最終更新日: 2026年9月21日</p>
+  <h1>Support</h1>
+  <p class="updated">Last updated: September 21, 2026</p>
 
   <div class="lede">
-    <p>よくあるつまずきと、その場で試せる対処法をまとめました。ここで解決しない場合は、ページ下部から GitHub Issue でご連絡ください。</p>
+    <p>Common stumbling blocks, and quick fixes you can try. If none of these solves it, please contact us with a GitHub issue (see the bottom of this page). Bridge’s interface is currently in Japanese, so button and setting names below are shown in English with the Japanese label in parentheses.</p>
   </div>
 
-  <div class="toc" role="navigation" aria-label="目次">
-    <a href="#install-warning"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>インストール時・起動時に警告が出る</a>
-    <a href="#cant-find"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>他の端末が見つからない</a>
-    <a href="#sync-slow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>同期が遅い・反映されない</a>
-    <a href="#uninstall"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>アンインストールしたい</a>
-    <a href="#still-stuck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>それでも解決しない場合</a>
+  <div class="toc" role="navigation" aria-label="Contents">
+    <a href="#install-warning"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>A warning appears during installation or launch</a>
+    <a href="#cant-find"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>Other devices can’t be found</a>
+    <a href="#sync-slow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>Syncing is slow, or nothing shows up</a>
+    <a href="#uninstall"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>I want to uninstall</a>
+    <a href="#still-stuck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>Still not solved</a>
   </div>
 
   <div class="issue" id="install-warning">
     <div class="issue-head">
       <div class="issue-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></div>
-      <h2>インストール時・起動時に警告が出る</h2>
+      <h2>A warning appears during installation or launch</h2>
     </div>
-    <p>Bridge は個人開発の無料ソフトのため、Apple / Microsoft による署名・審査を受けていません。そのため以下のような警告が出ますが、ソフト自体の問題ではありません。</p>
+    <p>Bridge is a free app made by an individual, and it has not been signed or reviewed by Apple or Microsoft. That is why you may see the warnings below. They do not mean there is a problem with the app itself.</p>
 
-    <p class="os-tag"><img src="../icons/finder.png" alt="" />macOS: 「開発元が未確認のため開けません」</p>
+    <p class="os-tag"><img src="../../icons/finder.png" alt="" />macOS: “cannot be opened because the developer cannot be verified”</p>
     <ol>
-      <li>Finder で Bridge のアイコンを<strong>右クリック(または Control+クリック)</strong>し、「開く」を選択</li>
-      <li>表示されるダイアログでもう一度「開く」を選択</li>
+      <li>In Finder, <strong>right-click (or Control-click)</strong> the Bridge icon and choose “Open”</li>
+      <li>Choose “Open” again in the dialog that appears</li>
     </ol>
-    <p class="note"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 16v-5"/><path d="M12 8h.01"/></svg><span>一度この方法で開けば、次回からは通常通りダブルクリックで起動できます。</span></p>
+    <p class="note"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 16v-5"/><path d="M12 8h.01"/></svg><span>Once you have opened it this way, you can launch it by double-clicking as usual from then on.</span></p>
 
-    <p class="os-tag"><img src="../icons/windows.png" alt="" />Windows: 「WindowsによってPCが保護されました」</p>
+    <p class="os-tag"><img src="../../icons/windows.png" alt="" />Windows: “Windows protected your PC”</p>
     <ol>
-      <li>ダイアログ内の「詳細情報」をクリック</li>
-      <li>表示された「実行」ボタンをクリック</li>
+      <li>Click “More info” in the dialog</li>
+      <li>Click the “Run anyway” button that appears</li>
     </ol>
   </div>
 
   <div class="issue" id="cant-find">
     <div class="issue-head">
       <div class="issue-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></div>
-      <h2>他の端末が見つからない</h2>
+      <h2>Other devices can’t be found</h2>
     </div>
-    <p>まず、以下を確認してください。</p>
+    <p>First, check the following.</p>
     <ul>
-      <li>両方の端末が<strong>同じ Wi-Fi / LAN</strong> に接続されているか</li>
-      <li>設定シートの「同期キー」が、両方の端末で<strong>完全に一致</strong>しているか</li>
-      <li>接続先が<strong>ゲスト用Wi-Fi</strong>になっていないか(端末同士を隔離する設定になっていることが多く、自動発見できません)</li>
+      <li>Both devices are connected to the <strong>same Wi-Fi / LAN</strong></li>
+      <li>The “Sync key” (同期キー) in the settings sheet is <strong>exactly the same</strong> on both devices</li>
+      <li>You are not on a <strong>guest Wi-Fi network</strong> (these often isolate devices from each other, so they can’t be discovered automatically)</li>
     </ul>
-    <p>それでも見つからない場合は、設定シートの「いま探す」ボタンを押してください。同じネットワーク内を一度スキャンします。</p>
-    <p class="note"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 16v-5"/><path d="M12 8h.01"/></svg><span>それでも改善しない場合、ネットワーク側でUDPマルチキャスト通信がブロックされている可能性があります。その場合は設定シートの「詳細設定」にある「手動で追加」に、相手のIPアドレスを直接入力することでも接続できます。</span></p>
+    <p>If they still can’t be found, press the “Scan now” (いま探す) button in the settings sheet. It scans the network once.</p>
+    <p class="note"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 16v-5"/><path d="M12 8h.01"/></svg><span>If that doesn’t help, the network may be blocking UDP multicast. In that case, open “Advanced settings” (詳細設定) in the settings sheet and enter the other device’s IP address under “Add manually” (手動で追加) — you can connect that way too.</span></p>
   </div>
 
   <div class="issue" id="sync-slow">
     <div class="issue-head">
       <div class="issue-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h8l-1 8 10-12h-8z"/></svg></div>
-      <h2>同期が遅い・反映されない</h2>
+      <h2>Syncing is slow, or nothing shows up</h2>
     </div>
     <ul>
-      <li>OS のファイアウォールが Bridge の通信をブロックしていないか確認してください(初回起動時に許可を求めるダイアログが出た場合は「許可」を選択)</li>
-      <li>設定シートの「詳細設定」にある「接続中のデバイス」に、相手のデバイスが表示されているか確認してください。つながっていない場合は、最後の失敗理由が表示されます</li>
+      <li>Check that your OS firewall is not blocking Bridge’s traffic (if a permission dialog appeared the first time you launched it, choose “Allow”)</li>
+      <li>In the settings sheet, open “Advanced settings” (詳細設定) and check that the other device appears under “Connected devices” (接続中のデバイス). If it isn’t connected, the last reason for the failure is shown</li>
     </ul>
-    <p>詳しい原因を調べたい場合は、設定シートの「詳細設定」にある「ログを表示」から <code>bridge.log</code> を開いてください。何が起きているか(発見・同期・失敗理由など)が時系列で記録されています。</p>
+    <p>To dig into the cause, open <code>bridge.log</code> from “Show log” (ログを表示) under “Advanced settings” (詳細設定) in the settings sheet. It records what is happening — discovery, syncing, reasons for failure — in chronological order.</p>
   </div>
 
   <div class="issue" id="uninstall">
     <div class="issue-head">
       <div class="issue-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></div>
-      <h2>アンインストールしたい</h2>
+      <h2>I want to uninstall</h2>
     </div>
-    <p class="os-tag"><img src="../icons/finder.png" alt="" />macOS</p>
+    <p class="os-tag"><img src="../../icons/finder.png" alt="" />macOS</p>
     <ol>
-      <li>メニューバーの Bridge アイコンを右クリックし、「Bridge を終了」を選択</li>
-      <li>「アプリケーション」フォルダから Bridge をゴミ箱に入れる</li>
+      <li>Right-click the Bridge icon in the menu bar and choose “Quit Bridge”</li>
+      <li>Drag Bridge from the “Applications” folder to the Trash</li>
     </ol>
-    <p class="note"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 16v-5"/><path d="M12 8h.01"/></svg><span>設定や履歴も含めて完全に削除したい場合は、<code>~/Library/Application Support/bridge/</code> フォルダも削除してください。</span></p>
+    <p class="note"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 16v-5"/><path d="M12 8h.01"/></svg><span>To remove your settings and history as well, also delete the <code>~/Library/Application Support/bridge/</code> folder.</span></p>
 
-    <p class="os-tag"><img src="../icons/windows.png" alt="" />Windows</p>
+    <p class="os-tag"><img src="../../icons/windows.png" alt="" />Windows</p>
     <ol>
-      <li>「設定」→「アプリ」→ 一覧から Bridge を選び「アンインストール」</li>
+      <li>Open “Settings” → “Apps”, choose Bridge from the list, and select “Uninstall”</li>
     </ol>
-    <p class="note"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 16v-5"/><path d="M12 8h.01"/></svg><span>設定や履歴も含めて完全に削除したい場合は、<code>%APPDATA%\bridge\</code> フォルダも削除してください。</span></p>
+    <p class="note"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 16v-5"/><path d="M12 8h.01"/></svg><span>To remove your settings and history as well, also delete the <code>%APPDATA%\bridge\</code> folder.</span></p>
   </div>
 
   <div class="issue" id="still-stuck">
     <div class="issue-head">
       <div class="issue-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 2-3 4"/><path d="M12 17h.01"/></svg></div>
-      <h2>それでも解決しない場合</h2>
+      <h2>Still not solved</h2>
     </div>
-    <p>上記で解決しない場合は、<a href="https://github.com/haruhito767676/bridge/issues" target="_blank" rel="noopener">GitHub の Issue</a> にてご連絡ください。可能であれば、上記の <code>bridge.log</code> の内容と、OS・バージョンを添えていただけると調査がスムーズです。</p>
+    <p>If none of the above solves it, please contact us with a <a href="https://github.com/haruhito767676/bridge/issues" target="_blank" rel="noopener">GitHub issue</a>. If you can, include the contents of <code>bridge.log</code> (see above) and your OS and version — it makes the investigation much smoother.</p>
   </div>
+
 </main>
 </div>
 
 <footer class="site">
   <span class="fine">MIT License © haruhito767676</span>
   <div class="flinks">
-    <a class="plain" href="index.html">トップへ戻る</a>
-    <a class="plain" href="en/support.html" hreflang="en" lang="en">English</a>
+    <a class="plain" href="../index.html">Back to top</a>
+    <a class="plain" href="../support.html" hreflang="ja" lang="ja">日本語</a>
     <a class="plain" href="https://github.com/haruhito767676/bridge" target="_blank" rel="noopener">GitHub</a>
   </div>
 </footer>
