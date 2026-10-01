@@ -36,11 +36,11 @@ const DATA = [
 ];
 // ---- Mac から送る 5 件 (古い順)。受信側では「自分のMac」から届いた項目になる ----
 const ARR = [
-  { id: 'a1', k: 'text', text: '次回定例は10/15(木) 14:00', app: 'Notion', ago: 50000 },
+  { id: 'a1', k: 'text', text: '東京都渋谷区渋谷2-24-12', app: 'Notion', ago: 50000 },
   { id: 'a2', k: 'image', path: D('KPIダッシュボード.png'), name: 'clipboard_2026-09-30_13-25-20.png', app: 'Excel', ago: 40000 },
   { id: 'a3', k: 'file', path: D('提案資料_リニューアル方針.pptx'), name: '提案資料_リニューアル方針.pptx', ago: 30000 },
-  { id: 'a4', k: 'file', path: '/Users/demo/プロジェクト資料', name: 'プロジェクト資料', folder: true, ago: 20000 },
-  { id: 'a5', k: 'file', path: '/Users/demo/デモ撮影_素材.mov', name: 'デモ撮影_素材.mov', ago: 10000 },
+  { id: 'a4', k: 'file', path: '/Users/demo/旅行の写真', name: '旅行の写真', folder: true, ago: 20000 },
+  { id: 'a5', k: 'file', path: '/Users/demo/旅行ダイジェスト.mov', name: '旅行ダイジェスト.mov', ago: 10000 },
 ];
 const PLAT = { [ME]: 'darwin', [OTHER]: 'win32', '自宅iMac': 'darwin' };
 const tsOf = (d) => d.y != null ? mid.getTime() - d.y : BASE - d.ago;

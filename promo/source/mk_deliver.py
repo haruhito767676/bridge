@@ -2,7 +2,7 @@
 """サイト用 (ライト): 「入れたら、もう、届いている。」 — Mac (送る側) と Windows (受け取る側) を左右に並べた 1 本の動画 (1920x1080)。
    画面の作りは clip_compare と同じ (右半分を角丸の「画面」として並べる)。パネルは実アプリの UI (ui/plates-deliver)。
    Windows 側はパネルを開いたままにして、Mac から送ったものが先頭に積もっていくのを見せる (カーソルは Mac だけ)。
-     1 文字     … メモの文を選んでコピー → 同期の輪 → Windows のパネルに現れる
+     1 文字     … メモの住所を選んでコピー → 同期の輪 → Windows のパネルに現れる
      2 画像     … 画像を選んでコピー → 現れる (サムネイル付き)
      3 ファイル … Finder から右端のつまみへドラッグ → 現れる
      4 フォルダ … 同上 (フォルダごと)
@@ -96,24 +96,22 @@ html,body{width:1920px;height:1080px;overflow:hidden;background:#eceef5;font-fam
       <span class="stat" id="mstat"><svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="7" stroke="rgba(0,0,0,.18)" stroke-width="2.4"/><circle id="mring" cx="10" cy="10" r="7" stroke="#0a84ff" stroke-width="2.4" stroke-linecap="round" stroke-dasharray="44" stroke-dashoffset="44" transform="rotate(-90 10 10)"/><path id="mtick" d="M6.5 10.3l2.4 2.4 4.6-5" stroke="#1f9d4a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" opacity="0"/></svg></span>
       <span>100%</span><span class="clk">13:26</span></div>
     <div class="win" id="wMemo" style="left:830px;top:70px;width:420px;height:740px"><div class="bar"><i class="tl"></i><i class="tl y"></i><i class="tl g"></i><span style="margin-left:12px">メモ</span></div>
-      <div class="memo"><span class="sl" style="width:280px;margin-bottom:14px"></span><span class="sl" style="width:220px;margin-bottom:26px"></span><span class="ln" id="mln"><i class="selbar" id="msel"></i><span class="t">次回定例は10/15(木) 14:00</span></span><span class="sl" style="width:300px;margin-top:26px"></span><span class="sl" style="width:250px;margin-top:14px"></span>
+      <div class="memo"><span class="sl" style="width:280px;margin-bottom:14px"></span><span class="sl" style="width:220px;margin-bottom:26px"></span><span class="ln" id="mln"><i class="selbar" id="msel"></i><span class="t">東京都渋谷区渋谷2-24-12</span></span><span class="sl" style="width:300px;margin-top:26px"></span><span class="sl" style="width:250px;margin-top:14px"></span>
         <span class="sl" style="width:320px;margin-top:34px"></span><span class="sl" style="width:270px;margin-top:14px"></span><span class="sl" style="width:200px;margin-top:14px"></span></div></div>
     <div class="win" id="wImg" style="left:830px;top:150px;width:420px;height:370px;opacity:0"><div class="bar"><i class="tl"></i><i class="tl y"></i><i class="tl g"></i><span style="margin-left:12px">KPI ダッシュボード</span></div>
       <div class="imgbox" id="mimg"><img src="../../assets/demo/KPIダッシュボード.png"><i class="selring" id="mselring"></i></div></div>
     <div class="win" id="wFin" style="left:830px;top:150px;width:420px;height:300px;opacity:0"><div class="bar"><i class="tl"></i><i class="tl y"></i><i class="tl g"></i><span style="margin-left:12px">書類</span></div>
       <div class="fgrid">
         <div class="fi" id="fi0"><div class="ic" id="fi0i">__PPTX__</div><div class="nm">提案資料…方針.pptx</div></div>
-        <div class="fi" id="fi1"><div class="ic" id="fi1i">__FOLDER__</div><div class="nm">プロジェクト資料</div></div>
-        <div class="fi" id="fi2"><div class="ic" id="fi2i">__MOV__</div><div class="nm">デモ撮影_素材.mov</div></div>
+        <div class="fi" id="fi1"><div class="ic" id="fi1i">__FOLDER__</div><div class="nm">旅行の写真</div></div>
+        <div class="fi" id="fi2"><div class="ic" id="fi2i">__MOV__</div><div class="nm">旅行ダイジェスト.mov</div></div>
       </div></div>
     <div class="pill" id="mpill"></div>
     <div class="pslot" id="mslot"><div class="panel glass" id="mpanel"></div></div>
     <div class="gtile" id="g0">__PPTX__</div><div class="gtile" id="g1">__FOLDER__</div><div class="gtile" id="g2">__MOV__</div>
     <svg class="cursor" id="mcur" viewBox="0 0 34 44"><path d="M3 2v34l9-8 6 14 7-3-6-14 12-1z" fill="#fff" stroke="#000" stroke-width="2.4" stroke-linejoin="round"/></svg>
   </div></div></div>
-  <div class="half" id="hw"><div class="cam"><div class="scr win">
-    <div class="wn" style="left:830px;top:50px;width:420px;height:740px"><div class="cap">メモ帳<span class="cb"><i><svg viewBox="0 0 10 10"><path d="M1 5h8"/></svg></i><i><svg viewBox="0 0 10 10"><rect x="1.5" y="1.5" width="7" height="7"/></svg></i><i><svg viewBox="0 0 10 10"><path d="M1 1l8 8M9 1l-8 8"/></svg></i></span></div>
-      <div class="memo" style="padding-top:38px"><span class="sl" style="width:300px;margin-bottom:14px"></span><span class="sl" style="width:240px;margin-bottom:14px"></span><span class="sl" style="width:280px;margin-bottom:14px"></span><span class="sl" style="width:200px;margin-bottom:14px"></span></div></div>
+  <div class="half" id="hw"><div class="cam" id="wcam"><div class="scr win">
     <div class="pslot" id="wslot" style="transform:none"><div class="panel fluent" id="wpanel"></div></div>
     <div class="taskbar"><div class="tray"><svg viewBox="0 0 24 24"><path d="M2.5 9a14 14 0 0 1 19 0M6 12.5a9 9 0 0 1 12 0M9.5 16a4.2 4.2 0 0 1 5 0"/></svg>
       <span class="stat" id="wstat" style="width:22px;height:22px"><svg viewBox="0 0 20 20" style="width:22px;height:22px"><circle cx="10" cy="10" r="7" stroke="rgba(0,0,0,.18)" stroke-width="2.4"/><circle id="wring" cx="10" cy="10" r="7" stroke="#0a84ff" stroke-width="2.4" stroke-linecap="round" stroke-dasharray="44" stroke-dashoffset="44" transform="rotate(-90 10 10)"/><path id="wtick" d="M6.5 10.3l2.4 2.4 4.6-5" stroke="#1f9d4a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" opacity="0"/></svg></span>
@@ -212,6 +210,9 @@ function ring(T, pre, lag) {
 function render(T) {
   if (!M) measure();
   updateWin(T);
+  // Windows 側のカメラ: 最初は全景 (Mac と同じ画角) → 受け取るパネルへ寄る。パネルを画面の高さいっぱいに大きく映す
+  const zp = E.inOut(P(T, 1.3, 2.2)), zs = lerp(1.13778, 1.6, zp);
+  $('wcam').style.transform = `translate3d(${lerp(-910.2, 911 - 1.6 * 1600, zp).toFixed(2)}px,${lerp(0, 512 - 1.6 * 450, zp).toFixed(2)}px,0) scale(${zs.toFixed(4)})`;
   // ---- Mac の窓 (メモ → 画像 → Finder) ----
   const memoOut = P(T, 3.85, 4.02), imgIn = P(T, 4.05, 4.35), imgOut = P(T, 6.65, 6.82), finIn = P(T, 6.85, 7.15);
   $('wMemo').style.opacity = (1 - memoOut).toFixed(3); $('wMemo').style.transform = `scale(${(1 - .03 * memoOut).toFixed(4)})`;
