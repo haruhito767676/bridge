@@ -77,3 +77,39 @@ test('clipboardHistoryFlagExcludes: 値 0 だけが「載せない」、1 は載
   assert.equal(S.clipboardHistoryFlagExcludes(null), true);
   assert.equal(S.clipboardHistoryFlagExcludes(Buffer.from([1])), true);
 });
+
+test('shouldReplyToAnnounce: 返信には返さない / 初回は返す / 一定時間は同じ相手に返さない', () => {
+  const T = S.DISCOVERY_REPLY_COOLDOWN_MS;
+  assert.equal(S.shouldReplyToAnnounce({ app: 'bridge' }, undefined, 1000), true);
+  assert.equal(S.shouldReplyToAnnounce({ app: 'bridge', reply: true }, undefined, 1000), false);
+  assert.equal(S.shouldReplyToAnnounce({ app: 'bridge' }, 1000, 1000 + T - 1), false);
+  assert.equal(S.shouldReplyToAnnounce({ app: 'bridge' }, 1000, 1000 + T), true);
+});
+
+// 2 台が「ここにいます」を返し合うシミュレーション。以前は止まらず、毎秒数百個のパケットが飛び続けた
+function simulateDiscovery(aIsNew, bIsNew) {
+  const nodes = { A: { isNew: aIsNew, last: new Map() }, B: { isNew: bIsNew, last: new Map() } };
+  const peerOf = { A: 'B', B: 'A' };
+  const queue = [{ to: 'B', from: 'A', info: { app: 'bridge' } }];   // A が起動して、全体へ名乗る
+  let now = 0, delivered = 0;
+  while (queue.length && delivered < 2000) {
+    const m = queue.shift();
+    delivered++; now += 1;                                            // 1 通ごとに 1ms 進む
+    const node = nodes[m.to];
+    const reply = node.isNew
+      ? S.shouldReplyToAnnounce(m.info, node.last.get(m.from), now)
+      : true;                                                         // 古い版: 印を見ずに、常に返す
+    if (reply) {
+      if (node.isNew) node.last.set(m.from, now);
+      queue.push({ to: m.from, from: m.to, info: node.isNew ? { app: 'bridge', reply: true } : { app: 'bridge' } });
+    }
+  }
+  return delivered;
+}
+
+test('デバイス発見: 新しい版どうし・新旧の組み合わせで、返し合いが数通で止まる', () => {
+  assert.ok(simulateDiscovery(true, true) <= 4, '新 + 新');
+  assert.ok(simulateDiscovery(true, false) <= 6, '新 + 旧');
+  assert.ok(simulateDiscovery(false, true) <= 6, '旧 + 新');
+  assert.equal(simulateDiscovery(false, false), 2000, '旧 + 旧は、これまで通り止まらない (上限まで続く)');
+});

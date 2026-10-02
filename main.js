@@ -37,6 +37,7 @@ const {
   syncMetadata,
   compareVersions,
   clipboardHistoryFlagExcludes,
+  shouldReplyToAnnounce,
 } = require('./lib/sync-utils');
 const {
   deriveSyncKey,
@@ -3075,12 +3076,14 @@ const DISCOVERY_GROUP = '239.255.77.77';
 const DISCOVERY_PORT = 9096;
 const DISCOVERY_ANNOUNCE_MS = 30 * 1000;
 let discoverySocket = null;
+const lastDiscoveryReplyAt = new Map(); // 相手のアドレス → 最後に返信した時刻
 
 function tokenIdentifier() {
   return tokenIdentifierOf(syncConfig.secretToken);
 }
 
-function discoveryPayload() {
+// isReply: 相手の「ここにいます」への直接の返信。受け取った側は、これにはさらに返さない
+function discoveryPayload(isReply = false) {
   return Buffer.from(
     JSON.stringify({
       app: 'bridge',
@@ -3089,13 +3092,14 @@ function discoveryPayload() {
       device: deviceName,
       platform: process.platform,
       tokenId: tokenIdentifier(),
+      ...(isReply ? { reply: true } : {}),
     })
   );
 }
 
-function announcePresence(targetHost, targetPort) {
+function announcePresence(targetHost, targetPort, isReply = false) {
   if (!discoverySocket || !syncConfig.autoScan || syncPaused) return;
-  const payload = discoveryPayload();
+  const payload = discoveryPayload(isReply);
   discoverySocket.send(payload, targetPort || DISCOVERY_PORT, targetHost || DISCOVERY_GROUP, () => {});
 }
 
@@ -3123,8 +3127,13 @@ function startDiscovery() {
     if (localAddresses().has(host) && Number(info.port) === syncConfig.port) return; // 自分の自己紹介
     const peer = addPeer(host, info.port, info.device);
     if (!peer) return;
-    // 相手が起動直後なら、こちらの存在も直接返してすぐに双方向にする
-    announcePresence(host, rinfo.port);
+    // 相手が起動直後なら、こちらの存在も直接返してすぐに双方向にする。
+    // ただし、返信には返さず、同じ相手には一定時間に 1 回まで (返し合いの無限ループを防ぐ)
+    const now = Date.now();
+    if (shouldReplyToAnnounce(info, lastDiscoveryReplyAt.get(host), now)) {
+      lastDiscoveryReplyAt.set(host, now);
+      announcePresence(host, rinfo.port, true);
+    }
   });
   discoverySocket.bind(DISCOVERY_PORT, '0.0.0.0', () => {
     try {
