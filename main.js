@@ -849,7 +849,7 @@ function buildTrayMenu() {
         if (canSendToRenderer()) win.webContents.send('open-settings');
       },
     },
-    { label: 'アップデートを確認…', click: () => checkForUpdates({ manual: true }) },
+    { label: 'アップデートを確認…', click: () => checkForUpdates() },
     { type: 'separator' },
     { label: 'Bridge を終了', accelerator: 'CommandOrControl+Q', click: () => app.quit() },
   ]);
@@ -3806,11 +3806,11 @@ ipcMain.on('popup-choose', async (_event, choice) => {
 ipcMain.on('popup-close', () => hidePastePopup());
 
 // ---- アップデートの確認 (GitHub Releases の最新タグとバージョンを比べるだけ。自動更新はしない) ----
+// ユーザーが「アップデートを確認」を押したときだけ通信する。起動時や定期的な自動確認はしない
+// (プライバシーポリシーの「外部への通信は、ユーザーが押した更新の確認だけ」と一致させるため)
 const UPDATE_CHECK_URL = 'https://api.github.com/repos/haruhito767676/bridge/releases/latest';
-const UPDATE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
-let notifiedUpdateVersion = null;
 
-async function checkForUpdates({ manual = false } = {}) {
+async function checkForUpdates() {
   try {
     const res = await net.fetch(UPDATE_CHECK_URL, {
       headers: { Accept: 'application/vnd.github+json', 'User-Agent': `bridge/${app.getVersion()}` },
@@ -3819,26 +3819,24 @@ async function checkForUpdates({ manual = false } = {}) {
     const release = await res.json();
     const latest = String(release.tag_name || '').replace(/^v/, '');
     if (latest && compareVersions(latest, app.getVersion()) > 0) {
-      if (!manual && notifiedUpdateVersion === latest) return;
-      notifiedUpdateVersion = latest;
       logEvent('update', `新しいバージョン: ${latest}`);
       if (canSendToRenderer()) {
         placeOnCursorDisplay(expanded);
         expandShelter({ focus: true });
         win.webContents.send('update-available', { version: latest, url: release.html_url });
       }
-    } else if (manual && canSendToRenderer()) {
+    } else if (canSendToRenderer()) {
       win.webContents.send('update-none', { version: app.getVersion() });
     }
   } catch (err) {
     logEvent('update', `確認に失敗: ${err.message}`);
-    if (manual && canSendToRenderer()) win.webContents.send('update-none', { version: app.getVersion(), error: true });
+    if (canSendToRenderer()) win.webContents.send('update-none', { version: app.getVersion(), error: true });
   }
 }
 
 // 設定画面の「アップデートを確認」ボタンから手動チェックを叩けるようにする
 // (これまではトレイメニューの「アップデートを確認…」からのみ呼べた)
-ipcMain.on('check-for-updates', () => checkForUpdates({ manual: true }));
+ipcMain.on('check-for-updates', () => checkForUpdates());
 
 // ---- グローバルホットキー (設定で変更可能) ----
 // ホバー展開は「マウスが右端に行ったついで」の受動的な導線なので、意図して呼び出す主導線として
@@ -4005,10 +4003,6 @@ app.whenReady().then(() => {
   startClipboardWatcher();
   startEdgeRevealWatcher();
   createPopupWindow(); // 初回の ⌘⇧V で待たせないよう先に読み込んでおく
-  if (app.isPackaged) {
-    setTimeout(() => checkForUpdates(), 6 * 60 * 60 * 1000);
-    setInterval(() => checkForUpdates(), UPDATE_CHECK_INTERVAL_MS);
-  }
 
   // 開発用: BRIDGE_DEV_SEED=1 で起動すると、ダミーのアイテムを流し込んで展開し、
   // ウインドウ座標を標準出力へ出す (見た目の確認・スクリーンショット用。パッケージ版では無効)
