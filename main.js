@@ -1863,7 +1863,11 @@ async function pollClipboard() {
     // readImage を試す (Snipping Tool など遅延レンダリングのコピーは一覧に出ないことがある)
     const formats = clipboard.availableFormats();
     const hasImage = formats.some((f) => f.startsWith('image/'));
-    const tryImageAnyway = seq !== null && (sequenceChanged || clipRetryTicks > 0);
+    // 文字やファイルのコピーで、画像の形式も無いときは、画像のコピーではない
+    // (スクリーンショットの遅延レンダリングは、文字もファイルも載せない)。読み直しもログも出さない
+    const nonImageCopy = !hasImage && ((text && text.trim()) || copiedFiles.length > 0);
+    if (nonImageCopy) clipRetryTicks = 0;
+    const tryImageAnyway = seq !== null && (sequenceChanged || clipRetryTicks > 0) && !nonImageCopy;
     if (hasImage || tryImageAnyway) {
       // 安価な署名が前回と同じなら、デコードもハッシュもせずに終える
       // (連番駆動の Windows では連番そのものが署名になる)
