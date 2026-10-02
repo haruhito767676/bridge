@@ -10,3 +10,8 @@ promo/**/.chrome/
 promo/source/stills/
 # 動画の確認用に撮る静止画 (書き出しのたびに作り直せる)
 promo/source/stills_clip_*/
+
+# 開発支援ツールの個人設定 (公開リポジトリには含めない)
+.claude/
+.agents/
+skills-lock.json
