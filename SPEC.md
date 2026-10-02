@@ -264,7 +264,7 @@ Main 側履歴 (`clipHistory`) の上限はテキスト 100 / 画像 30。**Main
 
 | メソッド / パス | 役割 |
 |---|---|
-| `GET /ping` | 自己紹介。`{ app: "bridge", device, platform, port, iconType }`。ピア発見のプローブ（タイムアウト 800ms） |
+| `GET /ping` | 自己紹介。`{ app: "bridge", device, platform, port }`。ピア発見のプローブ（タイムアウト 800ms） |
 | `GET /items?since=T` | タイムスタンプ `T` より新しい台帳エントリの**メタデータ**一覧（差分同期） |
 | `GET /file?id=<uuid>` | エントリ実体のストリーム配信（`application/octet-stream`）。実体なし / フォルダは 404。受信側切断で読み取りを即中止 |
 | `POST /push` | 新着メタデータの即時受信。送信元を known peer として自動登録（自動ブートストラップ） |

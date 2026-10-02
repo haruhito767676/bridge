@@ -163,7 +163,6 @@ Settings are stored in `sync-config.json`, created in the `userData` directory o
   "peers": ["192.168.1.23", "192.168.1.40:9095"],
   "autoScan": true,
   "myDeviceName": "Win-Desk",
-  "iconType": "win_desktop",
   "secretToken": "a shared key, the same on every device"
 }
 ```
@@ -176,7 +175,6 @@ Settings are stored in `sync-config.json`, created in the `userData` directory o
 | `autoPaste` | Paste automatically after choosing an item in Quick Paste (default `true`) |
 | `showSourceApp` | Show the source app's icon on items (macOS default `true` / Windows default `false`, because Windows launches PowerShell on every copy) |
 | `myDeviceName` | Your device name as shown on other devices (defaults to `os.hostname()`) |
-| `iconType` | Device type used by the former mouse-sharing feature (`win_laptop` / `macbook` / `win_desktop`). Still sent and received for compatibility, but not used in the current UI |
 | `secretToken` | **The sync key. Use the same value on every device that syncs (the same as "Sync key" in the settings sheet).** If unset, a random one is generated on first launch |
 
 Requests from peers with a mismatched sync key are always rejected with 401. So even if someone else's Bridge is on the same LAN, your histories are never mixed or visible to them.

@@ -2218,11 +2218,6 @@ app.on('will-quit', () => {
 
 let deviceName = os.hostname();
 
-// デバイスアイコンの許容バリエーション。sync-config.json の iconType として受け取り、
-// 同期ペイロードでピア間に伝播する (未設定・未知の値はフォールバック枠を表示させる)
-const ALLOWED_ICON_TYPES = ['win_laptop', 'macbook', 'win_desktop'];
-let myIconType = null;
-
 const DEFAULT_SYNC_PORT = 9095;
 const SYNC_POLL_MS = 20 * 1000; // 既知ピアへの差分ポーリング間隔 (再接続の自動検知を兼ねる)
 const PROBE_TIMEOUT_MS = 800;
@@ -2301,10 +2296,6 @@ function loadSyncConfig() {
     // myDeviceName が指定されていれば、設定画面なしに JSON 編集だけで表示名を短縮できるようにする
     if (typeof parsed.myDeviceName === 'string' && parsed.myDeviceName.trim()) {
       deviceName = parsed.myDeviceName.trim();
-    }
-    // iconType: 自端末のハードウェアアイコン種別。未知の値は無視してフォールバックに委ねる
-    if (typeof parsed.iconType === 'string' && ALLOWED_ICON_TYPES.includes(parsed.iconType)) {
-      myIconType = parsed.iconType;
     }
     if (typeof parsed.autoPaste === 'boolean') autoPasteEnabled = parsed.autoPaste;
     if (typeof parsed.showSourceApp === 'boolean') showSourceApp = parsed.showSourceApp;
@@ -2397,7 +2388,7 @@ function localAddresses() {
   return addrs;
 }
 
-function addPeer(host, port, device, iconType) {
+function addPeer(host, port, device) {
   const peerPort = Number(port) || syncConfig.port;
   if (!host) return null;
   if (localAddresses().has(host) && peerPort === syncConfig.port) return null; // 自分自身は除外
@@ -2408,7 +2399,6 @@ function addPeer(host, port, device, iconType) {
       host,
       port: peerPort,
       device: device || null,
-      iconType: iconType || null,
       online: false,
       enabled: !syncConfig.disabledPeers.includes(key), // このデバイスとの送受信を止めているか
       lastSyncedTs: 0,
@@ -2422,7 +2412,6 @@ function addPeer(host, port, device, iconType) {
     pollPeer(peer);
   } else {
     if (device) peer.device = device;
-    if (iconType) peer.iconType = iconType;
   }
   return peer;
 }
@@ -2838,7 +2827,6 @@ async function pollPeer(peer) {
     peer.lastSyncedAt = Date.now();
     peer.lastError = null;
     if (data.device) peer.device = data.device;
-    if (data.iconType) peer.iconType = data.iconType;
     // lastSyncedTs は「ピア側の時計で付いたタイムスタンプ」の最大値なので、
     // デバイス間の時計ズレがあっても差分の取りこぼしは起きない
     const sorted = data.items.slice().sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
@@ -2875,7 +2863,6 @@ function pushEntriesToPeers(entries) {
     device: deviceName,
     platform: process.platform,
     port: syncConfig.port,
-    iconType: myIconType,
     items: entries.map(syncMetadata),
   };
   for (const peer of knownPeers.values()) {
@@ -2960,7 +2947,6 @@ function startSyncServer() {
           device: deviceName,
           platform: process.platform,
           port: syncConfig.port,
-          iconType: myIconType,
         });
         return;
       }
@@ -2972,7 +2958,6 @@ function startSyncServer() {
           app: 'bridge',
           device: deviceName,
           platform: process.platform,
-          iconType: myIconType,
           items,
         });
         return;
@@ -3038,11 +3023,10 @@ function startSyncServer() {
             // プッシュしてきた相手をピアとして記憶する (静的設定もスキャンも不要な自動ブートストラップ)
             const host = (req.socket.remoteAddress || '').replace(/^::ffff:/, '');
             const peer =
-              addPeer(host, payload.port, payload.device, payload.iconType) || {
+              addPeer(host, payload.port, payload.device) || {
                 host,
                 port: Number(payload.port) || syncConfig.port,
                 device: payload.device || null,
-                iconType: payload.iconType || null,
               };
             peer.online = true;
             peer.lastSyncedAt = Date.now();
@@ -3100,7 +3084,6 @@ function discoveryPayload() {
       port: syncConfig.port,
       device: deviceName,
       platform: process.platform,
-      iconType: myIconType,
       tokenId: tokenIdentifier(),
     })
   );
@@ -3134,7 +3117,7 @@ function startDiscovery() {
     if (!info || info.app !== 'bridge' || info.tokenId !== tokenIdentifier()) return;
     const host = rinfo.address;
     if (localAddresses().has(host) && Number(info.port) === syncConfig.port) return; // 自分の自己紹介
-    const peer = addPeer(host, info.port, info.device, info.iconType);
+    const peer = addPeer(host, info.port, info.device);
     if (!peer) return;
     // 相手が起動直後なら、こちらの存在も直接返してすぐに双方向にする
     announcePresence(host, rinfo.port);
@@ -3197,7 +3180,7 @@ async function scanSubnetForPeers() {
           try {
             const info = await httpGetJson(host, syncConfig.port, '/ping');
             if (info && info.app === 'bridge') {
-              addPeer(host, info.port, info.device, info.iconType);
+              addPeer(host, info.port, info.device);
               found++;
             }
           } catch {
@@ -3257,7 +3240,6 @@ function syncStatusSnapshot() {
     port: p.port,
     online: Boolean(p.online),
     enabled: p.enabled !== false,
-    iconType: p.iconType || null,
     lastSyncedAt: p.lastSyncedAt || 0,
     lastError: p.lastError || null,
   }));
@@ -3318,7 +3300,6 @@ ipcMain.handle('set-peer-enabled', (_event, host, port, enabled) => {
 
 ipcMain.handle('get-settings', () => ({
   deviceName,
-  iconType: myIconType,
   secretToken: syncConfig.secretToken,
   autoScan: syncConfig.autoScan,
   peers: syncConfig.peers.slice(),
@@ -3343,10 +3324,6 @@ ipcMain.handle('save-settings', (_event, incoming) => {
   if (typeof incoming.deviceName === 'string' && incoming.deviceName.trim()) {
     deviceName = incoming.deviceName.trim();
     next.myDeviceName = deviceName;
-  }
-  if (typeof incoming.iconType === 'string' && ALLOWED_ICON_TYPES.includes(incoming.iconType)) {
-    myIconType = incoming.iconType;
-    next.iconType = myIconType;
   }
   if (typeof incoming.secretToken === 'string' && incoming.secretToken.trim()) {
     syncConfig.secretToken = incoming.secretToken.trim();

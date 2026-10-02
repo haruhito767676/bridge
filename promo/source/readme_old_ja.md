@@ -134,7 +134,6 @@ bridge://add?text=任意のテキスト              # テキスト → .txt に
   "peers": ["192.168.1.23", "192.168.1.40:9095"],
   "autoScan": true,
   "myDeviceName": "Win-Desk",
-  "iconType": "win_desktop",
   "secretToken": "全デバイスで同じ値に揃える共有キー"
 }
 ```
@@ -147,7 +146,6 @@ bridge://add?text=任意のテキスト              # テキスト → .txt に
 | `autoPaste` | 貼り付けポップアップで項目を選んだ後、自動で貼り付ける（既定 `true`） |
 | `showSourceApp` | コピー元アプリのアイコンを項目に表示する（macOS 既定 `true` / Windows 既定 `false`。Windows ではコピーのたびに PowerShell を起動するため） |
 | `myDeviceName` | ほかのデバイスに表示される自分のデバイス名（省略時は `os.hostname()`） |
-| `iconType` | 旧マウス共有機能で使っていたデバイス種別（`win_laptop` / `macbook` / `win_desktop`）。互換性のために送受信は残しているが、現在の UI では使っていない |
 | `secretToken` | **同期キー。同期するデバイスすべてで同じ値にしてください（設定シートの「同期キー」と同じもの）。** 未設定の場合は初回起動時に乱数で自動生成されます |
 
 同期キーが一致しない相手からのリクエストはすべて 401 で拒否されます。そのため、同じ LAN にほかの人の Bridge があっても、履歴が混ざったり相手に見られたりすることはありません。
