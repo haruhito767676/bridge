@@ -255,7 +255,7 @@ Main 側履歴 (`clipHistory`) の上限はテキスト 100 / 画像 30。**Main
 ### 7.1 トランスポートと認証
 
 - 各デバイスが `node:http` サーバーを `0.0.0.0:<port>`（既定 9095）で待ち受ける HTTP
-- 全リクエストにヘッダー `x-bridge-token: <secretToken>` を必須とし、`crypto.timingSafeEqual` で厳格照合。不一致は**全エンドポイント 401**
+- 全リクエストにヘッダー `x-bridge-auth: 2.<時刻 ms>.<nonce>.<本文の SHA-256>.<mac>` を必須とする。`mac` は、`HMAC-SHA256(authKey, メソッド \n パス \n 時刻 \n nonce \n 本文ダイジェスト)`。`authKey` は `secretToken` を HKDF-SHA256（info: `bridge-auth-v1`）で伸長したもので、暗号化の鍵（info: `bridge-sync-v1`）とは別。**同期キーそのものは、通信に流さない**（v1.x は `x-bridge-token` に平文で載せており、v2.0.0 で廃止）。時刻は ±60 秒以内、使用済みの nonce は拒否（再送対策）、比較は `crypto.timingSafeEqual`。本文があるリクエスト（`/push`）は、本文のダイジェストも署名に含め、すり替えを拒否する。不一致は**全エンドポイント 401**。理由（`skew`＝時計のずれ / `mac`＝キー違い / `missing`＝古い版 / `replay` など）は、`x-bridge-auth-error` ヘッダーで相手に返す（`lib/sync-auth.js`）
 - `secretToken` は `sync-config.json` に保存。未設定なら初回起動時に 32 バイトの暗号学的乱数（hex）を自動生成して書き戻す。**同期させたいデバイス間では手動で同一値に揃える**のが前提
 - ペイロードは `secretToken` を HKDF-SHA256（info: `bridge-sync-v1`）で伸長した鍵により AES-256-GCM で暗号化する（`lib/sync-crypto.js`）。JSON メタデータ（`/ping` `/items` `/push`）は `iv(12B) + tag(16B) + 暗号文` を base64 化した本文一本にまとめ、ファイル実体（`/file`）は 64KiB 単位の長さプレフィックス付きフレーム（各フレーム独自ノンス・独自 tag）でストリーミング暗号化する。改ざん・破損はチャンク単位で検知され、失敗したダウンロードは既存の再試行経路に乗る
 - ボディ / レスポンスのサイズ上限 10MB（`/file` のストリーム転送を除く）

@@ -50,7 +50,7 @@ Drop files from Finder or Explorer onto the handle at the screen edge and they w
 
 <p align="center"><img src="docs/media/clip-lock.webp" width="760" alt="The panel becomes a padlock, locks, travels, and opens on the receiving device"></p>
 
-Sync traffic is encrypted with **AES-256-GCM**, using a key derived from your sync key (both metadata and file contents). Requests from anyone without the matching key are rejected. Bridge does not authenticate peers with certificates, so it is meant for use on a LAN you trust.
+Sync traffic is encrypted with **AES-256-GCM**, using a key derived from your sync key (both metadata and file contents). The sync key itself is never sent over the network: each request carries only a keyed proof (an HMAC with a timestamp and a one-time nonce), and replays are rejected. Requests from anyone without the matching key are rejected. Bridge does not authenticate peers with certificates, so it is meant for use on a LAN you trust. (Version 1.x sent the sync key in a request header; this was fixed in 2.0.0, which cannot sync with 1.x.)
 
 ---
 
@@ -245,7 +245,7 @@ For architecture, the communication protocol and the IPC API, see **[SPEC.md](SP
 
 - On Windows, a PowerShell process started at launch is used to detect copied files, write files to the clipboard, and auto-paste. Where PowerShell cannot run, copy detection is limited to the first file only and auto-paste is unavailable.
 - Finder's "Kind" display (`mdls`) and Quick Look are macOS only. On other OSes the kind is shown from the file extension.
-- Sync traffic is authenticated with the sync key and also encrypted with AES-256-GCM, using a key derived from `secretToken` (both metadata and file contents). Peers are not authenticated with certificates, though. The goal is to prevent eavesdropping and tampering on a LAN, and Bridge assumes use on a LAN you trust.
+- Sync requests are authenticated with an HMAC-SHA256 proof derived from `secretToken` (header `x-bridge-auth`; the key itself is never sent), and the traffic is encrypted with AES-256-GCM using a separate key derived from `secretToken` (both metadata and file contents). Peers are not authenticated with certificates, though. The goal is to prevent eavesdropping and tampering on a LAN, and Bridge assumes use on a LAN you trust.
 
 ## License
 
