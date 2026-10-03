@@ -103,7 +103,7 @@ Sync traffic is encrypted with **AES-256-GCM**, using a key derived from your sy
 - Right-click "Show only this device's items" / "Show only items from …" to filter by device. While filtering, a label appears under the kind switcher; clear it with ✕ or Esc
 
 #### 4. Search
-- The search field is focused as soon as the panel opens
+- When you open the panel with the hotkey, the search field is focused right away so you can start typing. (When opened with the mouse, click the field first, so Bridge never takes keystrokes meant for the app you are working in.)
 - The "All / Files / Clips" buttons under the search field filter by kind and combine with keyword search
 - With focus in the search field, use ↑↓ to choose a result and Enter to copy (the same as Spotlight)
 - During keyword search, the footer shows the hit count (not shown when only filtering by kind)
