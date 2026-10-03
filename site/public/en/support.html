@@ -150,7 +150,7 @@
 <div class="wrap">
 <main>
   <h1>Support</h1>
-  <p class="updated">Last updated: September 21, 2026</p>
+  <p class="updated">Last updated: October 3, 2026</p>
 
   <div class="lede">
     <p>Common stumbling blocks, and quick fixes you can try. If none of these solves it, please contact us with a GitHub issue (see the bottom of this page). Bridge’s interface is currently in Japanese, so button and setting names below are shown in English with the Japanese label in parentheses.</p>
@@ -211,6 +211,10 @@
     <ul>
       <li>Check that your OS firewall is not blocking Bridge’s traffic (if a permission dialog appeared the first time you launched it, choose “Allow”)</li>
       <li>In the settings sheet, open “Advanced settings” (詳細設定) and check that the other device appears under “Connected devices” (接続中のデバイス). If it isn’t connected, the last reason for the failure is shown</li>
+    </ul>
+    <ul>
+      <li>If it says “The other device is on an old version” (相手のバージョンが古いです), update the other device to version 2.0 or later too. 1.x and 2.0 use different communication methods, so they cannot sync with each other</li>
+      <li>If it says “The clocks on the two devices differ” (2 台の時計がずれています), set the date and time on both to automatic (if they differ by a minute or more, they will not connect, for safety). If it says “The other device is old, or the sync key differs” (相手が古いか、同期キーが違います), check the two points above and that the sync keys are the same</li>
     </ul>
     <p>To dig into the cause, open <code>bridge.log</code> from “Show log” (ログを表示) under “Advanced settings” (詳細設定) in the settings sheet. It records what is happening — discovery, syncing, reasons for failure — in chronological order.</p>
   </div>
