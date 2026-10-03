@@ -2385,6 +2385,17 @@ async function doSaveSettings() {
   el.addEventListener('change', saveSettings);
 });
 [settingHotkeyToggle, settingHotkeyPaste].forEach((el) => el.addEventListener('hotkeychange', saveSettings));
+// 短い同期キーは、推測されやすい。保存は止めず、長いキーをすすめる (自動で作られるキーは 64 文字)
+const WEAK_TOKEN_LENGTH = 24;
+function isWeakToken(value) {
+  const t = String(value || '').trim();
+  return t.length > 0 && t.length < WEAK_TOKEN_LENGTH;
+}
+function warnIfWeakToken() {
+  if (!isWeakToken(settingToken.value)) return;
+  showToast({ icon: 'info', title: '短い同期キーは、推測されやすいです', sub: 'できるだけ長いキーをおすすめします', durationMs: 4500 });
+}
+settingToken.addEventListener('change', warnIfWeakToken);
 [settingDeviceName, settingToken].forEach((el) => {
   el.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') el.blur();
@@ -2427,7 +2438,7 @@ settingTokenPaste.addEventListener('click', async () => {
   if (text) {
     settingToken.value = text;
     settingToken.dispatchEvent(new Event('change'));
-    showToast({ icon: 'check', title: '同期キーを貼り付けました', durationMs: 1800 });
+    if (!isWeakToken(text)) showToast({ icon: 'check', title: '同期キーを貼り付けました', durationMs: 1800 });
   } else {
     settingToken.focus();
     settingToken.select();
