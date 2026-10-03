@@ -28,7 +28,6 @@ const { promisify } = require('util');
 const execFileAsync = promisify(execFile);
 
 const {
-  tokensMatch,
   tokenIdentifierOf,
   sanitizeSyncFileName,
   extractFileUrlPaths,
@@ -39,6 +38,13 @@ const {
   clipboardHistoryFlagExcludes,
   shouldReplyToAnnounce,
 } = require('./lib/sync-utils');
+const {
+  deriveAuthKey,
+  createAuthHeader,
+  verifyAuthHeader,
+  bodyDigest,
+  NonceCache,
+} = require('./lib/sync-auth');
 const {
   deriveSyncKey,
   encryptJson,
@@ -2229,8 +2235,10 @@ const PROBE_TIMEOUT_MS = 800;
 const SYNC_BODY_LIMIT = 10 * 1024 * 1024;
 const MAX_SYNC_STORE = 500;
 
-// 同期通信の認証トークンを載せる HTTP ヘッダー名 (サーバー・クライアント共通)
-const SYNC_TOKEN_HEADER = 'x-bridge-token';
+// 同期通信の認証ヘッダー (サーバー・クライアント共通)。同期キーそのものは送らず、
+// 「キーを知っている証明」(HMAC) だけを送る。詳しくは lib/sync-auth.js
+const SYNC_AUTH_HEADER = 'x-bridge-auth';
+const SYNC_AUTH_ERROR_HEADER = 'x-bridge-auth-error'; // 401 のとき、理由 (skew など) を相手に伝える
 
 let syncConfig = { port: DEFAULT_SYNC_PORT, peers: [], autoScan: true, secretToken: null, disabledPeers: [] };
 
@@ -2238,12 +2246,30 @@ let syncConfig = { port: DEFAULT_SYNC_PORT, peers: [], autoScan: true, secretTok
 // トークンが変わったとき (設定画面からの変更を含む) だけ再計算してキャッシュする
 let cachedSyncKey = null;
 let cachedSyncKeyToken = null;
+let cachedAuthKey = null;
 function syncKey() {
   if (cachedSyncKeyToken !== syncConfig.secretToken) {
     cachedSyncKey = deriveSyncKey(syncConfig.secretToken);
+    cachedAuthKey = deriveAuthKey(syncConfig.secretToken);
     cachedSyncKeyToken = syncConfig.secretToken;
   }
   return cachedSyncKey;
+}
+// 認証用の鍵 (暗号化の鍵とは別)。syncKey() と同じタイミングで作り直される
+function syncAuthKey() {
+  syncKey();
+  return cachedAuthKey;
+}
+// リクエストに付ける認証ヘッダー。body は、本文があるときだけ (POST)
+function authHeaders(method, pathAndQuery, body) {
+  return { [SYNC_AUTH_HEADER]: createAuthHeader(syncAuthKey(), method, pathAndQuery, body) };
+}
+// HTTP のエラー応答 → Error。401 のときは、相手が伝えてきた理由を authReason に持たせる
+function httpStatusError(res) {
+  const err = new Error(`HTTP ${res.statusCode}`);
+  err.statusCode = res.statusCode;
+  err.authReason = res.headers[SYNC_AUTH_ERROR_HEADER] || null;
+  return err;
 }
 
 // 同期台帳: 自分が生成したアイテムと他拠点から受信したアイテムの両方を持ち、
@@ -2423,6 +2449,23 @@ function addPeer(host, port, device) {
 
 // ---- HTTP クライアントヘルパー (依存パッケージなし、node:http のみ) ----
 
+// 同期の失敗理由を、設定画面に出す文言にする
+function syncErrorMessage(err) {
+  if (err && err.message === 'HTTP 401') {
+    switch (err.authReason) {
+      case 'skew':
+        return '2 台の時計がずれています';
+      case 'mac':
+        return '同期キーが一致しません';
+      case 'missing':
+        return '相手のバージョンが古いです';
+      default:
+        return '相手が古いか、同期キーが違います';
+    }
+  }
+  return err && err.message ? err.message : '到達できません';
+}
+
 function httpGetJson(host, port, pathName, timeoutMs = PROBE_TIMEOUT_MS) {
   return new Promise((resolve, reject) => {
     const req = http.get(
@@ -2431,7 +2474,7 @@ function httpGetJson(host, port, pathName, timeoutMs = PROBE_TIMEOUT_MS) {
         port,
         path: pathName,
         timeout: timeoutMs,
-        headers: { [SYNC_TOKEN_HEADER]: syncConfig.secretToken || '' },
+        headers: authHeaders('GET', pathName),
       },
       (res) => {
         let body = '';
@@ -2441,7 +2484,7 @@ function httpGetJson(host, port, pathName, timeoutMs = PROBE_TIMEOUT_MS) {
           if (body.length > SYNC_BODY_LIMIT) req.destroy(new Error('response too large'));
         });
         res.on('end', () => {
-          if (res.statusCode !== 200) return reject(new Error(`HTTP ${res.statusCode}`));
+          if (res.statusCode !== 200) return reject(httpStatusError(res));
           try {
             resolve(decryptJson(syncKey(), body));
           } catch (err) {
@@ -2468,12 +2511,12 @@ function httpPostJson(host, port, pathName, payload, timeoutMs = 3000) {
         headers: {
           'Content-Type': 'application/octet-stream',
           'Content-Length': Buffer.byteLength(body),
-          [SYNC_TOKEN_HEADER]: syncConfig.secretToken || '',
+          ...authHeaders('POST', pathName, body),
         },
       },
       (res) => {
         res.resume(); // レスポンス本文は読み捨てる (ステータスだけ見る)
-        res.on('end', () => (res.statusCode === 200 ? resolve() : reject(new Error(`HTTP ${res.statusCode}`))));
+        res.on('end', () => (res.statusCode === 200 ? resolve() : reject(httpStatusError(res))));
       }
     );
     req.on('timeout', () => req.destroy(new Error('timeout')));
@@ -2556,20 +2599,19 @@ function downloadEntryFile(peer, entry) {
       reject(err);
       return;
     }
+    const filePath = `/file?id=${encodeURIComponent(entry.id)}`;
     const req = http.get(
       {
         host: peer.host,
         port: peer.port,
-        path: `/file?id=${encodeURIComponent(entry.id)}`,
+        path: filePath,
         timeout: 15000,
-        headers: { [SYNC_TOKEN_HEADER]: syncConfig.secretToken || '' },
+        headers: authHeaders('GET', filePath),
       },
       (res) => {
         if (res.statusCode !== 200) {
           res.resume();
-          const err = new Error(`HTTP ${res.statusCode}`);
-          err.statusCode = res.statusCode;
-          return reject(err);
+          return reject(httpStatusError(res));
         }
         // 保存先の準備に失敗しても (ディスク満杯・権限など)、http コールバック内の
         // 同期例外でプロセスごと落とさず reject して次回ポーリングの再試行へ回す
@@ -2846,7 +2888,7 @@ async function pollPeer(peer) {
   } catch (err) {
     if (peer.online) logEvent('peer', `オフライン: ${peer.device || peer.host} (${err && err.message})`);
     peer.online = false; // 外出中などで到達不能。lastSyncedTs は保持し、再接続時に差分だけ取り込む
-    peer.lastError = err && err.message === 'HTTP 401' ? '同期キーが一致しません' : err && err.message ? err.message : '到達できません';
+    peer.lastError = syncErrorMessage(err);
   } finally {
     peer.syncing = false;
   }
@@ -2891,9 +2933,12 @@ function respondJson(res, obj) {
   res.end(body);
 }
 
-// リクエストヘッダーの secretToken を厳格に照合する。
-function isAuthorizedRequest(req) {
-  return tokensMatch(req.headers[SYNC_TOKEN_HEADER], syncConfig.secretToken);
+// 使い終わった nonce を覚えておく (同じ認証ヘッダーの再送を拒否するため)
+const authNonceCache = new NonceCache();
+
+// リクエストの認証ヘッダーを検証する。結果は { ok, reason?, digest? }
+function authenticateRequest(req) {
+  return verifyAuthHeader(syncAuthKey(), req.headers[SYNC_AUTH_HEADER], req.method, req.url, { nonceCache: authNonceCache });
 }
 
 function startSyncServer() {
@@ -2909,11 +2954,13 @@ function startSyncServer() {
     });
     res.on('error', () => {});
 
-    // 秘密鍵認証: secretToken が一致しないリクエストは /ping・/items・/file・/push を含む
-    // 全エンドポイントで 401 Unauthorized として即時遮断する。これにより同一 LAN 内に
-    // 他人の Bridge が居ても、クリップボード履歴やファイルが混線・漏洩することはない
-    if (!isAuthorizedRequest(req)) {
-      res.writeHead(401);
+    // 認証: 同期キーを知っている証明 (HMAC) が無い・合わないリクエストは、/ping・/items・/file・/push を
+    // 含む全エンドポイントで 401 Unauthorized として即時遮断する。これにより同一 LAN 内に
+    // 他人の Bridge が居ても、クリップボード履歴やファイルが混線・漏洩することはない。
+    // 理由 (時計のずれ・古い版など) は、相手が画面に出せるようヘッダーで伝える
+    const auth = authenticateRequest(req);
+    if (!auth.ok) {
+      res.writeHead(401, { [SYNC_AUTH_ERROR_HEADER]: auth.reason });
       res.end();
       return;
     }
@@ -3019,6 +3066,12 @@ function startSyncServer() {
         });
         req.on('end', async () => {
           try {
+            // 認証ヘッダーは、本文のダイジェストも署名している。本文がすり替えられていれば拒否する
+            if (bodyDigest(body) !== auth.digest) {
+              res.writeHead(401, { [SYNC_AUTH_ERROR_HEADER]: 'body' });
+              res.end();
+              return;
+            }
             const payload = decryptJson(syncKey(), body);
             if (payload.app !== 'bridge' || !Array.isArray(payload.items)) {
               res.writeHead(400);
