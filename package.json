@@ -1,6 +1,6 @@
 {
   "name": "bridge",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Copy on one device, paste on all of them. Files and clipboard history synced across Macs and Windows PCs on the same LAN.",
   "main": "main.js",
   "scripts": {
