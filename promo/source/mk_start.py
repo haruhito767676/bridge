@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """サイト用 (ライト): 「はじめかた」 — 3 章を 1 本に (Mac が左、Windows が右。compare と同じ左右構成、1920x1080)。
      1 インストール       … Mac: ディスクイメージから Applications へドラッグ / Windows: インストーラーが進む → 右端につまみが出る
-     2 同期キーを合わせる … Mac の設定で「コピー」→ Bridge の外 (自分宛てのメッセージ) で運ぶ → Windows の設定で「貼り付け」→ つながる
-                             (この時点ではクリップボードは共有されていない。キーだけは人が運ぶ、を正直に見せる)
+     2 デバイスを追加する … Mac の設定で「追加」→ Windows の設定で「探す」→ Mac を選ぶ → 2 台に同じ 6 桁が出る → 両方で「一致」→ つながる
+                             (キーは手で運ばない。数字を見比べるだけ)
      3 コピーして、試す   … Mac でテキストをコピー → Windows のパネルに届く → 選んで貼り付け
    各章とも、最後の状態のまま 1.5 秒待ってから次の章へ (タブで章を選んだときも、締めの絵が残る)。
    設定画面は実アプリ (ui/settings-plates.mjs が撮った plates-light/settings)、パネルは ui/plates-light/{mac,win}。"""
-CHS = [10.8, 11.6, 10.4]
+CHS = [10.8, 12.8, 10.4]
 DUR = sum(CHS)
 
 PAGE = r'''<!doctype html>
@@ -81,20 +81,7 @@ html,body{width:1920px;height:1080px;overflow:hidden;background:#eceef5;font-fam
 .setup .t2{font:13px var(--display);color:rgba(0,0,0,.55);margin-bottom:18px}
 .setup .pb{height:8px;border-radius:2px;background:rgba(0,0,0,.1);overflow:hidden;width:270px}
 .setup .pb i{display:block;height:100%;width:0;background:#0a6cd6}
-/* --- 2: チャット (Bridge の外) --- */
-.chat{left:830px;top:170px;width:420px;height:560px}
-.chat .head{height:46px;display:flex;align-items:center;justify-content:center;font:600 14px var(--display);color:#222;border-bottom:1px solid rgba(0,0,0,.08);background:#fafafb}
-.chat .msgs{position:absolute;left:0;right:0;top:0;bottom:64px;padding:0 18px}
-.chat .in{position:absolute;left:14px;right:14px;bottom:12px;height:42px;border-radius:21px;background:#f0f1f5;display:flex;align-items:center;padding:0 16px;font:12px var(--mono);color:#222;white-space:nowrap;overflow:hidden}
-.chat .in .ph{color:rgba(0,0,0,.35);font:13px var(--display)}
-.chat .in .send{position:absolute;right:6px;top:6px;width:30px;height:30px;border-radius:15px;background:#0a84ff;display:flex;align-items:center;justify-content:center;opacity:.25}
-.chat .in .send svg{width:14px;height:14px;fill:none;stroke:#fff;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
-.bub{position:absolute;max-width:340px;padding:11px 14px;border-radius:16px;font:12.5px/1.55 var(--mono);word-break:break-all;opacity:0}
-.bub.me{right:18px;background:#0a84ff;color:#fff;border-bottom-right-radius:5px}
-.bub.you{left:18px;background:#eceef3;color:#222;border-bottom-left-radius:5px}
-.bub mark{background:rgba(10,132,255,.32);color:inherit;border-radius:2px}
-.bub.you mark{color:#0a3d80}
-.bub .tm{display:block;margin-top:5px;font:10.5px var(--display);opacity:.6;text-align:right}
+.spin{position:absolute;width:26px;height:26px;margin:-13px 0 0 -13px;border-radius:50%;border:3px solid rgba(10,132,255,.14);border-top-color:rgb(0,117,255);box-sizing:border-box;opacity:0;pointer-events:none}
 </style></head>
 <body>
 <div id="stage">
@@ -112,14 +99,7 @@ html,body{width:1920px;height:1080px;overflow:hidden;background:#eceef5;font-fam
       <img class="ghost" id="mghost" src="../../icon.png" alt="">
       <div class="copysheet" id="mcopy" style="opacity:0"><div>「Bridge」を「Applications」にコピーしています…</div><div class="pb"><i id="mpb"></i></div><small>Finder</small></div>
     </div>
-    <!-- 2: チャット (Bridge の外) -->
-    <div class="ch" id="m2">
-      <div class="win chat"><div class="bar"><i class="tl"></i><i class="tl y"></i><i class="tl g"></i><span style="margin-left:12px">メッセージ</span></div>
-        <div class="head" style="height:40px;font-size:13px">自分</div>
-        <div class="msgs" style="top:80px"><div class="bub me" id="mb1" style="top:230px"><span id="mbt"></span><span class="tm">13:23</span></div></div>
-        <div class="in"><span id="minp"></span><span class="ph" id="mph">メッセージ</span><i class="send" id="msend"><svg viewBox="0 0 16 16"><path d="M8 13V3M3.5 7.5L8 3l4.5 4.5"/></svg></i></div>
-      </div>
-    </div>
+    <div class="ch" id="m2"></div>
     <!-- 3: 会議メモ (コピー元) -->
     <div class="ch" id="m3">
       <div class="win" style="left:830px;top:70px;width:420px;height:740px"><div class="bar"><i class="tl"></i><i class="tl y"></i><i class="tl g"></i><span style="margin-left:12px">会議メモ</span></div>
@@ -127,7 +107,7 @@ html,body{width:1920px;height:1080px;overflow:hidden;background:#eceef5;font-fam
     </div>
     <div class="halo" id="mhalo"></div>
     <div class="pill" id="mpill"></div>
-    <div class="pslot" id="mslot"><div class="panel glass" id="mset"><img class="full" id="ms0" src="ui/plates-light/settings/mac-off.png"><img class="full" id="ms1" src="ui/plates-light/settings/mac-copied.png"><img class="full" id="ms2" src="ui/plates-light/settings/mac-on.png"><img class="full" id="me" src="ui/plates-light/settings/empty-mac.png"></div></div>
+    <div class="pslot" id="mslot"><div class="panel glass" id="mset"><img class="full" id="ms0" src="ui/plates-light/settings/mac-off.png"><img class="full" id="ms1" src="ui/plates-light/settings/mac-wait.png"><img class="full" id="ms2" src="ui/plates-light/settings/mac-sas.png"><img class="full" id="ms3" src="ui/plates-light/settings/mac-sas-ok.png"><img class="full" id="ms4" src="ui/plates-light/settings/mac-done.png"><img class="full" id="ms5" src="ui/plates-light/settings/mac-on.png"><img class="full" id="me" src="ui/plates-light/settings/empty-mac.png"><i class="spin" id="mspin" style="left:158.5px;top:84px"></i></div></div>
     <svg class="cursor" id="mcur" viewBox="0 0 34 44"><path d="M3 2v34l9-8 6 14 7-3-6-14 12-1z" fill="#fff" stroke="#000" stroke-width="2.4" stroke-linejoin="round"/></svg>
   </div></div></div>
 
@@ -136,14 +116,7 @@ html,body{width:1920px;height:1080px;overflow:hidden;background:#eceef5;font-fam
     <div class="ch" id="w1">
       <div class="wn setup" id="wsetup"><div class="cap">Bridge Setup<span class="cb"><i><svg viewBox="0 0 10 10"><path d="M1 1l8 8M9 1l-8 8"/></svg></i></span></div><div class="body"><img src="../../icon.png" alt=""><div><div class="t1">Bridge をインストールしています</div><div class="t2">しばらくお待ちください</div><div class="pb"><i id="wpb"></i></div></div></div></div>
     </div>
-    <!-- 2: チャット (Bridge の外) -->
-    <div class="ch" id="w2">
-      <div class="wn chat"><div class="cap">メッセージ<span class="cb"><i><svg viewBox="0 0 10 10"><path d="M1 5h8"/></svg></i><i><svg viewBox="0 0 10 10"><rect x="1.5" y="1.5" width="7" height="7"/></svg></i><i><svg viewBox="0 0 10 10"><path d="M1 1l8 8M9 1l-8 8"/></svg></i></span></div>
-        <div class="head" style="height:40px;font-size:13px">自分</div>
-        <div class="msgs" style="top:76px"><div class="bub you" id="wb1" style="top:230px"><span id="wbt"></span><span class="tm">13:23</span></div></div>
-        <div class="in"><span class="ph">メッセージ</span><i class="send"><svg viewBox="0 0 16 16"><path d="M8 13V3M3.5 7.5L8 3l4.5 4.5"/></svg></i></div>
-      </div>
-    </div>
+    <div class="ch" id="w2"></div>
     <!-- 3: メール (貼り付け先) -->
     <div class="ch" id="w3">
       <div class="wn" style="left:830px;top:50px;width:420px;height:740px"><div class="cap">新しいメール<span class="cb"><i><svg viewBox="0 0 10 10"><path d="M1 5h8"/></svg></i><i><svg viewBox="0 0 10 10"><rect x="1.5" y="1.5" width="7" height="7"/></svg></i><i><svg viewBox="0 0 10 10"><path d="M1 1l8 8M9 1l-8 8"/></svg></i></span></div>
@@ -155,7 +128,7 @@ html,body{width:1920px;height:1080px;overflow:hidden;background:#eceef5;font-fam
     </div>
     <div class="halo" id="whalo"></div>
     <div class="pill" id="wpill"></div>
-    <div class="pslot" id="wslot"><div class="panel fluent" id="wset"><img class="full" id="ws0" src="ui/plates-light/settings/win-off.png"><img class="full" id="ws1" src="ui/plates-light/settings/win-pasted.png"><img class="full" id="ws2" src="ui/plates-light/settings/win-on.png"><img class="full" id="we" src="ui/plates-light/settings/empty-win.png"></div></div>
+    <div class="pslot" id="wslot"><div class="panel fluent" id="wset"><img class="full" id="ws0" src="ui/plates-light/settings/win-off.png"><img class="full" id="ws1" src="ui/plates-light/settings/win-list.png"><img class="full" id="ws2" src="ui/plates-light/settings/win-sas.png"><img class="full" id="ws3" src="ui/plates-light/settings/win-sas-ok.png"><img class="full" id="ws4" src="ui/plates-light/settings/win-done.png"><img class="full" id="ws5" src="ui/plates-light/settings/win-on.png"><img class="full" id="we" src="ui/plates-light/settings/empty-win.png"><i class="spin" id="wspin" style="left:158.5px;top:84px"></i></div></div>
     <div class="taskbar"><div class="tray"><svg viewBox="0 0 24 24"><path d="M2.5 9a14 14 0 0 1 19 0M6 12.5a9 9 0 0 1 12 0M9.5 16a4.2 4.2 0 0 1 5 0"/></svg>
       <span class="stat" id="wstat" style="width:22px;height:22px"><svg viewBox="0 0 20 20" style="width:22px;height:22px"><circle cx="10" cy="10" r="7" stroke="rgba(0,0,0,.18)" stroke-width="2.4"/><circle id="wring" cx="10" cy="10" r="7" stroke="#0a84ff" stroke-width="2.4" stroke-linecap="round" stroke-dasharray="44" stroke-dashoffset="44" transform="rotate(-90 10 10)"/><path id="wtick" d="M6.5 10.3l2.4 2.4 4.6-5" stroke="#1f9d4a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" opacity="0"/></svg></span>
       <div><div class="clk" id="wclk">13:21</div><div>2026/09/30</div></div></div></div>
@@ -264,54 +237,64 @@ function ch1(t) {
     const h = $(k + 'halo'); h.style.opacity = (pulse > 0 && pulse < 1 ? .9 * (1 - pulse) : 0).toFixed(3); h.style.transform = `scale(${(1 + 1.6 * E.out(pulse)).toFixed(3)})`;
   });
   cursorAt('wcur', path([[0, 1300, 560], [7.2, 1300, 560], [8.3, 1591, 436], [9.0, 1591, 436], [9.6, 1470, 330]], t), P(t, 7.2, 7.5), 1);
-  ['ms0', 'ms1', 'ms2', 'ws0', 'ws1', 'ws2'].forEach(id => setOp(id, 0)); setOp('me', 1); setOp('we', 1);
+  ['ms0', 'ms1', 'ms2', 'ms3', 'ms4', 'ms5', 'ws0', 'ws1', 'ws2', 'ws3', 'ws4', 'ws5'].forEach(id => setOp(id, 0)); setOp('me', 1); setOp('we', 1);
 }
 
-// ---------------------------------------------------------------- 2 同期キーを合わせる
-const T2 = { open: .4, copy: 1.9, toastOff: 3.6, mclick: 3.25, paste: 3.5, send: 4.9, arrive: 5.6, sel: 6.45, wclick: 7.9, connect: 9.2 };
-const MCOPYBTN = [1459, 336], WPASTEBTN = [1526, 336];
-let M2 = null;   // 画面座標 (x 800〜1600 が映る) で測った、入力欄・送信ボタン・キーの文字
-const measure2 = () => {
-  const box = id => { const r = $(id).getBoundingClientRect(), f = $(id).closest('.half').getBoundingClientRect(); return { x: (r.left - f.left) / S + 800, y: (r.top - f.top) / S, w: r.width / S, h: r.height / S }; };
-  $('wb1').style.transform = 'none'; $('mb1').style.transform = 'none';   // 届く動きの途中でも、最終位置で測る
-  $('wbt').textContent = KEY;
-  M2 = { inp: box('minp'), send: box('msend'), key: box('wbt') };
-};
+// ---------------------------------------------------------------- 2 デバイスを追加する
+// ボタンの位置は、実アプリを撮ったときに測った値 (ui/plates-light/settings/buttons.json)。パネルの左上 (1280, 150) が原点
+const T2 = { open: .4, zoom0: .9, zoom1: 2.3, mclick: 2.6, wclick: 4.6, wpick: 6.2, mok: 8.0, wok: 9.3, done: 9.4, mfin: 10.1, wfin: 10.7 };
+const BT = { 'mac-add': [271, 186], 'mac-match': [203, 280], 'mac-done': [159, 196], 'win-find': [270, 222], 'win-pick': [159, 166], 'win-match': [203, 280], 'win-done': [159, 196] };
+const PX = (k, dx = 0, dy = 0) => [1280 + BT[k][0] + dx, 150 + BT[k][1] + dy];
+const stage = (t, ts) => ts.filter(x => t >= x).length;   // 時刻 ts の何番目まで進んだか
+const fadeTo = (t, ts, i) => { const a = i === 0 ? 1 : P(t, ts[i - 1], ts[i - 1] + .12); const b = i < ts.length ? 1 - P(t, ts[i], ts[i] + .12) : 1; return a * b; };
+// カーソルの動き: 目的地ごとに、距離に応じた時間をかけて、ゆっくり出て、ゆっくり止まる。クリックのあとは、その場で少し待つ
+const smoother = x => x <= 0 ? 0 : x >= 1 ? 1 : x * x * x * (x * (x * 6 - 15) + 10);
+const moveTime = (a, b) => .5 + Math.hypot(b[0] - a[0], b[1] - a[1]) / 650;
+function plan(start, steps) {
+  const kf = [[0, start[0], start[1]]]; let cur = start, free = 0;
+  const add = (t, p) => { if (t > kf[kf.length - 1][0] + 1e-6) kf.push([t, p[0], p[1]]); };
+  for (const st of steps) {
+    const d0 = moveTime(cur, st.p), d = Math.max(d0, Math.min(st.at - .12 - free, d0 * 2.5)), dep = Math.max(free, st.at - .12 - d);   // 次のボタンまでの時間が長いときは、止まらずに、ゆっくり寄っていく
+    add(dep, cur); add(dep + d, st.p);
+    free = st.at + .5; add(free, st.p); cur = st.p;
+  }
+  return kf;
+}
+function pathS(kf, u) {
+  if (u <= kf[0][0]) return [kf[0][1], kf[0][2]];
+  for (let i = 1; i < kf.length; i++) if (u <= kf[i][0]) { const a = kf[i - 1], b = kf[i], p = smoother(P(u, a[0], b[0])); return [lerp(a[1], b[1], p), lerp(a[2], b[2], p)]; }
+  const l = kf[kf.length - 1]; return [l[1], l[2]];
+}
+const MPLAN = plan([1150, 560], [{ p: PX('mac-add', 4, 6), at: T2.mclick }, { p: PX('mac-match', 4, 6), at: T2.mok }, { p: PX('mac-done', 4, 6), at: T2.mfin }]);
+const WPLAN = plan([1500, 600], [{ p: PX('win-find', 4, 6), at: T2.wclick }, { p: PX('win-pick', 4, 6), at: T2.wpick }, { p: PX('win-match', 4, 6), at: T2.wok }, { p: PX('win-done', 4, 6), at: T2.wfin }]);
+// 回る輪 (実アプリの輪を、動画では別に描いて回す。位置と色は、実アプリから測った値)
+const SPIN_DEG = 400;   // 1 秒あたりの回転 (実アプリは 0.9 秒で 1 周)
 function ch2(t) {
-  if (!M2) measure2();
   $('mclk').textContent = $('wclk').textContent = '13:23';
   const op = crit(t - T2.open);
   slideX('mslot', op); slideX('wslot', op);
   $('mset').style.display = $('wset').style.display = 'block'; PW.el.style.display = 'none';
   ['mpill', 'wpill'].forEach(id => setOp(id, 1 - clamp(op * 3)));
   $('mhalo').style.opacity = $('whalo').style.opacity = 0;
-  // チャット (両 OS で同じ会話)
-  const co = P(t, .25, .6); $('m2').style.opacity = $('w2').style.opacity = co.toFixed(3);
-  // Mac: 「コピー」→ トースト
-  const toast = E.out(P(t, T2.copy, T2.copy + .12)) * (1 - E.in(P(t, T2.toastOff, T2.toastOff + .25)));
-  const onM = P(t, T2.connect, T2.connect + .12);
   setOp('me', 0); setOp('we', 0);
-  setOp('ms0', 1 - onM); setOp('ms1', toast * (1 - onM)); setOp('ms2', onM);
-  // Mac: チャット欄にキーを貼る → 送信 → 吹き出し
-  const inpOn = t >= T2.paste && t < T2.send;   // 入力欄をクリックして (mclick)、貼り付け
-  $('minp').textContent = inpOn ? KEY.slice(0, 26) + '…' : ''; $('mph').style.display = inpOn ? 'none' : 'inline';
-  $('msend').style.opacity = inpOn ? 1 : .25;
-  $('mbt').textContent = KEY; $('wbt').textContent = KEY;
-  const mb = E.out(P(t, T2.send, T2.send + .35)); setOp('mb1', mb); $('mb1').style.transform = `translate3d(0,${(14 * (1 - mb)).toFixed(1)}px,0)`;
-  // Windows: 吹き出しが届く → キーを選ぶ → 「貼り付け」
-  const wb = E.out(P(t, T2.arrive, T2.arrive + .4)); setOp('wb1', wb); $('wb1').style.transform = `translate3d(0,${(14 * (1 - wb)).toFixed(1)}px,0)`;
-  const sel = t >= T2.sel + .28 && t < T2.wclick + .1;
-  $('wbt').innerHTML = sel ? '<mark>' + KEY + '</mark>' : KEY;
-  const wt = E.out(P(t, T2.wclick, T2.wclick + .12)) * (1 - E.in(P(t, T2.wclick + 1.3, T2.wclick + 1.55)));
-  const onW = P(t, T2.connect, T2.connect + .12);
-  setOp('ws0', 1 - onW); setOp('ws1', wt * (1 - onW)); setOp('ws2', onW);
-  // カーソル
-  const IN = [M2.inp.x + 90, M2.inp.y + M2.inp.h / 2], SD = [M2.send.x + M2.send.w / 2, M2.send.y + M2.send.h / 2], KY = [M2.key.x + 70, M2.key.y + 11];
-  const mkf = [[0, 1150, 560], [.9, 1150, 560], [1.7, MCOPYBTN[0] + 4, MCOPYBTN[1] + 6], [2.4, MCOPYBTN[0] + 4, MCOPYBTN[1] + 6], [3.1, IN[0], IN[1]], [3.6, IN[0], IN[1]], [4.7, SD[0], SD[1]], [5.1, SD[0], SD[1]], [5.9, 1060, 480]];
-  const wkf = [[0, 1500, 600], [5.4, 1500, 600], [6.3, KY[0], KY[1]], [T2.sel + .4, KY[0], KY[1]], [7.6, WPASTEBTN[0] + 4, WPASTEBTN[1] + 6], [8.8, WPASTEBTN[0] + 4, WPASTEBTN[1] + 6], [9.7, 1180, 640]];
-  const wsel = [T2.sel, T2.sel + .14, T2.sel + .28];   // 3 回クリックで、キーの段落をまるごと選ぶ
-  cursorAt('mcur', path(mkf, t), P(t, .6, .9) * (1 - P(t, 5.6, 6.0)), pressed(t, [T2.copy, T2.mclick, T2.send]));
-  cursorAt('wcur', path(wkf, t), P(t, 5.2, 5.5) * (1 - P(t, 9.5, 9.9)), pressed(t, [...wsel, T2.wclick]));
+  // カメラ: パネルが開いたあと、画面の右端にあるパネルへ寄せる (パネルが大きく見える)
+  const zp = smoother(P(t, T2.zoom0, T2.zoom1)), Z = lerp(1.13778, 1.62, zp);
+  const camT = `translate3d(${lerp(-910.2, 911 - 1600 * 1.62, zp).toFixed(2)}px,${lerp(0, 512 - 450 * 1.62, zp).toFixed(2)}px,0) scale(${Z.toFixed(4)})`;
+  document.querySelectorAll('.cam').forEach(c => { c.style.transform = camT; });
+  // Mac: 設定 → 待ち受け → コード → 自分は「一致」済み → つながりました → 設定 (つながった)
+  const mt = [T2.mclick, T2.wpick, T2.mok, T2.done, T2.mfin];
+  for (let i = 0; i < 6; i++) setOp('ms' + i, fadeTo(t, mt, i));
+  // Windows: 設定 → 近くのデバイス → コード → 自分は「一致」済み → つながりました → 設定 (つながった)
+  const wt = [T2.wclick, T2.wpick, T2.wok, T2.done, T2.wfin];
+  for (let i = 0; i < 6; i++) setOp('ws' + i, fadeTo(t, wt, i));
+  // 回る輪: 待ち受け中 (Mac) と、相手の確認待ち (両方) で、見えている間だけ回す
+  const mSpin = clamp(fadeTo(t, mt, 1) + fadeTo(t, mt, 3)), wSpin = clamp(fadeTo(t, wt, 3));
+  $('mspin').style.opacity = mSpin.toFixed(3); $('wspin').style.opacity = wSpin.toFixed(3);
+  $('mspin').style.transform = `rotate(${(t * SPIN_DEG).toFixed(1)}deg)`; $('wspin').style.transform = `rotate(${(t * SPIN_DEG).toFixed(1)}deg)`;
+  // カーソル (画面の拡大に合わせて、大きさは変えない)
+  const pm = pathS(MPLAN, t), pw = pathS(WPLAN, t);
+  cursorAt('mcur', pm, P(t, .6, .9) * (1 - P(t, T2.mfin + 1.1, T2.mfin + 1.4)), pressed(t, [T2.mclick, T2.mok, T2.mfin]));
+  cursorAt('wcur', pw, P(t, 2.2, 2.5) * (1 - P(t, T2.wfin + 1.0, T2.wfin + 1.3)), pressed(t, [T2.wclick, T2.wpick, T2.wok, T2.wfin]));
 }
 
 // ---------------------------------------------------------------- 3 コピーして、試す
@@ -351,6 +334,7 @@ function render(T) {
   ['m3', 'w3'].forEach(id => $(id).style.display = k === 2 ? 'block' : 'none');
   $('mset').style.display = $('wset').style.display = k < 2 ? 'block' : 'none'; PW.el.style.display = k === 2 ? 'block' : 'none';
   $('mslot').style.opacity = 1; $('wslot').style.opacity = 1;
+  if (k !== 1) document.querySelectorAll('.cam').forEach(c => { c.style.transform = ''; });
   $('mstat').style.opacity = $('wstat').style.opacity = 0;
   if (k === 0) ch1(lt);
   else if (k === 1) ch2(lt); else ch3(lt);

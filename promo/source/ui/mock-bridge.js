@@ -33,6 +33,10 @@
     getSyncStatus: async () => status, onSyncStatus: on('sync-status'), setSyncPaused: async () => { }, syncEntryNow: async () => { }, setPeerEnabled: async () => { },
     scanPeersNow: async () => { }, revealLog() { },
     getSettings: async () => settings, saveSettings: async (s) => s, onOpenSettings: on('open-settings'),
+    pairHostStart: async () => ({ role: 'host', phase: 'waiting', closedReason: null, sas: null, peerName: null, expiresAt: Date.now() + 112000, failures: 0, accepted: null }),
+    pairHostCancel() { }, pairHostDecide() { }, pairJoinScan: async () => true,
+    pairCandidates: async () => window.__PAIR_CANDIDATES || [], pairJoinConnect: async () => ({ ok: true }), pairJoinDecide() { }, pairJoinCancel() { },
+    onPairState: on('pair-state'),
     checkForUpdates() { }, onUpdateAvailable: on('update-available'), onUpdateNone: on('update-none'),
     tabActivate() { }, onPopupItems: on('popup-items'), popupChoose() { }, popupClose() { },
   };

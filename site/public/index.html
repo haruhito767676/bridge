@@ -882,12 +882,12 @@
     <h2 style="font-size:36px;">はじめかた</h2>
   </div>
   <div class="start-stage">
-    <video class="clip-video start-video" id="startVideo" muted playsinline preload="metadata" loop poster="media/clip-start.jpg" aria-label="ディスクイメージから Applications へ入れる、片方の同期キーをコピーしてもう片方に貼り付ける、コピーした内容がもう片方のパネルに届く、の 3 場面 (Mac が左、Windows が右)">
+    <video class="clip-video start-video" id="startVideo" muted playsinline preload="metadata" loop poster="media/clip-start.jpg" aria-label="ディスクイメージから Applications へ入れる、片方で「追加」、もう片方で「探す」を押して、2 台の数字を見比べる、コピーした内容がもう片方のパネルに届く、の 3 場面 (Mac が左、Windows が右)">
       <source src="media/clip-start.mp4" type="video/mp4">
     </video>
     <div class="start-steps" role="tablist" aria-label="はじめかたの手順">
       <button type="button" class="start-step active" role="tab" aria-selected="true" data-ch="0"><span class="step-num">1</span><h3>インストール</h3><p>Mac でも、Windows でも。開いて、そのまま進むだけ。</p></button>
-      <button type="button" class="start-step" role="tab" aria-selected="false" data-ch="1"><span class="step-num">2</span><h3>同期キーを合わせる</h3><p>片方のキーを、もう片方に貼り付けるだけ。あとは自動でつながる。</p></button>
+      <button type="button" class="start-step" role="tab" aria-selected="false" data-ch="1"><span class="step-num">2</span><h3>デバイスを追加する</h3><p>2 台に出る数字を、見比べるだけ。キーは、自動で渡る。</p></button>
       <button type="button" class="start-step" role="tab" aria-selected="false" data-ch="2"><span class="step-num">3</span><h3>コピーして、試す</h3><p>コピーした内容が、もう片方のパネルに届く。選んで、貼るだけ。</p></button>
     </div>
   </div>
@@ -1800,10 +1800,10 @@
     var p=v.play(); if(p&&p.catch)p.catch(function(){});
   });});
 })();
-/* はじめかた: 3 章 (10.8 / 11.6 / 10.4 秒) のステップで頭出し。再生位置に合わせて、今のステップと進み具合を更新する */
+/* はじめかた: 3 章 (10.8 / 12.8 / 10.4 秒) のステップで頭出し。再生位置に合わせて、今のステップと進み具合を更新する */
 (function(){
   var v=document.getElementById('startVideo'); if(!v) return;
-  var LEN=[10.8,11.6,10.4], ST=[0,10.8,22.4], steps=[].slice.call(document.querySelectorAll('.start-step'));
+  var LEN=[10.8,12.8,10.4], ST=[0,10.8,23.6], steps=[].slice.call(document.querySelectorAll('.start-step'));
   function paint(){
     var t=v.currentTime||0, c=t>=ST[2]?2:(t>=ST[1]?1:0);
     steps.forEach(function(b,i){var on=i===c; b.classList.toggle('active',on); b.setAttribute('aria-selected',on?'true':'false'); b.style.setProperty('--p',on?Math.min(1,(t-ST[i])/LEN[i]).toFixed(3):0);});
