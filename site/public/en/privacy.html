@@ -111,7 +111,7 @@
 <div class="wrap">
 <main>
   <h1>Privacy Policy</h1>
-  <p class="updated">Last updated: October 3, 2026</p>
+  <p class="updated">Last updated: October 7, 2026</p>
 
   <div class="lede">
     <p>Bridge never sends what you copy, or your files, to anyone — including its developer.</p>
@@ -135,6 +135,10 @@
   <h3>About encryption in transit</h3>
   <p>Synced content (both metadata and file contents) is encrypted with AES-256-GCM, using a key derived from the sync key you set. The sync key itself is never sent over the network. To prove that a device knows the key, it sends only a keyed proof (an HMAC that includes a timestamp and a one-time random value), and replays of earlier traffic are rejected. Even on the same network, someone who doesn’t know the sync key cannot read the traffic.</p>
   <p>Note: the Software does not verify, with certificates or any other PKI, that the device on the other end is really the one you intended. Protection against impersonation relies on the sync keys matching, so the Software is meant to be used on networks you trust. Please avoid using it on public Wi-Fi or any other network shared with strangers.</p>
+
+  <h3>About adding a device (pairing)</h3>
+  <p>Only while “Add a new device” is on (at most 2 minutes), this device announces its <strong>name and port number</strong> to the local network. The announcement does not include the sync key or any hash of it, but other Bridge apps on the same network can see the device name during that time.</p>
+  <p>The sync key is passed, encrypted, only after you compare the six-digit numbers on both screens and press “Match” on both. If the numbers differ, no key is passed, so a third party who tries to get in between the two devices can be noticed. However, this protection <strong>depends on you actually comparing the numbers</strong>. If you press “Match” without checking, it does not protect you.</p>
 
   <h3>1-3. Settings</h3>
   <p>Settings such as the device name and the sync key are stored in a settings file (<code>sync-config.json</code>) on your device. This is not sent anywhere either.</p>
@@ -164,6 +168,7 @@
   <h3>Notable changes</h3>
   <ul>
     <li><strong>October 3, 2026 (version 2.0.0)</strong>: We changed how devices authenticate to each other. In version 1.x, the sync key itself was included in the traffic for authentication, so a third party who could observe traffic on the same network could read the sync key and decrypt the contents. Starting with 2.0.0, the sync key is never sent over the network. Because of this change, 1.x and 2.0.0 cannot sync with each other. If you used 1.x on a network you do not trust, please change your sync key.</li>
+    <li><strong>October 7, 2026 (version 2.1.0)</strong>: We added pairing. You can share the sync key by comparing a six-digit number on two screens, without typing the key. While a device is waiting to be added, it announces its name and port number to the local network. This mechanism has not been reviewed by a security specialist.</li>
   </ul>
 </main>
 </div>

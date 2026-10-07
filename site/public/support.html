@@ -160,6 +160,7 @@
   <div class="toc" role="navigation" aria-label="目次">
     <a href="#install-warning"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>インストール時・起動時に警告が出る</a>
     <a href="#cant-find"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>他の端末が見つからない</a>
+    <a href="#pairing"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>デバイスを追加できない</a>
     <a href="#sync-slow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>同期が遅い・反映されない</a>
     <a href="#uninstall"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>アンインストールしたい</a>
     <a href="#still-stuck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>それでも解決しない場合</a>
@@ -197,11 +198,26 @@
     <p>まず、以下を確認してください。</p>
     <ul>
       <li>両方の端末が<strong>同じ Wi-Fi / LAN</strong> に接続されているか</li>
-      <li>設定シートの「同期キー」が、両方の端末で<strong>完全に一致</strong>しているか</li>
+      <li>両方の端末で、デバイスの追加(ペアリング)が済んでいるか。または、「詳細設定」の「同期キー」が、両方の端末で<strong>完全に一致</strong>しているか</li>
       <li>接続先が<strong>ゲスト用Wi-Fi</strong>になっていないか(端末同士を隔離する設定になっていることが多く、自動発見できません)</li>
     </ul>
     <p>それでも見つからない場合は、設定シートの「いま探す」ボタンを押してください。同じネットワーク内を一度スキャンします。</p>
     <p class="note"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 16v-5"/><path d="M12 8h.01"/></svg><span>それでも改善しない場合、ネットワーク側でUDPマルチキャスト通信がブロックされている可能性があります。その場合は設定シートの「詳細設定」にある「手動で追加」に、相手のIPアドレスを直接入力することでも接続できます。</span></p>
+  </div>
+
+  <div class="issue" id="pairing">
+    <div class="issue-head">
+      <div class="issue-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg></div>
+      <h2>デバイスを追加できない</h2>
+    </div>
+    <ul>
+      <li>追加は、いつも使っているデバイスで「追加」を、新しいデバイスで「探す」を押して始めます。「追加」は、押してから<strong>2 分</strong>で終わります。時間が過ぎたら、もう一度「追加」を押してください</li>
+      <li>新しいデバイスの一覧に出てこないときは、両方が<strong>同じ Wi-Fi / LAN</strong> にいるか、ゲスト用 Wi-Fi ではないか、を確認してください。それでも見つからないときは、「詳細設定」の「同期キー」を、コピーして、もう一方に貼り付けてください</li>
+      <li>2 台の確認コードが違うときは、「不一致」を押してください。キーは渡りません。同じネットワークに、割り込もうとしている第三者がいる可能性もあるので、信頼できるネットワークで、もう一度試してください</li>
+      <li>コードが合わないことが 3 回続くと、安全のため、「追加」は止まります。もう一度「追加」を押してください</li>
+      <li>「相手は、接続中です」と出るときは、別のデバイスが、すでに追加の途中です。しばらくしてから、もう一度試してください</li>
+    </ul>
+    <p class="note"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 16v-5"/><path d="M12 8h.01"/></svg><span>新しいデバイスで「探す」から参加すると、そのデバイスの同期キーは、「追加」を押したデバイスのものに置き換わります。すでに別のデバイスと同期していた場合は、そちらとは、つながらなくなります。</span></p>
   </div>
 
   <div class="issue" id="sync-slow">

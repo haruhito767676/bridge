@@ -159,6 +159,7 @@
   <div class="toc" role="navigation" aria-label="Contents">
     <a href="#install-warning"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>A warning appears during installation or launch</a>
     <a href="#cant-find"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>Other devices can’t be found</a>
+    <a href="#pairing"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>Can’t add a device</a>
     <a href="#sync-slow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>Syncing is slow, or nothing shows up</a>
     <a href="#uninstall"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>I want to uninstall</a>
     <a href="#still-stuck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>Still not solved</a>
@@ -196,11 +197,26 @@
     <p>First, check the following.</p>
     <ul>
       <li>Both devices are connected to the <strong>same Wi-Fi / LAN</strong></li>
-      <li>The “Sync key” (同期キー) in the settings sheet is <strong>exactly the same</strong> on both devices</li>
+      <li>You have added the device (pairing) on both, or the “Sync key” (同期キー) on the “Advanced settings” (詳細設定) page is <strong>exactly the same</strong> on both devices</li>
       <li>You are not on a <strong>guest Wi-Fi network</strong> (these often isolate devices from each other, so they can’t be discovered automatically)</li>
     </ul>
     <p>If they still can’t be found, press the “Scan now” (いま探す) button in the settings sheet. It scans the network once.</p>
     <p class="note"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 16v-5"/><path d="M12 8h.01"/></svg><span>If that doesn’t help, the network may be blocking UDP multicast. In that case, open “Advanced settings” (詳細設定) in the settings sheet and enter the other device’s IP address under “Add manually” (手動で追加) — you can connect that way too.</span></p>
+  </div>
+
+  <div class="issue" id="pairing">
+    <div class="issue-head">
+      <div class="issue-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg></div>
+      <h2>Can’t add a device</h2>
+    </div>
+    <ul>
+      <li>Start on the device you already use by pressing “Add” (追加), and on the new device by pressing “Find” (探す). “Add” stays open for <strong>2 minutes</strong>. If the time runs out, press “Add” again</li>
+      <li>If the other device does not show up in the list, check that both are on the <strong>same Wi-Fi / LAN</strong> and not on a guest network. If it still can’t be found, copy the “Sync key” (同期キー) on the “Advanced settings” (詳細設定) page and paste it on the other device</li>
+      <li>If the two codes differ, press “Mismatch” (不一致). No key is passed. Someone on the network may be trying to get in between, so try again on a network you trust</li>
+      <li>After 3 mismatches in a row, “Add” stops for safety. Press “Add” again to restart</li>
+      <li>If it says the other device is busy (相手は、接続中です), another device is in the middle of being added. Try again in a while</li>
+    </ul>
+    <p class="note"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 16v-5"/><path d="M12 8h.01"/></svg><span>When a device joins with “Find”, its sync key is replaced with the key of the device that pressed “Add”. If it was syncing with other devices before, it will no longer connect to them.</span></p>
   </div>
 
   <div class="issue" id="sync-slow">
