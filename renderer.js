@@ -1961,7 +1961,7 @@ clearBtn.addEventListener('click', () => {
   render();
   showToast({
     icon: 'trash',
-    title: `${removed.length} 個を消去しました`,
+    title: `${removed.length} 件を消去しました`,
     sub: kept.length > 0 ? 'ピン留めは残しています' : '',
     actionLabel: '元に戻す',
     onAction: () => {

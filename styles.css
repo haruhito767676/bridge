@@ -422,7 +422,8 @@ body:not(.platform-darwin) #drop-zone::-webkit-scrollbar-thumb:hover {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 0 20px;
+  /* 検索欄 (左 12px・右はつまみ用の空き込みで 15px) と同じ中心に揃える: 左を 18px 余分に空ける */
+  padding: 0 20px 0 38px;
   color: var(--fg-secondary);
   text-align: center;
   pointer-events: none;
@@ -988,7 +989,7 @@ body.platform-win32 .source-app-badge {
 
 #control-toast {
   position: absolute;
-  left: 50%;
+  left: calc(50% + 6px); /* つまみ用の空きぶん、見た目の中心 (検索欄の中心) に寄せる */
   bottom: 50px;
   transform: translateX(-50%) translateY(6px);
   display: flex;
@@ -1172,11 +1173,16 @@ body.settings-open #shelf-footer {
 }
 
 .sheet-header {
-  display: flex;
+  /* 左のボタンの幅に関わらず、題名が本文と同じ中心に来るよう、左右を同じ幅の列にする */
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  justify-content: space-between;
-  padding: 12px 4px 8px 12px;
+  padding: 12px 0 8px 12px;
   flex-shrink: 0;
+}
+
+.sheet-header > :first-child {
+  justify-self: start;
 }
 
 .sheet-title {
@@ -1441,7 +1447,9 @@ body.settings-open #shelf-footer {
 
 .sheet-body {
   gap: 0;
-  padding: 0 12px 16px;
+  /* 右端には、つまみ用の 15px の空きが常にある (検索欄・リストもこれを右の余白として使っている)。
+     左右の余白を同じ 12px にすると、見た目では右が 27px になって、中身が左に寄って見えるので、右は 0 にする */
+  padding: 0 0 16px 12px;
 }
 
 .set-status {
