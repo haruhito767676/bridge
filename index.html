@@ -106,12 +106,12 @@
             <input id="setting-device-name" class="set-inline" type="text" spellcheck="false" autocomplete="off" title="ほかのデバイスに届いたアイテムに、この名前が表示されます" />
           </label>
           <div class="set-row">
-            <label for="setting-token">同期キー</label>
-            <input id="setting-token" class="set-key" type="text" spellcheck="false" autocomplete="off" />
-            <span class="set-btns">
-              <button id="setting-token-copy" class="push-button" type="button">コピー</button>
-              <button id="setting-token-paste" class="push-button" type="button">貼り付け</button>
-            </span>
+            <span>新しいデバイスを追加</span>
+            <button id="pair-host-open" class="push-button primary" type="button">追加</button>
+          </div>
+          <div class="set-row">
+            <span>ほかのデバイスに参加</span>
+            <button id="pair-join-open" class="push-button" type="button">探す</button>
           </div>
         </div>
 
@@ -156,6 +156,18 @@
       </div>
 
       <div class="sheet-body" id="settings-page-advanced" hidden>
+        <div class="set-caption">同期キー</div>
+        <div class="set-group">
+          <div class="set-row">
+            <label for="setting-token">同期キー</label>
+            <input id="setting-token" class="set-key" type="text" spellcheck="false" autocomplete="off" />
+            <span class="set-btns">
+              <button id="setting-token-copy" class="push-button" type="button">コピー</button>
+              <button id="setting-token-paste" class="push-button" type="button">貼り付け</button>
+            </span>
+          </div>
+        </div>
+
         <div class="set-caption">見つけかた</div>
         <div class="set-group">
           <div class="set-row">
@@ -176,6 +188,27 @@
           <div class="set-row set-col"><span>履歴の使用状況</span><span id="setting-history-usage" class="set-val"></span></div>
           <button id="setting-log" class="set-row set-link" type="button"><span>ログを表示</span><svg class="set-chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3l5 5-5 5"/></svg></button>
         </div>
+      </div>
+    </section>
+
+    <!-- デバイスの追加 (ペアリング)。設定シートと入れ替えて表示する。中身は renderer.js が、状態に合わせて組み立てる -->
+    <section id="pair-sheet" hidden aria-label="デバイスの追加">
+      <div class="sheet-header">
+        <button id="pair-back" class="footer-button" aria-label="キャンセル">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3L5 8l5 5"/></svg>
+          <span id="pair-back-label">キャンセル</span>
+        </button>
+        <span class="sheet-title" id="pair-title">デバイスを追加</span>
+        <span class="sheet-spacer"></span>
+      </div>
+      <div class="sheet-body pair-body" role="status" aria-live="polite">
+        <div id="pair-icon" class="pair-icon" aria-hidden="true"></div>
+        <b id="pair-heading" class="pair-heading"></b>
+        <p id="pair-text" class="pair-text"></p>
+        <div id="pair-sas" class="pair-sas" hidden></div>
+        <ul id="pair-list" class="peer-list pair-list" hidden></ul>
+        <p id="pair-sub" class="pair-text pair-sub" hidden></p>
+        <div id="pair-actions" class="pair-actions"></div>
       </div>
     </section>
 

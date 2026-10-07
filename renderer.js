@@ -1224,6 +1224,11 @@ function moveSelection(delta, extend) {
 document.addEventListener('keydown', (e) => {
   // ショートカットキーの録音中は、リスト操作のショートカットや ⌘A などに奪わせない
   if (capturingHotkey) return;
+  // デバイスの追加の画面では、Esc でパネルごと閉じない (数字を見比べている途中に消えないように)
+  if (typeof pairSheet !== 'undefined' && !pairSheet.hidden) {
+    if (e.key === 'Escape') e.preventDefault();
+    return;
+  }
   // 設定シートやテキスト入力中はリスト操作のショートカットを奪わない
   if (e.target === searchBar) return;
   if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
@@ -2447,6 +2452,309 @@ settingTokenPaste.addEventListener('click', async () => {
 });
 settingCheckUpdate.addEventListener('click', () => window.bridge.checkForUpdates());
 window.bridge.onOpenSettings(() => openSettings());
+
+// ---- 9. デバイスの追加 (ペアリング) ----
+// 追加される側 (ホスト) は「追加」、キーをもらう側は「探す」を押す。2 台に出る 6 桁を見比べて、一致したときだけ
+// 同期キーが渡る。状態の判断はすべて Main (lib/pairing.js) が持ち、ここは、受け取った状態を描くだけ
+
+const pairSheet = document.getElementById('pair-sheet');
+const pairBackLabel = document.getElementById('pair-back-label');
+const pairTitle = document.getElementById('pair-title');
+const pairIcon = document.getElementById('pair-icon');
+const pairHeading = document.getElementById('pair-heading');
+const pairText = document.getElementById('pair-text');
+const pairSas = document.getElementById('pair-sas');
+const pairList = document.getElementById('pair-list');
+const pairSub = document.getElementById('pair-sub');
+const pairActions = document.getElementById('pair-actions');
+
+let pairMode = null; // 'host' | 'join'
+let pairState = null; // Main から届いた最新の状態
+let pairPeerName = ''; // 相手の名前 (終了の表示でも使うので、覚えておく)
+let pairListItems = []; // 参加側が見つけた、近くの待ち受け
+let pairTimer = null;
+let pairFromSettings = false;
+
+const PAIR_ICONS = {
+  ok: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 12.5l2.8 2.8L16 9.5"/></svg>',
+  bad: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 7.5v5.5M12 16.5v.01"/></svg>',
+  spinner: '<span class="pair-spinner"></span>',
+};
+
+const PAIR_FAIL_TEXT = {
+  busy: ['相手は、接続中です', 'しばらくしてから、もう一度。'],
+  closed: ['相手の待ち受けが、終わっています', '相手で、もう一度「追加」を押してください。'],
+  rejected: ['数字が一致しませんでした', '中止しました。'],
+  'commit-mismatch': ['安全のため、中止しました', 'もう一度試してください。'],
+  timeout: ['つながりませんでした', '同じネットワークか、確かめてください。'],
+  network: ['つながりませんでした', '同じネットワークか、確かめてください。'],
+};
+
+function pairSetView({ icon = '', heading = '', text = '', sas = '', sub = '', actions = [], title = 'デバイスを追加', back = 'キャンセル' }) {
+  pairTitle.textContent = title;
+  pairBackLabel.textContent = back;
+  pairIcon.className = 'pair-icon' + (icon === 'ok' ? ' ok' : icon === 'bad' ? ' bad' : '');
+  pairIcon.innerHTML = PAIR_ICONS[icon] || '';
+  pairIcon.hidden = !icon;
+  pairHeading.textContent = heading;
+  pairText.textContent = text;
+  pairText.hidden = !text;
+  pairSas.textContent = sas;
+  pairSas.hidden = !sas;
+  pairSub.textContent = sub;
+  pairSub.hidden = !sub;
+  pairActions.textContent = '';
+  for (const a of actions) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'push-button' + (a.primary ? ' primary' : '');
+    b.textContent = a.label;
+    b.addEventListener('click', a.onClick);
+    pairActions.appendChild(b);
+  }
+}
+
+function formatPairSas(sas) {
+  return String(sas || '').replace(/^(\d{3})(\d{3})$/, '$1 $2');
+}
+
+function formatRemaining(ms) {
+  const sec = Math.max(0, Math.ceil(ms / 1000));
+  return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
+}
+
+function clearPairTimer() {
+  if (pairTimer) clearInterval(pairTimer);
+  pairTimer = null;
+}
+
+function showPairSheet() {
+  if (pairSheet.hidden) {
+    pairFromSettings = !settingsSheet.hidden;
+    settingsSheet.hidden = true;
+    pairSheet.hidden = false;
+    document.body.classList.add('settings-open', 'pair-open');
+  }
+  pairSheet.scrollTop = 0;
+}
+
+// 画面を閉じる。途中なら、Main にも、やめることを伝える
+function closePairSheet({ toSettings = true } = {}) {
+  clearPairTimer();
+  if (pairMode === 'host') {
+    if (pairState && pairState.phase !== 'closed') window.bridge.pairHostCancel();
+  } else if (pairMode === 'join') {
+    window.bridge.pairJoinCancel();
+    window.bridge.pairJoinScan(false);
+  }
+  pairMode = null;
+  pairState = null;
+  pairPeerName = '';
+  pairListItems = [];
+  pairSheet.hidden = true;
+  document.body.classList.remove('pair-open');
+  if (toSettings && pairFromSettings) openSettings();
+  else document.body.classList.remove('settings-open');
+}
+
+// ホスト (追加される側)
+async function startPairHost() {
+  pairMode = 'host';
+  pairPeerName = '';
+  showPairSheet();
+  pairSetView({ icon: 'spinner', heading: '準備しています…' });
+  try {
+    pairState = await window.bridge.pairHostStart();
+  } catch {
+    pairState = null;
+  }
+  if (!pairState) {
+    pairSetView({ icon: 'bad', heading: 'はじめられませんでした', text: 'もう一度試してください。', actions: [{ label: '閉じる', onClick: () => closePairSheet() }] });
+    return;
+  }
+  renderPair();
+  clearPairTimer();
+  pairTimer = setInterval(renderPair, 500); // 「残り 1:52」を進める
+}
+
+function renderPairHost() {
+  const st = pairState;
+  if (st.peerName) pairPeerName = st.peerName;
+  const peer = pairPeerName || 'ほかのデバイス';
+  const cancel = { label: 'やめる', onClick: () => closePairSheet() };
+  if (st.phase === 'closed') {
+    clearPairTimer();
+    const done = () => closePairSheet();
+    if (st.closedReason === 'done') {
+      pairSetView({ icon: 'ok', heading: 'つながりました', text: `${peer} と、同期できるようになりました。`, actions: [{ label: '完了', primary: true, onClick: done }], back: '設定' });
+    } else if (st.closedReason === 'expired') {
+      pairSetView({ icon: 'bad', heading: '時間切れです', text: 'もう一度「追加」を押してください。', actions: [{ label: '閉じる', onClick: done }], back: '設定' });
+    } else if (st.closedReason === 'locked') {
+      pairSetView({ icon: 'bad', heading: 'いったん止めました', text: '数字が合わない接続が続いたため、止めました。', actions: [{ label: '閉じる', onClick: done }], back: '設定' });
+    } else {
+      closePairSheet();
+    }
+    return;
+  }
+  if (st.phase === 'waiting') {
+    pairSetView({
+      icon: 'spinner',
+      heading: '追加を待っています',
+      text: '相手のデバイスで「探す」を押してください。',
+      sub: `残り ${formatRemaining(st.expiresAt - Date.now())}`,
+      actions: [cancel],
+    });
+  } else if (st.phase === 'connecting') {
+    pairSetView({ icon: 'spinner', heading: `${peer} が、つないでいます…`, actions: [cancel] });
+  } else if (st.phase === 'sas') {
+    if (st.accepted) {
+      pairSetView({ icon: 'spinner', heading: '相手の確認を待っています', sas: formatPairSas(st.sas), actions: [cancel] });
+    } else {
+      pairSetView({
+        heading: '数字を見比べてください',
+        text: `${peer} の画面と、同じですか？`,
+        sas: formatPairSas(st.sas),
+        actions: [
+          { label: '違う', onClick: () => window.bridge.pairHostDecide(false) },
+          { label: '一致', primary: true, onClick: () => window.bridge.pairHostDecide(true) },
+        ],
+      });
+    }
+  }
+}
+
+// 参加する側 (キーをもらう)
+async function startPairJoin() {
+  pairMode = 'join';
+  pairState = null;
+  pairPeerName = '';
+  pairListItems = [];
+  showPairSheet();
+  await window.bridge.pairJoinScan(true);
+  renderPairJoinList();
+  clearPairTimer();
+  const poll = async () => {
+    if (pairMode !== 'join' || pairState) return; // 接続を始めたら、一覧は更新しない
+    try {
+      pairListItems = await window.bridge.pairCandidates();
+    } catch {
+      pairListItems = [];
+    }
+    if (pairMode === 'join' && !pairState) renderPairJoinList();
+  };
+  poll();
+  pairTimer = setInterval(poll, 1000);
+}
+
+function renderPairJoinList() {
+  pairSetView({
+    icon: pairListItems.length ? '' : 'spinner',
+    heading: pairListItems.length ? '近くのデバイス' : '探しています…',
+    text: pairListItems.length ? '' : '相手のデバイスで「追加」を押してください。',
+    actions: [],
+    title: 'ほかのデバイスに参加',
+  });
+  pairList.hidden = pairListItems.length === 0;
+  pairList.textContent = '';
+  for (const c of pairListItems) {
+    const li = document.createElement('li');
+    li.className = 'pair-choice';
+    const b = document.createElement('button');
+    b.type = 'button';
+    const name = document.createElement('span');
+    name.className = 'peer-name';
+    name.textContent = c.name || c.host;
+    const addr = document.createElement('span');
+    addr.className = 'peer-addr';
+    addr.textContent = c.host;
+    b.append(name, addr);
+    b.addEventListener('click', () => connectPair(c));
+    li.appendChild(b);
+    pairList.appendChild(li);
+  }
+}
+
+async function connectPair(candidate) {
+  clearPairTimer();
+  pairPeerName = candidate.name || candidate.host;
+  pairState = { role: 'join', phase: 'connecting', peerName: pairPeerName };
+  pairList.hidden = true;
+  renderPair();
+  await window.bridge.pairJoinConnect(candidate.id); // 結果は、onPairState で届く
+}
+
+function renderPairJoin() {
+  const st = pairState;
+  const peer = st.peerName || pairPeerName || 'ほかのデバイス';
+  pairList.hidden = true;
+  const cancel = { label: 'やめる', onClick: () => closePairSheet() };
+  const title = 'ほかのデバイスに参加';
+  if (st.phase === 'connecting') {
+    pairSetView({ icon: 'spinner', heading: `${peer} につないでいます…`, actions: [cancel], title });
+  } else if (st.phase === 'sas') {
+    pairSetView({
+      heading: '数字を見比べてください',
+      text: `${peer} の画面と、同じですか？`,
+      sas: formatPairSas(st.sas),
+      actions: [
+        { label: '違う', onClick: () => window.bridge.pairJoinDecide(false) },
+        { label: '一致', primary: true, onClick: () => window.bridge.pairJoinDecide(true) },
+      ],
+      title,
+    });
+  } else if (st.phase === 'waiting-host') {
+    pairSetView({ icon: 'spinner', heading: `${peer} での確認を待っています`, sas: formatPairSas(st.sas), actions: [cancel], title });
+  } else if (st.phase === 'done') {
+    pairSetView({
+      icon: 'ok',
+      heading: 'つながりました',
+      text: `${peer} と、同期できるようになりました。`,
+      actions: [{ label: '完了', primary: true, onClick: () => closePairSheet() }],
+      title,
+      back: '設定',
+    });
+  } else if (st.phase === 'failed') {
+    if (st.reason === 'cancelled') {
+      closePairSheet();
+      return;
+    }
+    const [heading, text] = PAIR_FAIL_TEXT[st.reason] || ['うまくいきませんでした', 'もう一度試してください。'];
+    pairSetView({
+      icon: 'bad',
+      heading,
+      text,
+      actions: [
+        { label: '閉じる', onClick: () => closePairSheet() },
+        { label: 'もう一度', primary: true, onClick: () => startPairJoin() },
+      ],
+      title,
+      back: '設定',
+    });
+  }
+}
+
+function renderPair() {
+  if (!pairState || pairSheet.hidden) return;
+  if (pairMode === 'host') renderPairHost();
+  else if (pairMode === 'join') renderPairJoin();
+}
+
+window.bridge.onPairState((state) => {
+  if (!state) return;
+  if (state.role === 'host' && pairMode === 'host') {
+    pairState = state;
+    renderPair();
+  } else if (state.role === 'join' && pairMode === 'join') {
+    pairState = state;
+    if (state.phase === 'done' || state.phase === 'failed') clearPairTimer();
+    renderPair();
+  }
+});
+
+document.getElementById('pair-host-open').addEventListener('click', startPairHost);
+document.getElementById('pair-join-open').addEventListener('click', startPairJoin);
+document.getElementById('pair-back').addEventListener('click', () => closePairSheet());
+
 
 // 自動ペーストにアクセシビリティの許可が無いとき (macOS)
 window.bridge.onPastePermissionNeeded(() => {

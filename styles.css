@@ -1651,6 +1651,160 @@ body.platform-win32 .set-group {
   border-radius: 8px;
 }
 
+/* ---- デバイスの追加 (ペアリング)。設定シートと入れ替えて表示する ---- */
+#pair-sheet {
+  position: absolute;
+  inset: 0 0 0 0;
+  z-index: 36;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+#pair-sheet[hidden] {
+  display: none;
+}
+
+body.pair-open #search-area,
+body.pair-open #drop-zone,
+body.pair-open #shelf-footer {
+  visibility: hidden;
+}
+
+.pair-body {
+  align-items: center;
+  gap: 10px;
+  padding-top: 20px;
+  text-align: center;
+}
+
+.pair-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  color: var(--accent);
+}
+
+.pair-icon svg {
+  width: 38px;
+  height: 38px;
+}
+
+.pair-icon.ok {
+  color: var(--success);
+}
+
+.pair-icon.bad {
+  color: var(--destructive);
+}
+
+.pair-spinner {
+  width: 26px;
+  height: 26px;
+  border: 3px solid var(--accent-tint);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: pair-spin 0.9s linear infinite;
+}
+
+@keyframes pair-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.pair-heading {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.4;
+  word-break: auto-phrase;
+}
+
+.pair-text {
+  max-width: 300px;
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--fg-secondary);
+  word-break: auto-phrase;
+}
+
+.pair-text[hidden],
+.pair-sas[hidden],
+.pair-list[hidden] {
+  display: none;
+}
+
+.pair-sas {
+  margin: 4px 0;
+  padding: 10px 20px;
+  font-size: 34px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums;
+  border-radius: var(--radius-m);
+  background: var(--fill);
+}
+
+.pair-actions {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.pair-actions .push-button {
+  height: 28px;
+  min-width: 80px;
+}
+
+.pair-list {
+  width: 100%;
+  text-align: left;
+}
+
+.pair-list li.pair-choice {
+  padding: 0;
+  background: none;
+}
+
+.pair-list li.pair-choice button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 12px;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--fg);
+  text-align: left;
+  border: none;
+  border-radius: var(--radius-s);
+  background: var(--fill);
+  transition: background-color 0.12s;
+}
+
+.pair-list li.pair-choice button:hover {
+  background: var(--fill-hover);
+}
+
+.pair-list li.pair-choice button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-tint), 0 0 0 1px var(--accent);
+}
+
+.pair-list li.pair-choice .peer-name {
+  font-weight: 500;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pair-spinner {
+    animation-duration: 3s;
+  }
+}
+
 /* ---- モーション設定を尊重する ---- */
 
 @media (prefers-reduced-motion: reduce) {

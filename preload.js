@@ -136,6 +136,17 @@ contextBridge.exposeInMainWorld('bridge', {
   // メニューバーから「設定…」が選ばれたとき
   onOpenSettings: (callback) => ipcRenderer.on('open-settings', () => callback()),
 
+  // ペアリング (デバイスの追加)。ホスト = 追加される側 (キーを持っている)、参加 = キーをもらう側
+  pairHostStart: () => ipcRenderer.invoke('pair-host-start'),
+  pairHostCancel: () => ipcRenderer.send('pair-host-cancel'),
+  pairHostDecide: (accept) => ipcRenderer.send('pair-host-decide', accept),
+  pairJoinScan: (on) => ipcRenderer.invoke('pair-join-scan', on),
+  pairCandidates: () => ipcRenderer.invoke('pair-candidates'),
+  pairJoinConnect: (id) => ipcRenderer.invoke('pair-join-connect', id),
+  pairJoinDecide: (accept) => ipcRenderer.send('pair-join-decide', accept),
+  pairJoinCancel: () => ipcRenderer.send('pair-join-cancel'),
+  onPairState: (callback) => ipcRenderer.on('pair-state', (_event, state) => callback(state)),
+
   // アップデートの確認結果 (設定画面の「アップデートを確認」ボタンからも手動で叩ける)
   checkForUpdates: () => ipcRenderer.send('check-for-updates'),
   onUpdateAvailable: (callback) => ipcRenderer.on('update-available', (_event, info) => callback(info)),

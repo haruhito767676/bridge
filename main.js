@@ -45,6 +45,7 @@ const {
   bodyDigest,
   NonceCache,
 } = require('./lib/sync-auth');
+const { PairingHost, PairError, runJoin, PAIR_WINDOW_MS } = require('./lib/pairing');
 const {
   deriveSyncKey,
   encryptJson,
@@ -59,7 +60,9 @@ const {
 // 本番アプリが常駐しているだけで開発版が起動直後に app.quit() されてしまう。
 // パッケージ版とは別ディレクトリに退避して分離する。
 if (!app.isPackaged) {
-  app.setPath('userData', path.join(app.getPath('appData'), 'bridge-dev'));
+  // BRIDGE_DEV_INSTANCE=b のように指定すると、別の userData で 2 台目を起動できる (ペアリングなど 2 台の動作確認用)
+  const devInstance = process.env.BRIDGE_DEV_INSTANCE ? `-${process.env.BRIDGE_DEV_INSTANCE}` : '';
+  app.setPath('userData', path.join(app.getPath('appData'), `bridge-dev${devInstance}`));
 }
 
 let win = null;
@@ -588,7 +591,7 @@ function collapseShelter() {
   if (collapseTimer) clearTimeout(collapseTimer);
   collapseTimer = setTimeout(() => {
     collapseTimer = null;
-    if (!expanded || devHoldOpen) return;
+    if (!expanded || devHoldOpen || pairingHoldsPanel()) return;
     // Renderer の mouseleave はレイアウト変更などで空振りすることがあるため、
     // 本当にカーソルがウインドウの外にあるときだけ格納する (Windows は座標を信用せず、
     // Renderer 側の「離脱後に再進入が無かった」判定に任せる)
@@ -683,6 +686,7 @@ function pollCursorForEdgeReveal() {
     !inZone &&
     !rendererHoldsPointer &&
     !devHoldOpen &&
+    !pairingHoldsPanel() &&
     !win.isFocused() &&
     Date.now() - lastExpandedAt > EXPAND_GRACE_MS &&
     cursorOutsideExpandedWindow(cursor)
@@ -695,7 +699,7 @@ function pollCursorForEdgeReveal() {
 // 座標だけを見るため、pollCursorForEdgeReveal の展開判定 (getDisplayNearestPoint を毎回
 // 引き直す) と違ってモニター間の DPI 差でズレることがなく、無限ループの原因にならない
 function pollForcedCollapseWindows() {
-  if (!winAlive() || !expanded || rendererHoldsPointer || devHoldOpen || win.isFocused()) return;
+  if (!winAlive() || !expanded || rendererHoldsPointer || devHoldOpen || pairingHoldsPanel() || win.isFocused()) return;
   if (Date.now() - lastExpandedAt <= EXPAND_GRACE_MS) return;
   if (cursorOutsideExpandedWindow(screen.getCursorScreenPoint())) collapseShelterNow();
 }
@@ -2954,6 +2958,13 @@ function startSyncServer() {
     });
     res.on('error', () => {});
 
+    // ペアリングの通信は、同期キーをまだ持っていない相手との通信なので、認証の前に扱う。
+    // 待ち受けを開いている間だけ応答する (中身の安全は、数字の比較で守る。lib/pairing.js)
+    if (req.method === 'POST' && String(req.url).startsWith('/pair/')) {
+      handlePairRequest(req, res);
+      return;
+    }
+
     // 認証: 同期キーを知っている証明 (HMAC) が無い・合わないリクエストは、/ping・/items・/file・/push を
     // 含む全エンドポイントで 401 Unauthorized として即時遮断する。これにより同一 LAN 内に
     // 他人の Bridge が居ても、クリップボード履歴やファイルが混線・漏洩することはない。
@@ -3168,13 +3179,18 @@ function startDiscovery() {
     logEvent('discovery', `エラー: ${err.message}`);
   });
   discoverySocket.on('message', (msg, rinfo) => {
-    if (!syncConfig.autoScan || syncPaused) return;
     let info;
     try {
       info = JSON.parse(msg.toString('utf8'));
     } catch {
       return;
     }
+    // ペアリングの待ち受けの知らせ (同期キーを持たない相手にも届く。自動探索や一時停止の設定とは別に扱う)
+    if (info && info.app === 'bridge' && info.pair) {
+      notePairCandidate(info.pair, rinfo.address);
+      return;
+    }
+    if (!syncConfig.autoScan || syncPaused) return;
     if (!info || info.app !== 'bridge' || info.tokenId !== tokenIdentifier()) return;
     const host = rinfo.address;
     if (localAddresses().has(host) && Number(info.port) === syncConfig.port) return; // 自分の自己紹介
@@ -3213,6 +3229,277 @@ function startDiscovery() {
     setInterval(announcePresence, DISCOVERY_ANNOUNCE_MS);
   });
 }
+
+// ---- ペアリング: 手で打たずに、同期キーを渡す (設計: docs/design/pairing.md、暗号: lib/pairing.js) ----
+// ホスト (追加される側。キーを持っている) が待ち受けを開き、参加する側 (キーをもらう) が選んで、
+// 2 台の画面の 6 桁を見比べる。一致したときだけ、キーを (暗号化して) 渡す
+let pairingHost = null; // ホストの待ち受け。同時に 1 つだけ
+let pairingHostTimers = [];
+let pairingJoin = null; // 参加側の進行中の接続 { abort(), decide(accept), scanning }
+const pairCandidates = new Map(); // ペアリング ID → { id, host, port, name, seenAt }
+const PAIR_CANDIDATE_TTL_MS = 7000; // 待ち受けは 2 秒おきに知らせる。この時間見えなければ、一覧から消す
+let pairScanning = false;
+
+// ペアリングの画面が出ている間は、カーソルが離れても、パネルを自動で閉じない (数字を見比べる間に消えないように)
+function pairingHoldsPanel() {
+  return Boolean(pairingHost) || pairScanning || Boolean(pairingJoin);
+}
+
+function sendPairState(state) {
+  if (canSendToRenderer()) win.webContents.send('pair-state', state);
+}
+
+function announcePair() {
+  if (!discoverySocket || !pairingHost) return;
+  const payload = Buffer.from(
+    JSON.stringify({ app: 'bridge', v: 1, pair: { id: pairingHost.id, port: syncConfig.port, name: deviceName } })
+  );
+  discoverySocket.send(payload, DISCOVERY_PORT, DISCOVERY_GROUP, () => {});
+}
+
+function notePairCandidate(pair, address) {
+  if (!pair || typeof pair.id !== 'string' || pair.id.length > 64) return;
+  if (pairingHost && pair.id === pairingHost.id) return; // 自分の知らせ
+  const port = Number(pair.port);
+  if (!Number.isInteger(port) || port < 1 || port > 65535) return;
+  pairCandidates.set(pair.id, {
+    id: pair.id,
+    host: address,
+    port,
+    name: typeof pair.name === 'string' ? pair.name.slice(0, 64) : '',
+    seenAt: Date.now(),
+  });
+}
+
+function listPairCandidates() {
+  const now = Date.now();
+  for (const [id, c] of pairCandidates) if (now - c.seenAt > PAIR_CANDIDATE_TTL_MS) pairCandidates.delete(id);
+  return [...pairCandidates.values()].map((c) => ({ id: c.id, name: c.name, host: c.host }));
+}
+
+function stopPairingHostTimers() {
+  for (const t of pairingHostTimers) clearInterval(t);
+  pairingHostTimers = [];
+}
+
+// 参加側から、画面へ「いま何が起きているか」を知らせるときの、パネルを前に出す動き
+function showPanelForPairing() {
+  if (winAlive() && !expanded) expandShelter({ focus: true });
+}
+
+function startPairingHost() {
+  if (pairingHost && pairingHost.isOpen()) return pairingHost.snapshot(); // 二重に待ち受けない
+  startDiscovery();
+  const host = new PairingHost({
+    secretToken: syncConfig.secretToken,
+    deviceName,
+    onChange: (snap) => {
+      if (pairingHost !== host) return;
+      sendPairState(snap);
+      if (snap.phase === 'connecting' || snap.phase === 'sas') showPanelForPairing();
+      if (snap.phase === 'closed') {
+        logEvent('pair', `待ち受けを終了: ${snap.closedReason}`);
+        stopPairingHostTimers();
+        pairingHost = null;
+        if (snap.closedReason === 'done') {
+          // 相手が、同じキーを持ったので、すぐに見つけてつなぐ
+          announcePresence();
+          setTimeout(() => {
+            announcePresence();
+            pollAllPeers();
+          }, 1500);
+        }
+      }
+    },
+  });
+  pairingHost = host;
+  pairingHostTimers = [setInterval(announcePair, 2000), setInterval(() => host.tick(), 1000)];
+  announcePair();
+  logEvent('pair', '待ち受けを開始');
+  const snap = host.snapshot();
+  sendPairState(snap);
+  return snap;
+}
+
+// 相手 (参加側) からの HTTP リクエストを受けて、ホストの待ち受けへ渡す
+function handlePairRequest(req, res) {
+  const reply = (status, obj) => {
+    if (res.headersSent || res.writableEnded) return;
+    res.writeHead(status, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(obj));
+  };
+  if (!pairingHost || !pairingHost.isOpen()) {
+    reply(410, { error: 'closed' });
+    req.resume();
+    return;
+  }
+  const host = pairingHost;
+  const chunks = [];
+  let size = 0;
+  req.on('data', (c) => {
+    size += c.length;
+    if (size > 8192) {
+      reply(413, { error: 'too-large' });
+      req.destroy();
+      return;
+    }
+    chunks.push(c);
+  });
+  req.on('end', async () => {
+    let body = {};
+    try {
+      body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
+    } catch {
+      reply(400, { error: 'format' });
+      return;
+    }
+    const pathName = String(req.url).split('?')[0];
+    // 数字の確認を待っている間に、相手との通信が切れたら、その接続だけを終える
+    if (pathName === '/pair/confirm') res.on('close', () => host.dropSession(body && body.sid));
+    try {
+      const result = await host.handle(pathName, body);
+      reply(result.status, result.body);
+    } catch (err) {
+      console.error('ペアリングの処理に失敗:', err);
+      reply(500, { error: 'failed' });
+    }
+  });
+}
+
+ipcMain.handle('pair-host-start', () => startPairingHost());
+ipcMain.on('pair-host-cancel', () => {
+  if (pairingHost) pairingHost.cancel();
+});
+ipcMain.on('pair-host-decide', (_event, accept) => {
+  if (pairingHost) pairingHost.decide(Boolean(accept));
+});
+
+// 参加側: 近くの待ち受けを探す (画面を開いている間だけ)
+ipcMain.handle('pair-join-scan', (_event, on) => {
+  pairScanning = Boolean(on);
+  if (pairScanning) startDiscovery();
+  else pairCandidates.clear();
+  return true;
+});
+ipcMain.handle('pair-candidates', () => listPairCandidates());
+
+function savePairedSecret(token) {
+  syncConfig.secretToken = token;
+  for (const peer of knownPeers.values()) peer.online = false; // キーが変わったので、つなぎ直す
+  let existing = {};
+  try {
+    existing = JSON.parse(fs.readFileSync(syncConfigPath(), 'utf8')) || {};
+  } catch {
+    existing = {};
+  }
+  fs.writeFileSync(syncConfigPath(), JSON.stringify({ ...existing, secretToken: token }, null, 2));
+}
+
+// 長く待つ POST (相手の人が数字を見比べるのを待つ)。abort() で、いつでも中断できる
+function pairPostFactory(host, port, controller) {
+  return (pathName, payload) =>
+    new Promise((resolve, reject) => {
+      const body = JSON.stringify(payload);
+      const req = http.request(
+        {
+          host,
+          port,
+          path: pathName,
+          method: 'POST',
+          signal: controller.signal,
+          timeout: PAIR_WINDOW_MS + 15000,
+          headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
+        },
+        (res) => {
+          let text = '';
+          res.setEncoding('utf8');
+          res.on('data', (c) => {
+            text += c;
+            if (text.length > 16384) req.destroy();
+          });
+          res.on('end', () => {
+            let parsed = {};
+            try {
+              parsed = JSON.parse(text || '{}');
+            } catch {
+              parsed = {};
+            }
+            resolve({ status: res.statusCode, body: parsed });
+          });
+        }
+      );
+      req.on('timeout', () => req.destroy(Object.assign(new Error('timeout'), { reason: 'timeout' })));
+      req.on('error', (err) => reject(controller.signal.aborted ? Object.assign(err, { reason: 'cancelled' }) : err));
+      req.end(body);
+    });
+}
+
+ipcMain.handle('pair-join-connect', async (_event, id) => {
+  if (pairingJoin) return { ok: false, reason: 'busy' };
+  const candidate = pairCandidates.get(id);
+  if (!candidate) return { ok: false, reason: 'closed' };
+  const controller = new AbortController();
+  let resolveSas = null;
+  let rejectSas = null;
+  const join = {
+    abort: () => {
+      controller.abort();
+      if (rejectSas) rejectSas(new PairError('cancelled'));
+    },
+    decide: (accept) => {
+      if (resolveSas) {
+        const r = resolveSas;
+        resolveSas = null;
+        r(Boolean(accept));
+      }
+    },
+  };
+  pairingJoin = join;
+  logEvent('pair', `接続を開始: ${candidate.name || candidate.host}`);
+  const state = { role: 'join', peerName: candidate.name };
+  sendPairState({ ...state, phase: 'connecting' });
+  try {
+    const result = await runJoin({
+      post: pairPostFactory(candidate.host, candidate.port, controller),
+      pairId: candidate.id,
+      deviceName,
+      onStage: (stage) => {
+        if (stage === 'waiting-host') sendPairState({ ...state, phase: 'waiting-host' });
+      },
+      onSas: (sas) =>
+        new Promise((resolve, reject) => {
+          resolveSas = resolve;
+          rejectSas = reject;
+          sendPairState({ ...state, phase: 'sas', sas });
+        }),
+    });
+    savePairedSecret(result.secretToken);
+    logEvent('pair', `ペアリング成功: ${result.peerName || candidate.name || candidate.host}`);
+    sendPairState({ ...state, phase: 'done', peerName: result.peerName || candidate.name });
+    pairScanning = false;
+    pairCandidates.clear();
+    startDiscovery();
+    announcePresence();
+    pollAllPeers();
+    lastSyncStatusKey = '';
+    return { ok: true };
+  } catch (err) {
+    const reason = err instanceof PairError ? err.reason : 'failed';
+    if (!(err instanceof PairError)) console.error('ペアリングに失敗:', err);
+    logEvent('pair', `ペアリングを終了: ${reason}`);
+    sendPairState({ ...state, phase: 'failed', reason });
+    return { ok: false, reason };
+  } finally {
+    pairingJoin = null;
+  }
+});
+ipcMain.on('pair-join-decide', (_event, accept) => {
+  if (pairingJoin) pairingJoin.decide(accept);
+});
+ipcMain.on('pair-join-cancel', () => {
+  if (pairingJoin) pairingJoin.abort();
+});
+
 
 // ---- 同一セグメントの HTTP スキャン (マルチキャストが通らないネットワーク向けの手動フォールバック) ----
 // 起動時に 1 度だけ (誰も見つかっていなければ) と、設定シートの「いま探す」で実行する
@@ -4772,10 +5059,12 @@ app.whenReady().then(() => {
           }
           // BRIDGE_DEV_SHOT=<path> なら Renderer の描画内容 (vibrancy 抜き) を PNG に保存する
           if (process.env.BRIDGE_DEV_SHOT) {
-            win.webContents.capturePage().then((img) => {
-              fs.writeFileSync(process.env.BRIDGE_DEV_SHOT, img.toPNG());
-              console.log('BRIDGE_SHOT_SAVED');
-            });
+            setTimeout(() => {
+              win.webContents.capturePage().then((img) => {
+                fs.writeFileSync(process.env.BRIDGE_DEV_SHOT, img.toPNG());
+                console.log('BRIDGE_SHOT_SAVED');
+              });
+            }, Number(process.env.BRIDGE_DEV_SHOT_DELAY) || 0);
           }
         }, 700);
       }, 800);
