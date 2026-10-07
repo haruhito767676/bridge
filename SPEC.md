@@ -185,6 +185,8 @@ Windows では macOS 向けの「毎フレームの `setBounds`」と「カー�
 | `ensureClipboardTextFile({ text, path })` | `ensure-clipboard-text-file` | invoke | テキスト履歴の `.txt` を遅延生成して返す |
 | `openExternal(url)` | `open-external` | send | http(s) のみ `shell.openExternal` |
 | `scanPeersNow()` / `revealLog()` | `scan-peers-now` / `reveal-log` | invoke / send | 「いま探す」/「ログを表示」 |
+| `pairHostStart()` / `pairHostCancel()` / `pairHostDecide(accept)` | `pair-host-start` / `pair-host-cancel` / `pair-host-decide` | invoke / send | ペアリング（追加される側）。待ち受けの開始・取り消し・数字の「一致 / 違う」 |
+| `pairJoinScan(on)` / `pairCandidates()` / `pairJoinConnect(id)` / `pairJoinDecide(accept)` / `pairJoinCancel()` | `pair-join-scan` / `pair-candidates` / `pair-join-connect` / `pair-join-decide` / `pair-join-cancel` | invoke / send | ペアリング（参加する側）。近くの待ち受けを探す・選んで接続・数字の「一致 / 違う」・やめる |
 | `popupChoose(choice)` / `popupClose()` | `popup-choose` / `popup-close` | send | ペースト用ポップアップの選択 / 閉じる |
 | `collapseShelterNow()` | `shelter-collapse-now` | send | ディレイなしの即時格納（コピー確認表示後・Esc） |
 | `holdPointer(bool)` | `shelter-hold-pointer` | send | 矩形選択中は強制格納を保留 |
@@ -290,6 +292,8 @@ Main 側履歴 (`clipHistory`) の上限はテキスト 100 / 画像 30。**Main
 3. **サブネットスキャン**（フォールバック）: 全 IPv4 インターフェースの /24 範囲へ `GET /ping`、並列度 32。起動 15 秒後に誰も見つかっていないときに 1 回、および設定シートの「いま探す」で実行する。定期実行はしない（ネットワークに静かにする）
 4. **受信時自動登録**: `POST /push` してきた相手の `remoteAddress` + 申告ポートを登録
 
+ペアリングの待ち受け中だけ、2 秒おきに `{ app, v, pair: { id, port, name } }` も流す（同期キーのハッシュは含めない）。これは、`autoScan` や一時停止の設定とは別に扱う（§7.7）。
+
 ピアには `lastSyncedAt`（最後に成功した時刻）と `lastError`（最後の失敗理由。401 は「同期キーが一致しません」）を持たせ、設定シートに表示する。オンライン / オフラインの遷移と失敗は `bridge.log` に記録する。
 
 自分自身（ローカルアドレス + 同一ポート）は除外。発見した瞬間に一度差分ポーリングを走らせる（再接続直後の取り込みを最速化）。
@@ -325,6 +329,19 @@ Main 側履歴 (`clipHistory`) の上限はテキスト 100 / 画像 30。**Main
 - `registerLocalSyncEntry` と `/file` 配信の双方にフォルダ除外ガードがある（多重防御）
 
 ---
+
+### 7.7 ペアリング（`lib/pairing.js`、設計: `docs/design/pairing.md`）
+
+同期キーを手で渡さずに、2 台の間で共有する。追加される側（ホスト H。キーを持つ）と、参加する側（J。キーをもらう）の 2 役。
+
+1. H が「追加」を押すと待ち受けを開く（**120 秒・1 台・失敗 3 回まで**）。待ち受けの知らせをマルチキャストで流す
+2. J が「探す」で一覧から H を選ぶ。`POST /pair/start`（`jPub`: X25519 公開鍵）→ H は、約束 `SHA256(hPub ‖ jPub ‖ nH)` と接続の合言葉 `sid` を返す
+3. `POST /pair/reveal`（`nJ`）→ H が `hPub`・`nH` を明かす。J は約束と一致するか検証する（不一致なら中止）
+4. 両方が、`jPub ‖ hPub ‖ nJ ‖ nH` から 6 桁の数字を作り、画面に出す。人が見比べて、「一致」を押す
+5. `POST /pair/confirm`（HMAC による確認）は、H の人が「一致」を押すまで応答を待たせる。両方がそろったときだけ、AES-256-GCM で包んだ `{ secretToken, deviceName }` を返す
+6. 中止は `/pair/cancel`（失敗として数える）と `/pair/leave`（数えない）
+
+`/pair/*` は同期の認証の前に扱い、待ち受けが開いている間だけ応答する（閉じていれば 410）。本文は 8 KB まで。J は、受け取った同期キーが 16〜256 文字であることを確かめてから保存する。画面が出ている間は、パネルを自動で閉じない。
 
 ## 8. 一時ファイル管理（ディスク保護）
 
@@ -491,6 +508,6 @@ Windows のタスクバー通知や macOS のメニューバー / Dock と同じ
 3. **クイックルック・`mdls` は macOS 専用**: 他 OS は拡張子ベース表示にフォールバック
 4. **画像履歴の変化検知は安価な署名に依存**: macOS は `public.tiff` の長さ、Windows は `PNG` の長さかクリップボード連番で判別する。連番の取得は常駐ヘルパー経由（応答が無いときは長さのみになり、同じ構成の画像を取りこぼしうる）
 5. **マルチキャストが通らないネットワーク**（ゲスト Wi-Fi の AP 分離など）では自動発見できない。「いま探す」のサブネットスキャン（/24 固定）か `peers` への静的登録が必要
-6. `secretToken` の共有は手動運用（設定シートの「同期キー」をコピーして各デバイスに貼り付ける。ペアリングコード方式は非目標）
+6. `secretToken` の共有は、数字を見比べるペアリング（§7.7）が基本。手入力のペアリングコード方式は非目標（安全にするには PAKE が必要で、Node.js 標準にない）。詳細設定の「同期キー」を、コピーして貼り付ける方法も残す
 7. `port` の変更は設定ファイルの直接編集が必要で、再起動後に反映される
 

@@ -50,14 +50,14 @@ Drop files from Finder or Explorer onto the handle at the screen edge and they w
 
 <p align="center"><img src="docs/media/clip-lock.webp" width="760" alt="The panel becomes a padlock, locks, travels, and opens on the receiving device"></p>
 
-Sync traffic is encrypted with **AES-256-GCM**, using a key derived from your sync key (both metadata and file contents). The sync key itself is never sent over the network: each request carries only a keyed proof (an HMAC with a timestamp and a one-time nonce), and replays are rejected. Requests from anyone without the matching key are rejected. Bridge does not authenticate peers with certificates, so it is meant for use on a LAN you trust. (Version 1.x sent the sync key in a request header; this was fixed in 2.0.0, which cannot sync with 1.x.)
+Sync traffic is encrypted with **AES-256-GCM**, using a key derived from your sync key (both metadata and file contents). The sync key itself is never sent over the network: each request carries only a keyed proof (an HMAC with a timestamp and a one-time nonce), and replays are rejected. Requests from anyone without the matching key are rejected. Bridge does not authenticate peers with certificates, so it is meant for use on a LAN you trust. The design and implementation have not been reviewed by a security specialist. (Version 1.x sent the sync key in a request header; this was fixed in 2.0.0, which cannot sync with 1.x.)
 
 ---
 
 ## Getting started
 
 1. Download the macOS DMG or the Windows installer from **[Releases](https://github.com/haruhito767676/bridge/releases)** and launch it. A thin handle appears at the right edge of your screen.
-2. **To sync**, open the settings sheet from the gear icon at the bottom right of the panel and press "Copy" next to the sync key. Send it to your other device by any means (a chat to yourself, email, and so on), copy it there, and press "Paste" next to the sync key in its settings sheet. Devices that share the key find each other automatically on the same LAN, and the status card at the top of the settings sheet changes to "Connected to 1 device".
+2. **To sync**, open the settings sheet from the gear icon at the bottom right of the panel. On the device you already use, press "Add" next to "Add a new device". On the new device, press "Find" next to "Join another device" and choose the first one. When both screens show the same six digits, press "Match" on both. The sync key is passed over, and the status card at the top of the settings sheet changes to "Connected to 1 device".
 3. Just copy things as usual. Hover over the handle, or press **⌥Space** (**Ctrl+Shift+Space** on Windows), to open the history panel.
 
 > The current builds are not notarized by Apple. If macOS shows a warning on first launch, open System Settings → Privacy & Security and choose "Open Anyway" (on macOS 14 or earlier, right-clicking the app and choosing "Open" also works).
@@ -94,6 +94,7 @@ Sync traffic is encrypted with **AES-256-GCM**, using a key derived from your sy
 - New items are sent to peers as soon as they are added. Anything that fails to send is picked up later by a 20-second differential check (timestamp comparison)
 - With three or more devices, items are relayed through intermediate devices to reach ones that are not directly connected
 - Authentication uses the shared sync key. Any request with a mismatched key is rejected with 401 (compared with `timingSafeEqual`)
+- Pairing passes the sync key without typing it: an X25519 key exchange, a commitment made before the keys are revealed, and a six-digit number that you compare on both screens (the same idea as Bluetooth's "numeric comparison"). The key is sent, encrypted, only after both sides press "Match". The window is open for 2 minutes, takes one device, and closes after 3 failures
 - "Clipboard watching" and "Sync with other devices" can each be paused from the menu bar. The status card at the top of the settings sheet shows whether you are connected. The last sync time and failure reasons for each device are listed under "Connected devices" on the "Advanced settings" page, and the activity log is written to `bridge.log`
 - Folders are compressed to `.zip` for sending. The receiving side unpacks them back into folders automatically if they are 1 GB or smaller. Larger ones arrive as a zip and can be unpacked from the right-click menu ("Extract as folder")
 - Items being received from another device appear in the list as "Syncing" before the file body arrives, and are replaced with normal items when done. Order and time follow the time the item was added on the sending side
@@ -148,9 +149,9 @@ bridge://add?text=any text                  # Text → saved as .txt and added
 
 ## Sync settings
 
-Open the **settings sheet** from the gear icon at the bottom right of the panel. The first page has the connection status, device name, sync key, shortcuts, Quick Paste auto-paste, the source-app icon and launch at login. Auto scan, manual peers, the connected devices list, history usage and the log are on the "Advanced settings" page. Changes are saved automatically.
+Open the **settings sheet** from the gear icon at the bottom right of the panel. The first page has the connection status, device name, adding and joining devices, shortcuts, Quick Paste auto-paste, the source-app icon and launch at login. Auto scan, manual peers, the connected devices list, history usage and the log are on the "Advanced settings" page. Changes are saved automatically.
 
-To sync, use the same sync key on every device. Press "Copy" for the sync key in the settings sheet on the first device, move it to the other device by any means outside Bridge, and press "Paste" in the settings sheet there. Bridge does not carry the key for you, because nothing is shared between the devices until they have the same key. Connected devices are shown on the status card, under "Connected devices" on the "Advanced settings" page, and by the green dot in the footer.
+To sync, use "Add a new device" on the device you already use and "Join another device" on the new one, and compare the six digits on both screens. Joining replaces the new device's sync key with the first device's. If pairing is not available (for example, the devices cannot find each other), the sync key is also on the "Advanced settings" page, where you can copy it and paste it on the other device by hand. Connected devices are shown on the status card, under "Connected devices" on the "Advanced settings" page, and by the green dot in the footer.
 
 Settings are stored in `sync-config.json`, created in the `userData` directory on first launch. To change `port`, edit this file directly and restart the app.
 
@@ -175,7 +176,7 @@ Settings are stored in `sync-config.json`, created in the `userData` directory o
 | `autoPaste` | Paste automatically after choosing an item in Quick Paste (default `true`) |
 | `showSourceApp` | Show the source app's icon on items (macOS default `true` / Windows default `false`, because Windows launches PowerShell on every copy) |
 | `myDeviceName` | Your device name as shown on other devices (defaults to `os.hostname()`) |
-| `secretToken` | **The sync key. Use the same value on every device that syncs (the same as "Sync key" in the settings sheet).** If unset, a random one is generated on first launch |
+| `secretToken` | **The sync key. Use the same value on every device that syncs (set by pairing, or the same as "Sync key" on the "Advanced settings" page).** If unset, a random one is generated on first launch |
 
 Requests from peers with a mismatched sync key are always rejected with 401. So even if someone else's Bridge is on the same LAN, your histories are never mixed or visible to them.
 
