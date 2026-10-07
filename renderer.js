@@ -2484,13 +2484,13 @@ const PAIR_ICONS = {
 const PAIR_FAIL_TEXT = {
   busy: ['相手は、接続中です', 'しばらくしてから、もう一度。'],
   closed: ['相手の待ち受けが、終わっています', '相手で、もう一度「追加」を押してください。'],
-  rejected: ['数字が一致しませんでした', '中止しました。'],
+  rejected: ['コードが一致しませんでした', '中止しました。'],
   'commit-mismatch': ['安全のため、中止しました', 'もう一度試してください。'],
   timeout: ['つながりませんでした', '同じネットワークか、確かめてください。'],
   network: ['つながりませんでした', '同じネットワークか、確かめてください。'],
 };
 
-function pairSetView({ icon = '', heading = '', text = '', sas = '', sub = '', actions = [], title = 'デバイスを追加', back = 'キャンセル' }) {
+function pairSetView({ icon = '', heading = '', text = '', sas = '', sub = '', actions = [], title = 'デバイスを追加', back = '戻る' }) {
   pairTitle.textContent = title;
   pairBackLabel.textContent = back;
   pairIcon.className = 'pair-icon' + (icon === 'ok' ? ' ok' : icon === 'bad' ? ' bad' : '');
@@ -2507,7 +2507,7 @@ function pairSetView({ icon = '', heading = '', text = '', sas = '', sub = '', a
   for (const a of actions) {
     const b = document.createElement('button');
     b.type = 'button';
-    b.className = 'push-button' + (a.primary ? ' primary' : '');
+    b.className = 'push-button' + (a.primary ? ' primary' : '') + (a.danger ? ' danger' : '');
     b.textContent = a.label;
     b.addEventListener('click', a.onClick);
     pairActions.appendChild(b);
@@ -2590,7 +2590,7 @@ function renderPairHost() {
     } else if (st.closedReason === 'expired') {
       pairSetView({ icon: 'bad', heading: '時間切れです', text: 'もう一度「追加」を押してください。', actions: [{ label: '閉じる', onClick: done }], back: '設定' });
     } else if (st.closedReason === 'locked') {
-      pairSetView({ icon: 'bad', heading: 'いったん止めました', text: '数字が合わない接続が続いたため、止めました。', actions: [{ label: '閉じる', onClick: done }], back: '設定' });
+      pairSetView({ icon: 'bad', heading: 'いったん止めました', text: 'コードが合わない接続が続いたため、止めました。', actions: [{ label: '閉じる', onClick: done }], back: '設定' });
     } else {
       closePairSheet();
     }
@@ -2611,11 +2611,11 @@ function renderPairHost() {
       pairSetView({ icon: 'spinner', heading: '相手の確認を待っています', sas: formatPairSas(st.sas), actions: [cancel] });
     } else {
       pairSetView({
-        heading: '数字を見比べてください',
-        text: `${peer} の画面と、同じですか？`,
+        heading: '確認コード',
+        text: `${peer} と、コードが一致しますか？`,
         sas: formatPairSas(st.sas),
         actions: [
-          { label: '違う', onClick: () => window.bridge.pairHostDecide(false) },
+          { label: '不一致', danger: true, onClick: () => window.bridge.pairHostDecide(false) },
           { label: '一致', primary: true, onClick: () => window.bridge.pairHostDecide(true) },
         ],
       });
@@ -2693,11 +2693,11 @@ function renderPairJoin() {
     pairSetView({ icon: 'spinner', heading: `${peer} につないでいます…`, actions: [cancel], title });
   } else if (st.phase === 'sas') {
     pairSetView({
-      heading: '数字を見比べてください',
-      text: `${peer} の画面と、同じですか？`,
+      heading: '確認コード',
+      text: `${peer} と、コードが一致しますか？`,
       sas: formatPairSas(st.sas),
       actions: [
-        { label: '違う', onClick: () => window.bridge.pairJoinDecide(false) },
+        { label: '不一致', danger: true, onClick: () => window.bridge.pairJoinDecide(false) },
         { label: '一致', primary: true, onClick: () => window.bridge.pairJoinDecide(true) },
       ],
       title,

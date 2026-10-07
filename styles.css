@@ -1183,6 +1183,11 @@ body.settings-open #shelf-footer {
 
 .sheet-header > :first-child {
   justify-self: start;
+  white-space: nowrap; /* 「戻る」「設定」が、狭い列で折り返さないように */
+}
+
+.sheet-title {
+  white-space: nowrap;
 }
 
 .sheet-title {
@@ -1422,6 +1427,14 @@ body.settings-open #shelf-footer {
 .push-button:focus-visible {
   outline: none;
   box-shadow: 0 0 0 3px var(--accent-tint), 0 0 0 1px var(--accent);
+}
+
+.push-button.danger {
+  color: var(--destructive);
+}
+
+body.platform-win32 .push-button.danger {
+  color: var(--destructive);
 }
 
 .push-button.primary {
